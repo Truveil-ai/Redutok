@@ -19,6 +19,8 @@
   },
   "dependencies": {
     "@redutok/shared": "workspace:*",
-    "@redutok/sidecar": "workspace:*"
+    "@redutok/sidecar": "workspace:*",
+    "@redutok/hooks": "workspace:*",
+    "@redutok/mcp": "workspace:*"
   }
 }

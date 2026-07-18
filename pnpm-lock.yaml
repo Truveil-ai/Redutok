@@ -53,6 +53,12 @@ importers:
 
   packages/meter:
     dependencies:
+      '@redutok/hooks':
+        specifier: workspace:*
+        version: link:../hooks
+      '@redutok/mcp':
+        specifier: workspace:*
+        version: link:../mcp
       '@redutok/shared':
         specifier: workspace:*
         version: link:../shared

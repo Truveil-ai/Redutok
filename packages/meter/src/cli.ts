@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { buildAuditReport, renderAuditText } from './audit-render.js';
 import { renderBadgeSvg, renderShareLine } from './badge.js';
 import { buildReport, locateLastSessionLog, renderText } from './report.js';
+import { initRepo, removeRepo } from './installer.js';
 import { sidecarDown, sidecarStatus, sidecarUp } from './sidecar-cli.js';
 
 const USAGE = `Usage: redutok <report|badge|audit|up|down|status> [args] [options]
@@ -18,10 +19,18 @@ audit takes a session id:
   redutok audit <session-id> [--file audit.jsonl]   render the audit trail
 
 sidecar lifecycle (state in ./.dcp):
-  redutok up | down | status`;
+  redutok up | down | status
+
+install into a repo (idempotent; remove reverts byte-identical):
+  redutok init [dir] | remove [dir]`;
 
 export async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
+  if (command === 'init' || command === 'remove') {
+    const target = rest.filter((a) => !a.startsWith('--'))[0] ?? process.cwd();
+    console.log(command === 'init' ? initRepo(target) : removeRepo(target));
+    return 0;
+  }
   if (command === 'up' || command === 'down' || command === 'status') {
     const run = command === 'up' ? sidecarUp : command === 'down' ? sidecarDown : sidecarStatus;
     console.log(await run());
