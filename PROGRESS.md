@@ -1,7 +1,7 @@
 # PROGRESS
 
 Status file for cross-session handoff. Updated at the end of every session.
-Last session: 2026-07-18 (Phase 2). Suite state: 50 tests green, lint clean, pnpm -r build clean.
+Last session: 2026-07-19 (Phase 3). Suite state: 103 tests green, lint clean, pnpm -r build clean.
 
 ## Complete
 
@@ -30,6 +30,20 @@ Phase 2, all items:
 
 Phase 2 acceptance: energy figures reproducible from yaml inputs in tests (energy.test.ts hand-computes small.jsonl bands), METHODOLOGY.md exists and references yaml rows for every number.
 
+Phase 3, all seven sub-steps, one commit each (3a to 3g):
+
+- (a) State store: better-sqlite3 (prebuilt binding, works on win32 node 24), versioned sql migrations in packages/sidecar/migrations tracked via PRAGMA user_version. Tables: artifacts (raw retained per session), served_files, session_state, audit.
+- (b) Audit: append-only AuditWriter to audit.jsonl in the sidecar; tolerant readAuditFile lives in shared so the meter renders without the native dep. CLI: redutok audit <session-id> [--file path], default path ./.dcp/audit.jsonl.
+- (c) Redaction: keys, tokens, JWTs, private key blocks, bearer tokens, .env assignments. storeRedactedArtifact is the only artifact write path; a test greps the sqlite db, wal, and audit file bytes to prove secrets never reach disk. Findings audited by kind, never by value.
+- (d) Daemon: localhost http plus a Windows named-pipe transport (http server listening on \\.\pipe\..., no unix sockets). redutok up/down/status with pidfile .dcp/sidecar.pid.json, structured jsonl logs, /health, /shutdown, and a test-only /debug/slow. sidecarRequest is the fail-open client primitive (never throws). Kill-the-daemon-mid-request test passes; verified live on this machine.
+- (e) Gates (all deterministic, no LLM): entity preservation by extraction-set comparison over a configurable conclusion-relevant region; verdict fidelity by two independent pattern extractors that must agree (secondaryPassIfNoFail flag covers logs whose success prints nothing error-shaped); size sanity with the 40% ceiling from LIMITS.SIZE_SANITY_MAX_RATIO plus optional minOutputBytes floor.
+- (f) Profiles in profiles/*.yaml: build-log, test-output, file-skeleton (tree-sitter via web-tree-sitter 0.24.5 wasm + tree-sitter-wasms, TS/JS/Python), search-results, generic-stdout. Each profile test asserts achieved ratio, gates passing, and a corrupted-input case where a gate fails, raw is served, and a serve-raw audit event exists. Every distillation writes an audit event via distillArtifact.
+- (g) Handles per architecture 4.4 ([dcp:artifact id, raw N tok to M tok, zoom: ...], token counts a chars/4 estimate) and zoom serving raw or a query slice from the store, never re-executing, audited with action zoom. Daemon endpoints POST /distill and /zoom.
+
+Phase 3 fixtures are real artifacts captured from this repository (fixtures/artifacts/): a failing tsc build log from a deliberately broken temp copy (--listFiles for realistic bulk), verbose vitest failing and passing runs, this repo's report.ts as the large TS source, a grep result set, and a verbose stdout stream. sample.py is synthetic because the repo has no Python.
+
+Phase 3 acceptance met: fixture-driven ratio and gate tests per profile, gate failure demonstrably serves raw with an audit event, redaction disk-proof test, kill-daemon-mid-request clean failure test.
+
 ## Half done or not started
 
 - Nothing half done. Phases 2 to 7 not started.
@@ -40,13 +54,18 @@ Phase 2 acceptance: energy figures reproducible from yaml inputs in tests (energ
 
 - 2026-09-01: flip claude-sonnet-5 in packages/shared/prices.yaml from introductory 2.00/10.00 to standard 3.00/15.00 (see the note field on that row), and update the two shipped-prices tests in packages/meter/test/cost.test.ts.
 
-## Exact next actions (next session, Phase 3)
+## Exact next actions (next session, Phase 4)
 
-1. Read docs/ARCHITECTURE.md, BUILD.md, this file. Build Phase 3 only: sidecar daemon, state store, audit.jsonl writer, redaction, rule-engine distillation profiles, quality gates, artifact handles with zoom.
-2. When the sidecar can measure its own consumption, replace the sidecarWh stub (energy.ts, SessionEnergy.sidecarWh, currently constant 0) with the measured value.
-3. Still open from Phase 1: `--project` mode for report; leave for Phase 6 polish unless time allows.
+1. Read docs/ARCHITECTURE.md, BUILD.md, this file. Build Phase 4 only: MCP server (dcp__read/run/search/zoom/state as thin fail-open clients of the sidecar), hooks pack, redutok init/remove, docs/PROTOCOL.md.
+2. The sidecar side is ready for Phase 4: use sidecarRequest from @redutok/sidecar/client, POST /distill and /zoom, readPidfile in packages/meter/src/sidecar-cli.ts for discovery. redutok up currently starts the daemon without REDUTOK_PROFILES; pass the profiles dir once init lands so /distill works from installed repos.
+3. Still open from earlier phases: sidecarWh stub in energy.ts pending sidecar self-measurement; `--project` mode for report (Phase 6 polish).
+4. Profile hardening backlog: the entity gate region for build-log is 'error|failed' only; tsc-style file(line,col) references are preserved via full error lines, but a distiller that rewrites lines would need richer extraction. The LLM hook (LlmPass, NoopLlmPass) is the Phase 5 seam.
 
 ## Deviations from BUILD.md, with reasons
+
+- Phase 3: tree-sitter runs as wasm (web-tree-sitter pinned to 0.24.5 for ABI compatibility with tree-sitter-wasms prebuilt grammars) instead of native node bindings, because grammar packages need a MSVC toolchain this Windows machine lacks. Same parser engine, no native compilation, works cross-platform.
+- Phase 3: BUILD.md says unix socket; this machine is win32, so the second transport is a named pipe (http over \\.\pipe\redutok-*), per the phase directions.
+- Phase 3: the search-results and file-skeleton profiles run without the entity gate (capping ranked hits and eliding bodies inherently drops entities); honesty is preserved by explicit "showing top N of M" and "[K import lines omitted]" markers plus the size gates. Revisit if zoom-back rates say the caps are too aggressive.
 
 - Resolved 2026-07-18: docs/ARCHITECTURE.md was missing at first build; the DCP Architecture Blueprint v1.0 is now committed at docs/ARCHITECTURE.md.
 - Real anonymized session logs (Phase 1 fixture spec) are replaced by synthetic deterministic fixtures for now, because no shareable anonymized logs existed at build time. The parser is verified against a real machine log via report --last, but committed fixtures are synthetic. Swap in real anonymized logs when available.
