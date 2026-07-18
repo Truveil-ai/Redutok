@@ -1,22 +1,34 @@
 #!/usr/bin/env node
 import { writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { buildAuditReport, renderAuditText } from './audit-render.js';
 import { renderBadgeSvg, renderShareLine } from './badge.js';
 import { buildReport, locateLastSessionLog, renderText } from './report.js';
 
-const USAGE = `Usage: redutok <report|badge> [session.jsonl] [--last] [options]
+const USAGE = `Usage: redutok <report|badge|audit> [args] [options]
 
+report and badge take a transcript:
   session.jsonl  path to a Claude Code session transcript
   --last         use the newest transcript under the default log directory
+  --json         (report) emit the full report as JSON instead of text
+  --out <file>   (badge) write the SVG to this path (default redutok-badge.svg)
 
-report options:
-  --json         emit the full report as JSON instead of text
-
-badge options:
-  --out <file>   write the SVG badge to this path (default redutok-badge.svg)`;
+audit takes a session id:
+  redutok audit <session-id> [--file audit.jsonl]   render the audit trail`;
 
 export async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
+  if (command === 'audit') {
+    const fileIndex = rest.indexOf('--file');
+    const filePath = fileIndex >= 0 ? rest[fileIndex + 1] : undefined;
+    const sessionId = rest.filter((a, i) => !a.startsWith('--') && i !== fileIndex + 1)[0];
+    if (sessionId === undefined) {
+      console.error(USAGE);
+      return 1;
+    }
+    console.log(renderAuditText(buildAuditReport(sessionId, filePath), sessionId));
+    return 0;
+  }
   if (command !== 'report' && command !== 'badge') {
     console.error(USAGE);
     return command === undefined || command === '--help' ? 0 : 1;
