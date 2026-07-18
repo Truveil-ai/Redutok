@@ -1,0 +1,7 @@
+{"type":"assistant","uuid":"m1","timestamp":"2026-07-18T11:00:00.000Z","sessionId":"s-malformed","message":{"role":"assistant","model":"claude-sonnet-5","content":[{"type":"text","text":"ok"}],"usage":{"input_tokens":10,"output_tokens":20,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+{this is not json
+{"noType":true,"payload":"object without a type field"}
+{"type":"x-unknown","payload":"future record type"}
+{"type":"assistant","uuid":"m2","timestamp":"2026-07-18T11:00:05.000Z","sessionId":"s-malformed","message":{"role":"assistant","model":"claude-sonnet-5","content":[{"type":"text","text":"no usage block on this one"}]}}
+
+{"type":"summary","summary":"trailing summary record"}

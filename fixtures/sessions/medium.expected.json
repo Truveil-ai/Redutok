@@ -1,0 +1,11 @@
+{
+  "sessionId": "s-medium",
+  "turns": 20,
+  "totals": {
+    "input": 26335,
+    "output": 18717,
+    "cacheRead": 190299,
+    "cacheWrite": 9524,
+    "thinking": 5975
+  }
+}
