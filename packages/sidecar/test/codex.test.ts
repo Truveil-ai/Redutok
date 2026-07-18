@@ -224,10 +224,13 @@ describe.runIf(ollamaLive)('semantic pass against live Ollama', () => {
   it('drafts at least one role from the real local model', async () => {
     const root = cloneFixtureRepo('repo-a');
     await writeCodex(root);
-    const outcome = await semanticPass(root, {});
+    // Same budget the CLI's offline batch path uses; see limits.ts rationale.
+    const { LIMITS } = await import('@redutok/shared');
+    const outcome = await semanticPass(root, { timeoutMs: LIMITS.SEMANTIC_BATCH_DRAFT_TIMEOUT_MS });
     expect(outcome.status).toBe('complete');
     expect(outcome.drafted).toBeGreaterThan(0);
-  }, 180_000);
+    expect(outcome.failed).toBe(0);
+  }, 300_000);
 });
 
 describe('injection', () => {

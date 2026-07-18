@@ -271,7 +271,8 @@ export async function ollamaGenerate(
   return new Promise((resolve) => {
     try {
       const url = new URL('/api/generate', baseUrl);
-      const body = JSON.stringify({ model, prompt, stream: false });
+      // num_predict bounds decode time so single-sentence drafts cannot run long.
+      const body = JSON.stringify({ model, prompt, stream: false, options: { num_predict: 64 } });
       const req = http.request(
         {
           method: 'POST',

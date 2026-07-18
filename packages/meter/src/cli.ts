@@ -46,7 +46,12 @@ export async function main(argv: string[]): Promise<number> {
     if (rest.includes('--with-llm')) {
       const modelIndex = rest.indexOf('--model');
       const model = modelIndex >= 0 ? rest[modelIndex + 1] : undefined;
-      const outcome = await semanticPass(process.cwd(), { model });
+      const { LIMITS } = await import('@redutok/shared');
+      // Offline batch drafting gets its own budget; see limits.ts rationale.
+      const outcome = await semanticPass(process.cwd(), {
+        model,
+        timeoutMs: LIMITS.SEMANTIC_BATCH_DRAFT_TIMEOUT_MS,
+      });
       if (outcome.status === 'unreachable') {
         console.log(
           `Semantic pass: Ollama unreachable or model failed to load at ${outcome.endpoint} within the warmup budget (model ${outcome.model}). Rule-based roles remain.`,

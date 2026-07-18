@@ -14,6 +14,14 @@ export const LIMITS = {
    * budget, which stays LOCAL_LLM_TIMEOUT_MS for every drafting call.
    */
   OLLAMA_WARMUP_TIMEOUT_MS: 120_000,
+  /**
+   * Per-call budget for offline batch drafting (redutok codex refresh
+   * --with-llm). The 2500ms LOCAL_LLM_TIMEOUT_MS guards in-session calls so a
+   * session never waits on the sidecar; an operator-invoked offline refresh
+   * is in no session's path and may wait longer per call. Measured on this
+   * machine: a warm one-sentence draft takes about 5.5s on CPU.
+   */
+  SEMANTIC_BATCH_DRAFT_TIMEOUT_MS: 15_000,
   /** Size sanity gate: a distillate above this fraction of raw serves raw instead. */
   SIZE_SANITY_MAX_RATIO: 0.4,
   /** Rolling session_state.md hard cap, architecture 5.2. */
