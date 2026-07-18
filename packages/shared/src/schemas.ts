@@ -100,20 +100,48 @@ export const DistillProfileSchema = z.object({
 });
 export type DistillProfile = z.infer<typeof DistillProfileSchema>;
 
+export const LockableTextSchema = z.object({
+  text: z.string().min(1),
+  locked: z.boolean().default(false),
+});
+
 export const CodexFileSchema = z.object({
   version: z.string().min(1),
   project: z.string().min(1),
   generatedAt: z.string().datetime(),
-  files: z
+  summary: z.string().optional(),
+  architecture: z
     .array(
       z.object({
-        path: z.string().min(1),
-        hash: z.string().min(1),
-        role: z.string().optional(),
+        id: z.string().min(1),
+        decision: z.string().min(1),
+        rationale: z.string().default(''),
+        locked: z.boolean().default(false),
       }),
     )
     .default([]),
-  map: z.string().optional(),
+  map: z
+    .array(
+      z.object({
+        path: z.string().min(1),
+        role: z.string().default('unclassified'),
+        roleSource: z.enum(['rules', 'llm', 'human']).default('rules'),
+        keySymbols: z.array(z.string()).default([]),
+        locked: z.boolean().default(false),
+      }),
+    )
+    .default([]),
+  conventions: z.array(LockableTextSchema).default([]),
+  pitfalls: z.array(LockableTextSchema).default([]),
+  glossary: z
+    .array(
+      z.object({
+        term: z.string().min(1),
+        means: z.string().min(1),
+        locked: z.boolean().default(false),
+      }),
+    )
+    .default([]),
   interfaces: z
     .array(
       z.object({
@@ -123,9 +151,26 @@ export const CodexFileSchema = z.object({
       }),
     )
     .default([]),
+  importGraph: z.record(z.array(z.string())).default({}),
+  files: z
+    .array(
+      z.object({
+        path: z.string().min(1),
+        hash: z.string().min(1),
+        role: z.string().optional(),
+      }),
+    )
+    .default([]),
   locked: z.array(z.string()).default([]),
 });
 export type CodexFile = z.infer<typeof CodexFileSchema>;
+
+export const CodexLockSchema = z.object({
+  version: z.literal(1),
+  repoFingerprint: z.string().min(1),
+  files: z.record(z.string()),
+});
+export type CodexLock = z.infer<typeof CodexLockSchema>;
 
 export function emptyTally(): TokenTally {
   return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, thinking: 0 };

@@ -92,6 +92,9 @@ importers:
       web-tree-sitter:
         specifier: ^0.24.5
         version: 0.24.5
+      yaml:
+        specifier: ^2.5.0
+        version: 2.9.0
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.13
