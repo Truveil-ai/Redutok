@@ -1,0 +1,9 @@
+version: 1
+factors:
+  - modelClass: frontier-large
+    whPerMTokMin: 0
+    whPerMTokMax: 0
+    contextMultipliers:
+      - upToTokens: 100000
+        multiplier: 1
+    source: TODO-VERIFY

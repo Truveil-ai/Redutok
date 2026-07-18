@@ -1,0 +1,127 @@
+import { z } from 'zod';
+
+/**
+ * Core Delta Context Protocol schemas.
+ * Every value that crosses a package boundary is validated with one of these.
+ */
+
+export const TokenTallySchema = z.object({
+  input: z.number().int().nonnegative(),
+  output: z.number().int().nonnegative(),
+  cacheRead: z.number().int().nonnegative(),
+  cacheWrite: z.number().int().nonnegative(),
+  thinking: z.number().int().nonnegative(),
+});
+export type TokenTally = z.infer<typeof TokenTallySchema>;
+
+export const LedgerEntrySchema = z.object({
+  sessionId: z.string().min(1),
+  turn: z.number().int().positive(),
+  timestamp: z.string().datetime(),
+  model: z.string().min(1),
+  tools: z.array(z.string()).default([]),
+  tokens: TokenTallySchema,
+  costUsd: z.number().nonnegative().optional(),
+});
+export type LedgerEntry = z.infer<typeof LedgerEntrySchema>;
+
+export const AuditActionSchema = z.enum([
+  'drop',
+  'truncate',
+  'summarize',
+  'distill',
+  'serve-raw',
+  'redact',
+  'skip',
+]);
+export type AuditAction = z.infer<typeof AuditActionSchema>;
+
+export const AuditEventSchema = z.object({
+  id: z.string().min(1),
+  timestamp: z.string().datetime(),
+  sessionId: z.string().optional(),
+  module: z.string().min(1),
+  action: AuditActionSchema,
+  reason: z.string().min(1),
+  inputRef: z.string().optional(),
+  outputRef: z.string().optional(),
+  bytesIn: z.number().int().nonnegative().optional(),
+  bytesOut: z.number().int().nonnegative().optional(),
+  details: z.record(z.unknown()).optional(),
+});
+export type AuditEvent = z.infer<typeof AuditEventSchema>;
+
+export const DistillProfileSchema = z.object({
+  name: z.string().min(1),
+  version: z.string().min(1),
+  description: z.string().optional(),
+  match: z
+    .object({
+      tools: z.array(z.string()).default([]),
+      contentType: z.string().optional(),
+    })
+    .default({}),
+  rules: z
+    .array(
+      z.object({
+        kind: z.string().min(1),
+        config: z.record(z.unknown()).default({}),
+      }),
+    )
+    .default([]),
+  gates: z
+    .object({
+      entityPreservationMinRatio: z.number().min(0).max(1).default(0.95),
+      maxCompressionRatio: z.number().positive().optional(),
+      minOutputBytes: z.number().int().nonnegative().optional(),
+    })
+    .default({}),
+  llm: z
+    .object({
+      enabled: z.boolean().default(false),
+      model: z.string().optional(),
+    })
+    .default({ enabled: false }),
+});
+export type DistillProfile = z.infer<typeof DistillProfileSchema>;
+
+export const CodexFileSchema = z.object({
+  version: z.string().min(1),
+  project: z.string().min(1),
+  generatedAt: z.string().datetime(),
+  files: z
+    .array(
+      z.object({
+        path: z.string().min(1),
+        hash: z.string().min(1),
+        role: z.string().optional(),
+      }),
+    )
+    .default([]),
+  map: z.string().optional(),
+  interfaces: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        signature: z.string().min(1),
+        file: z.string().optional(),
+      }),
+    )
+    .default([]),
+  locked: z.array(z.string()).default([]),
+});
+export type CodexFile = z.infer<typeof CodexFileSchema>;
+
+export function emptyTally(): TokenTally {
+  return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, thinking: 0 };
+}
+
+export function addTally(a: TokenTally, b: TokenTally): TokenTally {
+  return {
+    input: a.input + b.input,
+    output: a.output + b.output,
+    cacheRead: a.cacheRead + b.cacheRead,
+    cacheWrite: a.cacheWrite + b.cacheWrite,
+    thinking: a.thinking + b.thinking,
+  };
+}

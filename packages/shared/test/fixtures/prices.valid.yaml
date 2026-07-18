@@ -1,0 +1,9 @@
+version: 1
+currency: USD
+models:
+  - id: test-model-a
+    inputPerMTokUsd: 3
+    outputPerMTokUsd: 15
+    cacheReadPerMTokUsd: 0.3
+    cacheWritePerMTokUsd: 3.75
+    source: TODO-VERIFY
