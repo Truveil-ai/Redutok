@@ -11,6 +11,9 @@ importers:
       '@eslint/js':
         specifier: ^9.9.0
         version: 9.39.5
+      '@redutok/meter':
+        specifier: workspace:*
+        version: link:packages/meter
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.43

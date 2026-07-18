@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { buildAuditReport, renderAuditText } from './audit-render.js';
@@ -47,9 +48,13 @@ export async function main(argv: string[]): Promise<number> {
     console.log(renderAuditText(buildAuditReport(sessionId, filePath), sessionId));
     return 0;
   }
+  if (command === undefined || command === '--help' || command === 'help') {
+    console.log(USAGE);
+    return 0;
+  }
   if (command !== 'report' && command !== 'badge') {
     console.error(USAGE);
-    return command === undefined || command === '--help' ? 0 : 1;
+    return 1;
   }
   const json = rest.includes('--json');
   const last = rest.includes('--last');
@@ -87,8 +92,17 @@ export async function main(argv: string[]): Promise<number> {
   }
 }
 
-const isDirectRun =
-  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+// Resolve argv[1] through symlinks and junctions: pnpm bin shims invoke the
+// node_modules path while import.meta.url reflects the real workspace path.
+const isDirectRun = ((): boolean => {
+  const argv1 = process.argv[1];
+  if (argv1 === undefined) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(argv1)).href;
+  } catch {
+    return false;
+  }
+})();
 if (isDirectRun) {
   main(process.argv.slice(2)).then((code) => {
     process.exitCode = code;
