@@ -233,7 +233,8 @@ export async function distillArtifact(
     ...request.context,
     artifactId,
   });
-  const gateReport = runGates(request.raw, distilled, profileGateConfig(request.profile));
+  const gateConfig = profileGateConfig(request.profile);
+  const gateReport = runGates(request.raw, distilled, gateConfig);
   const served = gateReport.passed ? 'distilled' : 'raw';
   const stored = storeRedactedArtifact(store, audit, {
     id: artifactId,
@@ -265,7 +266,9 @@ export async function distillArtifact(
     inputRef: artifactId,
     bytesIn,
     bytesOut,
-    details: { profile: request.profile.name, gates: gateReport.results },
+    // Founder review 2026-07-19: the exact gate configuration rides along with
+    // every event so any gate softening is visible in the trail.
+    details: { profile: request.profile.name, gates: gateReport.results, gateConfig },
   };
   audit.write(event);
   store.insertAuditEvent(event);
