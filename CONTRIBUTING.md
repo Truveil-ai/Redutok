@@ -16,6 +16,8 @@ transformation writes an audit event; no fabricated numbers (yaml rows carry
 a source or TODO-VERIFY); fail-open behavior gets an explicit test; no
 network beyond localhost; house style in all docs and strings (no em-dashes,
 no exclamation marks, no emojis). Run pnpm lint, pnpm -r build, and pnpm test
-before opening a pull request; CI runs the same three.
+before opening a pull request; CI runs the same three. A pre-push hook in
+.githooks enforces lint plus the full suite; enable it once per clone with
+git config core.hooksPath .githooks.
 
 Redutok by Truveil.

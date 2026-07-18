@@ -32,7 +32,9 @@ export async function doctor(repoRoot: string, options: DoctorOptions = {}): Pro
   });
 
   if (options.skipPnpm !== true) {
-    const pnpm = spawnSync('pnpm', ['--version'], { encoding: 'utf8', shell: true });
+    // Single command string with shell: true; passing an args array alongside
+    // shell mode is deprecated (DEP0190) and unsafe.
+    const pnpm = spawnSync('pnpm --version', { encoding: 'utf8', shell: true });
     checks.push({
       name: 'pnpm',
       status: pnpm.status === 0 ? 'pass' : 'warn',

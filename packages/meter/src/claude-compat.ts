@@ -48,7 +48,7 @@ export interface VersionAssessment {
 }
 
 export function probeClaudeVersion(): string | undefined {
-  const result = spawnSync('claude', ['--version'], { encoding: 'utf8', shell: true, timeout: 15_000 });
+  const result = spawnSync('claude --version', { encoding: 'utf8', shell: true, timeout: 15_000 });
   if (result.status !== 0) return undefined;
   return /(\d+\.\d+\.\d+)/.exec(result.stdout)?.[1];
 }

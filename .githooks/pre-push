@@ -1,0 +1,7 @@
+#!/bin/sh
+# Redutok pre-push gate: lint and the full test suite must pass before any
+# push. No pipes anywhere in this chain so exit codes propagate unmasked on
+# every platform, win32 included; set -e aborts on the first failure.
+set -e
+pnpm lint
+pnpm test

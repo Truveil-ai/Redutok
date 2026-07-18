@@ -9,7 +9,8 @@ const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '
 const PKGS = ['shared', 'sidecar', 'mcp', 'hooks', 'meter'];
 
 function run(cmd: string, args: string[], cwd: string) {
-  return spawnSync(cmd, args, { cwd, encoding: 'utf8', shell: true, timeout: 240_000 });
+  // Joined command string: args arrays with shell true are deprecated (DEP0190).
+  return spawnSync([cmd, ...args].join(' '), { cwd, encoding: 'utf8', shell: true, timeout: 240_000 });
 }
 
 describe('packed tarball, npx semantics', () => {
