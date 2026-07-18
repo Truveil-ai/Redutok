@@ -1,18 +1,18 @@
 version: "1"
 project: Redutok - Token Optimisation
-generatedAt: 2026-07-18T23:18:15.133Z
+generatedAt: 2026-07-18T23:27:03.533Z
 architecture: []
 map:
   - path: .
-    role: The module's role in Project Redutok - Token Optimisation is to export
-      optimized tokens.
+    role: This module is responsible for optimizing token management within project
+      Redutok.
     roleSource: llm
     keySymbols: []
     locked: false
   - path: fixtures/artifacts
-    role: The module at `fixtures/artifacts` in the Redutok - Token Optimisation
-      project contains functions and classes for exporting reports, building
-      report options, handling ledger data, and initializing nec
+    role: This module provides reporting functionalities for token optimization,
+      including ledger tracking and build report options within the Redutok
+      project.
     roleSource: llm
     keySymbols:
       - Report
@@ -23,9 +23,8 @@ map:
       - __init__
     locked: false
   - path: fixtures/repos/repo-a/src
-    role: The module at `fixtures/repos/repo-a/src` in the Redutok - Token
-      Optimisation project exports `totalValue`, `seed`, `Row`, and
-      `MemoryStore`.
+    role: This module manages token value calculations and storage in project
+      Redutok - Token Optimisation.
     roleSource: llm
     keySymbols:
       - totalValue
@@ -34,16 +33,15 @@ map:
       - MemoryStore
     locked: false
   - path: fixtures/repos/repo-a/test
-    role: The module at `fixtures/repos/repo-a/test` in the Redutok - Token
-      Optimisation project exports `runTests`.
+    role: This module executes tests for repo-a within the Redutok - Token
+      Optimisation project.
     roleSource: llm
     keySymbols:
       - runTests
     locked: false
   - path: fixtures/repos/repo-b/pkg
-    role: The module at `fixtures/repos/repo-b/pkg` in the Redutok - Token
-      Optimisation project exports `tokenize`, `Counter`, and `__init__`, along
-      with `formatCounts`.
+    role: This module processes tokenization and formatting for count data within
+      the Redutok project.
     roleSource: llm
     keySymbols:
       - tokenize
@@ -52,9 +50,8 @@ map:
       - formatCounts
     locked: false
   - path: packages/hooks/src
-    role: The module in `packages/hooks/src` for the Redutok - Token Optimisation
-      project exports `HookDeps`, `HookOutput`, `SMALL_READ_BYTES`, and
-      `PACKAGE_NAME`.
+    role: Manages token optimization hooks and related configuration for Redutok
+      package handling.
     roleSource: llm
     keySymbols:
       - HookDeps
@@ -63,15 +60,14 @@ map:
       - PACKAGE_NAME
     locked: false
   - path: packages/hooks/test
-    role: The module at `packages/hooks/test` in the Redutok - Token Optimisation
-      project exports test hooks for testing token-related functionalities.
+    role: This module serves to test the token optimisation hooks within the Redutok
+      project.
     roleSource: llm
     keySymbols: []
     locked: false
   - path: packages/mcp/src
-    role: The module at `packages/mcp/src` in the Redutok - Token Optimisation
-      project exports `PACKAGE_NAME`, `JsonRpcRequest`, `JsonRpcResponse`, and
-      `McpDeps`.
+    role: This module defines core interfaces and dependencies for token
+      optimization within the Redutok framework.
     roleSource: llm
     keySymbols:
       - PACKAGE_NAME
@@ -80,15 +76,14 @@ map:
       - McpDeps
     locked: false
   - path: packages/mcp/test
-    role: The module in packages/mcp/test within the Redutok - Token Optimisation
-      project is responsible for exporting token optimisation tests.
+    role: This module in packages/mcp/test serves to test the token optimization
+      functionality within the Redutok project.
     roleSource: llm
     keySymbols: []
     locked: false
   - path: packages/meter/src
-    role: The module in `packages/meter/src` for the Redutok - Token Optimisation
-      project exports defaultAuditPath, renderAuditText, buildAuditReport,
-      renderBadgeSvg, renderShareLine, Variant, and SuccessCheck,
+    role: This module in Redutok - Token Optimisation is responsible for generating
+      audit reports and visual badges related to token optimization tasks.
     roleSource: llm
     keySymbols:
       - defaultAuditPath
@@ -101,16 +96,14 @@ map:
       - BenchTask
     locked: false
   - path: packages/meter/test
-    role: The module in packages/meter/test within the Redutok - Token Optimisation
-      project is responsible for testing metering functionalities and exports
-      test cases and utilities.
+    role: This module provides test cases for the meter functionality within the
+      Redutok - Token Optimisation project.
     roleSource: llm
     keySymbols: []
     locked: false
   - path: packages/shared/src
-    role: "The module in `packages/shared/src` for project Redutok - Token
-      Optimisation exports `AuditFileResult`, `readAuditFile`, `LIMITS`,
-      `Limits`, `TokenTallySchema`, `TokenTally`, `LedgerEntrySchema`, and "
+    role: This module handles token optimization audits and ledger entries in
+      project Redutok.
     roleSource: llm
     keySymbols:
       - AuditFileResult
@@ -123,16 +116,14 @@ map:
       - PriceRowSchema
     locked: false
   - path: packages/shared/test
-    role: The module at `packages/shared/test` in project Redutok - Token
-      Optimisation exports test cases or utilities for testing shared
-      functionalities.
+    role: This module provides test utilities and fixtures for testing token
+      optimisation logic within the Redutok project.
     roleSource: llm
     keySymbols: []
     locked: false
   - path: packages/sidecar/src
-    role: The module at `packages/sidecar/src` in the Redutok - Token Optimisation
-      project exports AuditWriter, SidecarTarget, SidecarResponse,
-      sidecarRequest, listSourceFiles, CodexPaths, codexPaths, and Daemo
+    role: This module handles audit writing and sidecar communication for token
+      optimization in the Redutok project.
     roleSource: llm
     keySymbols:
       - AuditWriter
@@ -145,15 +136,14 @@ map:
       - DaemonOptions
     locked: false
   - path: packages/sidecar/test
-    role: The module in `packages/sidecar/test` in the Redutok - Token Optimisation
-      project is responsible for testing the sidecar functionalities and exports
-      test cases.
+    role: This module serves to test the sidecar functionality within the Redutok -
+      Token Optimisation project.
     roleSource: llm
     keySymbols: []
     locked: false
   - path: scripts
-    role: The module in scripts for project Redutok - Token Optimisation is
-      responsible for exporting optimized tokens.
+    role: This module handles token optimisation logic within the scripts folder for
+      project Redutok.
     roleSource: llm
     keySymbols: []
     locked: false
@@ -788,7 +778,7 @@ files:
   - path: packages/meter/src/claude-compat.ts
     hash: 8abdb6222e85fb35
   - path: packages/meter/src/cli.ts
-    hash: 35cb46baab18d7d6
+    hash: 3fb3571e5164b56d
   - path: packages/meter/src/cost.ts
     hash: 44b677a23512d310
   - path: packages/meter/src/discipline.ts
@@ -870,7 +860,7 @@ files:
   - path: packages/sidecar/src/client.ts
     hash: 5d6a5fe8aab33a73
   - path: packages/sidecar/src/codex.ts
-    hash: 9bff7d40658d8d47
+    hash: f481dfd0ade77d30
   - path: packages/sidecar/src/daemon-main.ts
     hash: 9059e2c1ed170d85
   - path: packages/sidecar/src/daemon.ts
@@ -898,7 +888,7 @@ files:
   - path: packages/sidecar/test/audit.test.ts
     hash: 31848081bf3b4ac9
   - path: packages/sidecar/test/codex.test.ts
-    hash: 4c0ae2bf16d25e79
+    hash: 4a5c1e36c8a1549f
   - path: packages/sidecar/test/daemon-distill.test.ts
     hash: "490366e794763188"
   - path: packages/sidecar/test/daemon.test.ts
