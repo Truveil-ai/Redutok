@@ -3,4 +3,6 @@ dist/
 coverage/
 *.tsbuildinfo
 .DS_Store
-.dcp/
+.dcp/*
+!.dcp/codex.yaml
+!.dcp/codex.lock

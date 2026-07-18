@@ -44,4 +44,8 @@ so a clone without the packages installed loses nothing but the savings.
 This repository dogfoods its own install, so its managed files are committed;
 settings.local.json here predates the convention and stays tracked.
 Per-machine runtime state (port, resolved profiles directory, pidfile, store,
-audit log) lives in .dcp/, which is gitignored.
+audit log) lives in .dcp/, which is gitignored, with two exceptions:
+.dcp/codex.yaml and .dcp/codex.lock are committed. The codex is team-shared
+understanding of the repository and travels with it, so every clone cold
+starts with the same verified map; per-machine state never does. The
+.gitignore pattern is .dcp/* with explicit negations for those two files.

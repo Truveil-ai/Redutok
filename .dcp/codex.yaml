@@ -1,0 +1,736 @@
+version: "1"
+project: Redutok - Token Optimisation
+generatedAt: 2026-07-18T22:00:17.482Z
+architecture: []
+map:
+  - path: .
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/artifacts
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - Report
+      - BuildReportOptions
+      - buildReport
+      - total
+      - Ledger
+      - __init__
+    locked: false
+  - path: fixtures/repos/repo-a/src
+    role: implementation
+    roleSource: rules
+    keySymbols:
+      - totalValue
+      - seed
+      - Row
+      - MemoryStore
+    locked: false
+  - path: fixtures/repos/repo-a/test
+    role: tests
+    roleSource: rules
+    keySymbols:
+      - runTests
+    locked: false
+  - path: fixtures/repos/repo-b/pkg
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - tokenize
+      - Counter
+      - __init__
+      - formatCounts
+    locked: false
+  - path: packages/hooks/src
+    role: implementation
+    roleSource: rules
+    keySymbols:
+      - HookDeps
+      - HookOutput
+      - SMALL_READ_BYTES
+      - PACKAGE_NAME
+    locked: false
+  - path: packages/hooks/test
+    role: tests
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: packages/mcp/src
+    role: implementation
+    roleSource: rules
+    keySymbols:
+      - PACKAGE_NAME
+      - JsonRpcRequest
+      - JsonRpcResponse
+      - McpDeps
+    locked: false
+  - path: packages/mcp/test
+    role: tests
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: packages/meter/src
+    role: implementation
+    roleSource: rules
+    keySymbols:
+      - defaultAuditPath
+      - renderAuditText
+      - buildAuditReport
+      - renderBadgeSvg
+      - renderShareLine
+      - main
+      - computeTallyCostUsd
+      - SessionCost
+    locked: false
+  - path: packages/meter/test
+    role: tests
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: packages/shared/src
+    role: implementation
+    roleSource: rules
+    keySymbols:
+      - AuditFileResult
+      - readAuditFile
+      - LIMITS
+      - Limits
+      - TokenTallySchema
+      - TokenTally
+      - LedgerEntrySchema
+      - PriceRowSchema
+    locked: false
+  - path: packages/shared/test
+    role: tests
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: packages/sidecar/src
+    role: implementation
+    roleSource: rules
+    keySymbols:
+      - AuditWriter
+      - SidecarTarget
+      - SidecarResponse
+      - sidecarRequest
+      - listSourceFiles
+      - CodexPaths
+      - codexPaths
+      - DaemonOptions
+    locked: false
+  - path: packages/sidecar/test
+    role: tests
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: scripts
+    role: maintenance scripts
+    roleSource: rules
+    keySymbols: []
+    locked: false
+conventions: []
+pitfalls: []
+glossary: []
+interfaces:
+  - name: buildReport
+    signature: export async function buildReport(
+    file: fixtures/artifacts/large-source.ts
+  - name: BuildReportOptions
+    signature: export interface BuildReportOptions
+    file: fixtures/artifacts/large-source.ts
+  - name: defaultLogRoot
+    signature: "export function defaultLogRoot(): string"
+    file: fixtures/artifacts/large-source.ts
+  - name: Report
+    signature: export interface Report
+    file: fixtures/artifacts/large-source.ts
+  - name: __init__
+    signature: "def __init__(self, session_id: str) -> None:"
+    file: fixtures/artifacts/sample.py
+  - name: add
+    signature: "def add(self, entry: LedgerEntry) -> None:"
+    file: fixtures/artifacts/sample.py
+  - name: Ledger
+    signature: "class Ledger:"
+    file: fixtures/artifacts/sample.py
+  - name: total
+    signature: "def total(self) -> int:"
+    file: fixtures/artifacts/sample.py
+  - name: seed
+    signature: "export function seed(store: MemoryStore, rows: Row[]): void"
+    file: fixtures/repos/repo-a/src/service.ts
+  - name: totalValue
+    signature: "export function totalValue(store: MemoryStore, ids: string[]): number"
+    file: fixtures/repos/repo-a/src/service.ts
+  - name: MemoryStore
+    signature: export class MemoryStore
+    file: fixtures/repos/repo-a/src/store.ts
+  - name: Row
+    signature: export interface Row
+    file: fixtures/repos/repo-a/src/store.ts
+  - name: runTests
+    signature: "export function runTests(): boolean"
+    file: fixtures/repos/repo-a/test/service.test.ts
+  - name: __init__
+    signature: "def __init__(self) -> None:"
+    file: fixtures/repos/repo-b/pkg/parser.py
+  - name: Counter
+    signature: "class Counter:"
+    file: fixtures/repos/repo-b/pkg/parser.py
+  - name: feed
+    signature: "def feed(self, tokens: list[str]) -> None:"
+    file: fixtures/repos/repo-b/pkg/parser.py
+  - name: tokenize
+    signature: "def tokenize(text: str) -> list[str]:"
+    file: fixtures/repos/repo-b/pkg/parser.py
+  - name: formatCounts
+    signature: export function formatCounts(counts)
+    file: fixtures/repos/repo-b/pkg/report.js
+  - name: HookDeps
+    signature: export interface HookDeps
+    file: packages/hooks/src/handlers.ts
+  - name: HookOutput
+    signature: export interface HookOutput
+    file: packages/hooks/src/handlers.ts
+  - name: LARGE_READ_BYTES
+    signature: export const LARGE_READ_BYTES = 65_536;
+    file: packages/hooks/src/handlers.ts
+  - name: SMALL_READ_BYTES
+    signature: export const SMALL_READ_BYTES = 16_384;
+    file: packages/hooks/src/handlers.ts
+  - name: PACKAGE_NAME
+    signature: export const PACKAGE_NAME = '@redutok/hooks';
+    file: packages/hooks/src/index.ts
+  - name: PACKAGE_NAME
+    signature: export const PACKAGE_NAME = '@redutok/mcp';
+    file: packages/mcp/src/index.ts
+  - name: handleMcpRequest
+    signature: export async function handleMcpRequest(
+    file: packages/mcp/src/server.ts
+  - name: JsonRpcRequest
+    signature: export interface JsonRpcRequest
+    file: packages/mcp/src/server.ts
+  - name: JsonRpcResponse
+    signature: export interface JsonRpcResponse
+    file: packages/mcp/src/server.ts
+  - name: McpDeps
+    signature: export interface McpDeps
+    file: packages/mcp/src/server.ts
+  - name: buildAuditReport
+    signature: "export function buildAuditReport(sessionId: string, filePath?:
+      string): AuditFileResult"
+    file: packages/meter/src/audit-render.ts
+  - name: defaultAuditPath
+    signature: "export function defaultAuditPath(cwd: string = process.cwd()): string"
+    file: packages/meter/src/audit-render.ts
+  - name: renderAuditText
+    signature: "export function renderAuditText(result: AuditFileResult, sessionId:
+      string): string"
+    file: packages/meter/src/audit-render.ts
+  - name: renderBadgeSvg
+    signature: "export function renderBadgeSvg(_report: Report): string"
+    file: packages/meter/src/badge.ts
+  - name: renderShareLine
+    signature: "export function renderShareLine(report: Report): string"
+    file: packages/meter/src/badge.ts
+  - name: main
+    signature: "export async function main(argv: string[]): Promise<number>"
+    file: packages/meter/src/cli.ts
+  - name: computeSessionCost
+    signature: "export function computeSessionCost(ledger: SessionLedger, prices:
+      PricesFile): SessionCost"
+    file: packages/meter/src/cost.ts
+  - name: computeTallyCostUsd
+    signature: "export function computeTallyCostUsd(tokens: TokenTally, row:
+      PriceRow): number"
+    file: packages/meter/src/cost.ts
+  - name: SessionCost
+    signature: export interface SessionCost
+    file: packages/meter/src/cost.ts
+  - name: computeSessionEnergy
+    signature: export function computeSessionEnergy(
+    file: packages/meter/src/energy.ts
+  - name: contextMultiplierFor
+    signature: export function contextMultiplierFor(
+    file: packages/meter/src/energy.ts
+  - name: EstimateBand
+    signature: export interface EstimateBand
+    file: packages/meter/src/energy.ts
+  - name: SessionEnergy
+    signature: export interface SessionEnergy
+    file: packages/meter/src/energy.ts
+  - name: PACKAGE_NAME
+    signature: export const PACKAGE_NAME = '@redutok/meter';
+    file: packages/meter/src/index.ts
+  - name: DEFAULT_SIDECAR_PORT
+    signature: export const DEFAULT_SIDECAR_PORT = 48642;
+    file: packages/meter/src/installer.ts
+  - name: buildLedger
+    signature: "export function buildLedger(parsed: ParsedSession, sessionIdFallback
+      = 'unknown'): SessionLedger"
+    file: packages/meter/src/ledger.ts
+  - name: grandTotal
+    signature: "export function grandTotal(totals: TokenTally): number"
+    file: packages/meter/src/ledger.ts
+  - name: SessionLedger
+    signature: export interface SessionLedger
+    file: packages/meter/src/ledger.ts
+  - name: ToolAttribution
+    signature: export interface ToolAttribution
+    file: packages/meter/src/ledger.ts
+  - name: AssistantTurn
+    signature: export interface AssistantTurn
+    file: packages/meter/src/parser.ts
+  - name: ParseCounts
+    signature: export interface ParseCounts
+    file: packages/meter/src/parser.ts
+  - name: ParsedSession
+    signature: export interface ParsedSession
+    file: packages/meter/src/parser.ts
+  - name: parseSessionJsonl
+    signature: "export function parseSessionJsonl(content: string, sourceRef?:
+      string): ParsedSession"
+    file: packages/meter/src/parser.ts
+  - name: buildReport
+    signature: export async function buildReport(
+    file: packages/meter/src/report.ts
+  - name: BuildReportOptions
+    signature: export interface BuildReportOptions
+    file: packages/meter/src/report.ts
+  - name: defaultLogRoot
+    signature: "export function defaultLogRoot(): string"
+    file: packages/meter/src/report.ts
+  - name: Report
+    signature: export interface Report
+    file: packages/meter/src/report.ts
+  - name: DcpConfig
+    signature: export interface DcpConfig
+    file: packages/meter/src/sidecar-cli.ts
+  - name: dcpDir
+    signature: "export function dcpDir(cwd: string = process.cwd()): string"
+    file: packages/meter/src/sidecar-cli.ts
+  - name: Pidfile
+    signature: export interface Pidfile
+    file: packages/meter/src/sidecar-cli.ts
+  - name: readDcpConfig
+    signature: "export function readDcpConfig(dir: string = dcpDir()): DcpConfig"
+    file: packages/meter/src/sidecar-cli.ts
+  - name: AuditFileResult
+    signature: export interface AuditFileResult
+    file: packages/shared/src/audit-file.ts
+  - name: readAuditFile
+    signature: "export function readAuditFile(filePath: string, sessionId?: string):
+      AuditFileResult"
+    file: packages/shared/src/audit-file.ts
+  - name: Limits
+    signature: export type Limits = typeof LIMITS;
+    file: packages/shared/src/limits.ts
+  - name: LIMITS
+    signature: export const LIMITS =
+    file: packages/shared/src/limits.ts
+  - name: LedgerEntry
+    signature: export type LedgerEntry = z.infer<typeof LedgerEntrySchema>;
+    file: packages/shared/src/schemas.ts
+  - name: LedgerEntrySchema
+    signature: export const LedgerEntrySchema = z.object(
+    file: packages/shared/src/schemas.ts
+  - name: TokenTally
+    signature: export type TokenTally = z.infer<typeof TokenTallySchema>;
+    file: packages/shared/src/schemas.ts
+  - name: TokenTallySchema
+    signature: export const TokenTallySchema = z.object(
+    file: packages/shared/src/schemas.ts
+  - name: PriceRow
+    signature: export type PriceRow = z.infer<typeof PriceRowSchema>;
+    file: packages/shared/src/yaml.ts
+  - name: PriceRowSchema
+    signature: export const PriceRowSchema = z.object(
+    file: packages/shared/src/yaml.ts
+  - name: PricesFile
+    signature: export type PricesFile = z.infer<typeof PricesFileSchema>;
+    file: packages/shared/src/yaml.ts
+  - name: PricesFileSchema
+    signature: export const PricesFileSchema = z.object(
+    file: packages/shared/src/yaml.ts
+  - name: AuditWriter
+    signature: export class AuditWriter
+    file: packages/sidecar/src/audit.ts
+  - name: sidecarRequest
+    signature: export function sidecarRequest(
+    file: packages/sidecar/src/client.ts
+  - name: SidecarResponse
+    signature: export type SidecarResponse =
+    file: packages/sidecar/src/client.ts
+  - name: SidecarTarget
+    signature: export interface SidecarTarget
+    file: packages/sidecar/src/client.ts
+  - name: codexPaths
+    signature: "export function codexPaths(root: string): CodexPaths"
+    file: packages/sidecar/src/codex.ts
+  - name: CodexPaths
+    signature: export interface CodexPaths
+    file: packages/sidecar/src/codex.ts
+  - name: listSourceFiles
+    signature: "export function listSourceFiles(root: string): string[]"
+    file: packages/sidecar/src/codex.ts
+  - name: readCodex
+    signature: "export function readCodex(root: string): { codex?: CodexFile; lock?:
+      CodexLock }"
+    file: packages/sidecar/src/codex.ts
+  - name: DaemonHandle
+    signature: export interface DaemonHandle
+    file: packages/sidecar/src/daemon.ts
+  - name: DaemonOptions
+    signature: export interface DaemonOptions
+    file: packages/sidecar/src/daemon.ts
+  - name: startDaemon
+    signature: "export async function startDaemon(options: DaemonOptions):
+      Promise<DaemonHandle>"
+    file: packages/sidecar/src/daemon.ts
+  - name: DistillContext
+    signature: export interface DistillContext
+    file: packages/sidecar/src/distill.ts
+  - name: loadProfiles
+    signature: "export function loadProfiles(dir: string): Map<string, DistillProfile>"
+    file: packages/sidecar/src/distill.ts
+  - name: profileGateConfig
+    signature: "export function profileGateConfig(profile: DistillProfile): GateConfig"
+    file: packages/sidecar/src/distill.ts
+  - name: runProfile
+    signature: export async function runProfile(
+    file: packages/sidecar/src/distill.ts
+  - name: EntityGateConfig
+    signature: export interface EntityGateConfig
+    file: packages/sidecar/src/gates.ts
+  - name: GateReport
+    signature: export interface GateReport
+    file: packages/sidecar/src/gates.ts
+  - name: GateResult
+    signature: export interface GateResult
+    file: packages/sidecar/src/gates.ts
+  - name: VerdictGateConfig
+    signature: export interface VerdictGateConfig
+    file: packages/sidecar/src/gates.ts
+  - name: PACKAGE_NAME
+    signature: export const PACKAGE_NAME = '@redutok/sidecar';
+    file: packages/sidecar/src/index.ts
+  - name: LlmPass
+    signature: export interface LlmPass
+    file: packages/sidecar/src/llm.ts
+  - name: LlmPassInput
+    signature: export interface LlmPassInput
+    file: packages/sidecar/src/llm.ts
+  - name: NoopLlmPass
+    signature: export class NoopLlmPass implements LlmPass
+    file: packages/sidecar/src/llm.ts
+  - name: createLogger
+    signature: "export function createLogger(filePath: string): Logger"
+    file: packages/sidecar/src/log.ts
+  - name: Logger
+    signature: export interface Logger
+    file: packages/sidecar/src/log.ts
+  - name: LogLevel
+    signature: export type LogLevel = 'info' | 'warn' | 'error';
+    file: packages/sidecar/src/log.ts
+  - name: redact
+    signature: "export function redact(input: string): RedactionResult"
+    file: packages/sidecar/src/redact.ts
+  - name: RedactionFinding
+    signature: export interface RedactionFinding
+    file: packages/sidecar/src/redact.ts
+  - name: RedactionResult
+    signature: export interface RedactionResult
+    file: packages/sidecar/src/redact.ts
+  - name: storeRedactedArtifact
+    signature: export function storeRedactedArtifact(
+    file: packages/sidecar/src/redact.ts
+  - name: fileSkeleton
+    signature: "export async function fileSkeleton(source: string, lang:
+      SkeletonLanguage): Promise<string>"
+    file: packages/sidecar/src/skeleton.ts
+  - name: languageForPath
+    signature: "export function languageForPath(filePath: string): SkeletonLanguage
+      | undefined"
+    file: packages/sidecar/src/skeleton.ts
+  - name: SkeletonLanguage
+    signature: export type SkeletonLanguage = 'ts' | 'js' | 'py';
+    file: packages/sidecar/src/skeleton.ts
+  - name: ArtifactRecord
+    signature: export interface ArtifactRecord
+    file: packages/sidecar/src/store.ts
+  - name: ServedFileRecord
+    signature: export interface ServedFileRecord
+    file: packages/sidecar/src/store.ts
+  - name: SessionStateRecord
+    signature: export interface SessionStateRecord
+    file: packages/sidecar/src/store.ts
+  - name: Store
+    signature: export class Store
+    file: packages/sidecar/src/store.ts
+importGraph:
+  fixtures/artifacts/large-source.ts:
+    - ./cost.js
+    - ./energy.js
+    - ./ledger.js
+    - ./parser.js
+  fixtures/repos/repo-a/src/service.ts:
+    - ./store.js
+  fixtures/repos/repo-a/test/service.test.ts:
+    - ../src/store.js
+    - ../src/service.js
+  packages/hooks/test/index.test.ts:
+    - ../src/index.js
+  packages/mcp/src/main.ts:
+    - ./server.js
+  packages/mcp/test/index.test.ts:
+    - ../src/index.js
+  packages/mcp/test/server.test.ts:
+    - ../src/server.js
+  packages/meter/src/badge.ts:
+    - ./report.js
+  packages/meter/src/cli.ts:
+    - ./audit-render.js
+    - ./badge.js
+    - ./report.js
+    - ./installer.js
+    - ./sidecar-cli.js
+  packages/meter/src/cost.ts:
+    - ./ledger.js
+  packages/meter/src/energy.ts:
+    - ./ledger.js
+  packages/meter/src/ledger.ts:
+    - ./parser.js
+  packages/meter/src/report.ts:
+    - ./cost.js
+    - ./energy.js
+    - ./ledger.js
+    - ./parser.js
+  packages/meter/test/audit-render.test.ts:
+    - ../src/audit-render.js
+  packages/meter/test/badge.test.ts:
+    - ../src/badge.js
+    - ../src/report.js
+  packages/meter/test/cost.test.ts:
+    - ../src/cost.js
+    - ../src/ledger.js
+    - ../src/parser.js
+  packages/meter/test/e2e-smoke.test.ts:
+    - ../src/installer.js
+    - ../src/sidecar-cli.js
+  packages/meter/test/energy.test.ts:
+    - ../src/energy.js
+    - ../src/ledger.js
+    - ../src/parser.js
+  packages/meter/test/index.test.ts:
+    - ../src/index.js
+  packages/meter/test/installer.test.ts:
+    - ../src/installer.js
+  packages/meter/test/ledger.test.ts:
+    - ../src/ledger.js
+    - ../src/parser.js
+  packages/meter/test/parser.test.ts:
+    - ../src/parser.js
+  packages/meter/test/report.test.ts:
+    - ../src/report.js
+  packages/meter/test/sidecar-cli.test.ts:
+    - ../src/sidecar-cli.js
+  packages/shared/src/audit-file.ts:
+    - ./schemas.js
+  packages/shared/test/limits.test.ts:
+    - ../src/index.js
+  packages/shared/test/yaml.test.ts:
+    - ../src/index.js
+  packages/sidecar/src/codex.ts:
+    - ./distill.js
+    - ./skeleton.js
+  packages/sidecar/src/daemon-main.ts:
+    - ./daemon.js
+  packages/sidecar/src/daemon.ts:
+    - ./audit.js
+    - ./codex.js
+    - ./distill.js
+    - ./log.js
+    - ./store.js
+  packages/sidecar/src/distill.ts:
+    - ./audit.js
+    - ./gates.js
+    - ./skeleton.js
+    - ./redact.js
+    - ./store.js
+  packages/sidecar/src/redact.ts:
+    - ./audit.js
+    - ./store.js
+  packages/sidecar/test/audit.test.ts:
+    - ../src/audit.js
+  packages/sidecar/test/codex.test.ts:
+    - ../src/distill.js
+  packages/sidecar/test/daemon-distill.test.ts:
+    - ../src/client.js
+    - ../src/daemon.js
+  packages/sidecar/test/daemon.test.ts:
+    - ../src/client.js
+    - ../src/daemon.js
+  packages/sidecar/test/distill.test.ts:
+    - ../src/audit.js
+    - ../src/distill.js
+    - ../src/store.js
+  packages/sidecar/test/index.test.ts:
+    - ../src/index.js
+  packages/sidecar/test/redact.test.ts:
+    - ../src/audit.js
+    - ../src/redact.js
+    - ../src/store.js
+  packages/sidecar/test/store.test.ts:
+    - ../src/store.js
+files:
+  - path: eslint.config.js
+    hash: 4b9c39e50d3c1b74
+  - path: fixtures/artifacts/large-source.ts
+    hash: 2afa34ee065cd028
+  - path: fixtures/artifacts/sample.py
+    hash: 9259cad19b669da6
+  - path: fixtures/repos/repo-a/src/service.ts
+    hash: 2a9e080f30151f31
+  - path: fixtures/repos/repo-a/src/store.ts
+    hash: 5f7a83d9896466fa
+  - path: fixtures/repos/repo-a/test/service.test.ts
+    hash: d183026b5db64091
+  - path: fixtures/repos/repo-b/pkg/parser.py
+    hash: c3d2f04d308afb9e
+  - path: fixtures/repos/repo-b/pkg/report.js
+    hash: 9ef17dd209d93deb
+  - path: packages/hooks/src/handlers.ts
+    hash: fc8468c8c50ca704
+  - path: packages/hooks/src/hook-main.ts
+    hash: f041b2347d5ecbb1
+  - path: packages/hooks/src/index.ts
+    hash: 232377ed88807c47
+  - path: packages/hooks/test/handlers.test.ts
+    hash: 3157efd553a8cca8
+  - path: packages/hooks/test/index.test.ts
+    hash: 258fb0dedd59857e
+  - path: packages/mcp/src/index.ts
+    hash: b4a2b1356425a1b3
+  - path: packages/mcp/src/main.ts
+    hash: 3a7d66647ac9427f
+  - path: packages/mcp/src/server.ts
+    hash: a7cd5616a3e6ae14
+  - path: packages/mcp/test/index.test.ts
+    hash: 11c5c109167c3e04
+  - path: packages/mcp/test/server.test.ts
+    hash: dac09b0976ae85bc
+  - path: packages/meter/src/audit-render.ts
+    hash: 069761d8f6148343
+  - path: packages/meter/src/badge.ts
+    hash: 74308972fb1acaa9
+  - path: packages/meter/src/cli.ts
+    hash: 7d95b1536ccd4134
+  - path: packages/meter/src/cost.ts
+    hash: 44b677a23512d310
+  - path: packages/meter/src/energy.ts
+    hash: 9c7ae872c20fce6c
+  - path: packages/meter/src/index.ts
+    hash: 1615cba9f0308b20
+  - path: packages/meter/src/installer.ts
+    hash: f21b2d8286e514c7
+  - path: packages/meter/src/ledger.ts
+    hash: cfb870cec5663f95
+  - path: packages/meter/src/parser.ts
+    hash: 3de2d7a1bc3c81df
+  - path: packages/meter/src/report.ts
+    hash: 2afa34ee065cd028
+  - path: packages/meter/src/sidecar-cli.ts
+    hash: 3c812c43b1509a68
+  - path: packages/meter/test/audit-render.test.ts
+    hash: 7603a5490f6f1680
+  - path: packages/meter/test/badge.test.ts
+    hash: 71f67c05e74a4323
+  - path: packages/meter/test/bin.test.ts
+    hash: 65bc4a5a3044f073
+  - path: packages/meter/test/cost.test.ts
+    hash: 7e63c69f65fee16c
+  - path: packages/meter/test/e2e-smoke.test.ts
+    hash: 0689c5c9cb58c7ee
+  - path: packages/meter/test/energy.test.ts
+    hash: defce14488bad12a
+  - path: packages/meter/test/index.test.ts
+    hash: 0fc4f13b45ecd32f
+  - path: packages/meter/test/installer.test.ts
+    hash: aa8c0bfb53350d6e
+  - path: packages/meter/test/ledger.test.ts
+    hash: 524c4dfe9be58038
+  - path: packages/meter/test/parser.test.ts
+    hash: d0c7b5d50c3f2384
+  - path: packages/meter/test/report.test.ts
+    hash: 0727bb39286eb8c3
+  - path: packages/meter/test/sidecar-cli.test.ts
+    hash: 72072cf633543e7f
+  - path: packages/shared/src/audit-file.ts
+    hash: 13b4f1ab3be7c581
+  - path: packages/shared/src/index.ts
+    hash: 03c2f01db0cd6557
+  - path: packages/shared/src/limits.ts
+    hash: feef440c42a42544
+  - path: packages/shared/src/schemas.ts
+    hash: c684c08c02341b56
+  - path: packages/shared/src/yaml.ts
+    hash: 9288401111a74fa5
+  - path: packages/shared/test/limits.test.ts
+    hash: efa5d4473a2da8b1
+  - path: packages/shared/test/schemas.test.ts
+    hash: d2aa218d43d7e505
+  - path: packages/shared/test/yaml.test.ts
+    hash: d4766d3996ec0252
+  - path: packages/sidecar/src/audit.ts
+    hash: 7befe5054daebfd9
+  - path: packages/sidecar/src/client.ts
+    hash: 5d6a5fe8aab33a73
+  - path: packages/sidecar/src/codex.ts
+    hash: 3e4daf9e0c587e19
+  - path: packages/sidecar/src/daemon-main.ts
+    hash: 9059e2c1ed170d85
+  - path: packages/sidecar/src/daemon.ts
+    hash: 9f22d563434e41a2
+  - path: packages/sidecar/src/distill.ts
+    hash: 3dd44f0185b5258e
+  - path: packages/sidecar/src/gates.ts
+    hash: 07932b069c4e34cf
+  - path: packages/sidecar/src/index.ts
+    hash: 45e4b97a32156e9c
+  - path: packages/sidecar/src/llm.ts
+    hash: 34c91f059665933a
+  - path: packages/sidecar/src/log.ts
+    hash: 76c6b6a915a42baf
+  - path: packages/sidecar/src/redact.ts
+    hash: 087f622d35b21373
+  - path: packages/sidecar/src/skeleton.ts
+    hash: affeb3c4f1884236
+  - path: packages/sidecar/src/store.ts
+    hash: 47f46ae1c7f19457
+  - path: packages/sidecar/test/audit.test.ts
+    hash: 31848081bf3b4ac9
+  - path: packages/sidecar/test/codex.test.ts
+    hash: d6f0afe5340414eb
+  - path: packages/sidecar/test/daemon-distill.test.ts
+    hash: "490366e794763188"
+  - path: packages/sidecar/test/daemon.test.ts
+    hash: f43c084a9aa946bd
+  - path: packages/sidecar/test/distill.test.ts
+    hash: fad0576d6b45cd42
+  - path: packages/sidecar/test/gates.test.ts
+    hash: cd2218a7afff6f2d
+  - path: packages/sidecar/test/index.test.ts
+    hash: 1fcb1e5abdfcba14
+  - path: packages/sidecar/test/redact.test.ts
+    hash: 63a9ba3922f68c5e
+  - path: packages/sidecar/test/store.test.ts
+    hash: ed1efdba850f8452
+  - path: scripts/gen-fixtures.mjs
+    hash: 7fd233480c4c9367
+  - path: scripts/measure-ratios.mjs
+    hash: 079bdca601d0425f
+  - path: vitest.workspace.ts
+    hash: e7bfa39b80ce734c
+locked: []
