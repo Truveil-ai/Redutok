@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "redutok": {
+      "command": "node",
+      "args": [
+        ".claude/redutok/mcp.mjs"
+      ],
+      "env": {
+        "REDUTOK_PORT": "48642",
+        "REDUTOK_DCP_DIR": ".dcp"
+      }
+    }
+  }
+}

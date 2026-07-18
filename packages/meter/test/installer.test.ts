@@ -25,7 +25,7 @@ function makeRepo(withExisting: boolean): string {
     writeFileSync(path.join(dir, 'CLAUDE.md'), '# My project\n\nExisting instructions.\n');
     mkdirSync(path.join(dir, '.claude'));
     writeFileSync(
-      path.join(dir, '.claude', 'settings.json'),
+      path.join(dir, '.claude', 'settings.local.json'),
       JSON.stringify(
         { hooks: { PostToolUse: [{ matcher: 'Write', hooks: [{ type: 'command', command: 'echo mine' }] }] } },
         null,
@@ -40,12 +40,17 @@ describe('initRepo', () => {
   it('installs hooks, mcp registration, protocol block, and .dcp scaffold', () => {
     const repo = makeRepo(true);
     initRepo(repo);
-    const settings = JSON.parse(readFileSync(path.join(repo, '.claude', 'settings.json'), 'utf8'));
+    const settings = JSON.parse(
+      readFileSync(path.join(repo, '.claude', 'settings.local.json'), 'utf8'),
+    );
     expect(JSON.stringify(settings)).toContain('echo mine');
-    expect(JSON.stringify(settings.hooks.PreToolUse)).toContain('hook-main.js');
+    expect(JSON.stringify(settings.hooks.PreToolUse)).toContain('.claude/redutok/hook.mjs');
     expect(settings.hooks.SessionStart).toBeDefined();
     const mcp = JSON.parse(readFileSync(path.join(repo, '.mcp.json'), 'utf8'));
     expect(mcp.mcpServers.redutok.command).toBe('node');
+    expect(existsSync(path.join(repo, '.claude', 'redutok', 'hook.mjs'))).toBe(true);
+    expect(existsSync(path.join(repo, '.claude', 'redutok', 'mcp.mjs'))).toBe(true);
+    expect(existsSync(path.join(repo, '.dcp', 'config.json'))).toBe(true);
     const claudeMd = readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8');
     expect(claudeMd).toContain('Existing instructions.');
     expect(claudeMd).toContain('<!-- dcp:start v1 -->');
@@ -59,6 +64,25 @@ describe('initRepo', () => {
     const after1 = snapshot(repo);
     initRepo(repo);
     expect(snapshot(repo)).toEqual(after1);
+  });
+});
+
+describe('portability', () => {
+  it('writes no machine-absolute path into any managed file', () => {
+    const repo = makeRepo(true);
+    initRepo(repo);
+    const managed = [
+      '.claude/settings.local.json',
+      '.claude/redutok/hook.mjs',
+      '.claude/redutok/mcp.mjs',
+      '.mcp.json',
+      'CLAUDE.md',
+    ];
+    for (const rel of managed) {
+      const content = readFileSync(path.join(repo, rel), 'utf8');
+      expect(content, `${rel} contains a drive-absolute path`).not.toMatch(/[A-Za-z]:[\\/][^\s"']/);
+      expect(content, `${rel} leaks this machine's temp dir`).not.toContain(os.tmpdir());
+    }
   });
 });
 
