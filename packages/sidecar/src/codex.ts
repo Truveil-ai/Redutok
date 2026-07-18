@@ -272,7 +272,7 @@ export async function ollamaGenerate(
     try {
       const url = new URL('/api/generate', baseUrl);
       // num_predict bounds decode time so single-sentence drafts cannot run long.
-      const body = JSON.stringify({ model, prompt, stream: false, options: { num_predict: 64 } });
+      const body = JSON.stringify({ model, prompt, stream: false, options: { num_predict: 96 } });
       const req = http.request(
         {
           method: 'POST',
@@ -310,6 +310,26 @@ export interface SemanticOptions {
   model?: string;
   timeoutMs?: number;
   warmupTimeoutMs?: number;
+  /** Also redraft llm-sourced roles (human and locked entries stay untouched). */
+  redraft?: boolean;
+}
+
+/**
+ * The drafting prompt. Symbols are supplied as context only: the structural
+ * pass already records them, so the role must add meaning, not repetition.
+ */
+export function buildRolePrompt(
+  entry: { path: string; keySymbols: string[] },
+  project: string,
+): string {
+  return [
+    `Context: the module at ${entry.path} in project ${project} contains ${
+      entry.keySymbols.length === 0 ? 'no notable exports' : entry.keySymbols.join(', ')
+    }.`,
+    'Write exactly one sentence stating this module\'s purpose and responsibility in the system.',
+    'Do not list, name, or enumerate the exported symbols; the index already records them.',
+    'Plain text only, no markdown, no preamble.',
+  ].join(' ');
 }
 
 export interface SemanticOutcome {
@@ -337,7 +357,11 @@ export async function semanticPass(root: string, options: SemanticOptions = {}):
   const base: SemanticOutcome = { status: 'nothing-to-draft', drafted: 0, failed: 0, skipped: 0, endpoint: baseUrl, model };
   const { codex } = readCodex(root);
   if (codex === undefined) return base;
-  const candidates = codex.map.filter((e) => !e.locked && e.roleSource === 'rules');
+  const candidates = codex.map.filter(
+    (e) =>
+      !e.locked &&
+      (e.roleSource === 'rules' || (options.redraft === true && e.roleSource === 'llm')),
+  );
   base.skipped = codex.map.length - candidates.length;
   if (candidates.length === 0) return base;
 
@@ -369,11 +393,10 @@ export async function semanticPass(root: string, options: SemanticOptions = {}):
   let drafted = 0;
   let failed = 0;
   for (const entry of candidates) {
-    const symbols = entry.keySymbols.join(', ');
     const response = await ollamaGenerate(
       baseUrl,
       model,
-      `One sentence, plain text: the role of the module at ${entry.path} in project ${codex.project}, exporting ${symbols}.`,
+      buildRolePrompt(entry, codex.project),
       options.timeoutMs,
     );
     if (response === null || response === '') {

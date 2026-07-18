@@ -51,6 +51,7 @@ export async function main(argv: string[]): Promise<number> {
       const outcome = await semanticPass(process.cwd(), {
         model,
         timeoutMs: LIMITS.SEMANTIC_BATCH_DRAFT_TIMEOUT_MS,
+        redraft: rest.includes('--redraft'),
       });
       if (outcome.status === 'unreachable') {
         console.log(

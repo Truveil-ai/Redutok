@@ -132,6 +132,54 @@ describe('locked entries', () => {
   });
 });
 
+describe('role prompt contract', () => {
+  it('demands purpose without symbol enumeration, giving symbols only as context', async () => {
+    const { buildRolePrompt } = await import('../src/codex.js');
+    const prompt = buildRolePrompt(
+      { path: 'src/store', keySymbols: ['MemoryStore', 'Row'] },
+      'repo-a',
+    );
+    expect(prompt).toContain('purpose and responsibility');
+    expect(prompt).toContain('one sentence');
+    expect(prompt.toLowerCase()).toContain('do not list, name, or enumerate');
+    expect(prompt).toContain('MemoryStore');
+  });
+});
+
+describe('semantic pass redraft', () => {
+  it('redrafts llm-sourced roles when asked, never touching locked or human entries', async () => {
+    const root = cloneFixtureRepo('repo-a');
+    await writeCodex(root);
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ response: 'redrafted purpose sentence' }));
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const port = (server.address() as { port: number }).port;
+    const baseUrl = `http://127.0.0.1:${port}`;
+    try {
+      await semanticPass(root, { baseUrl });
+      const mid = readCodex(root).codex;
+      if (mid === undefined) throw new Error('codex missing');
+      const humanEntry = mid.map[0];
+      if (humanEntry !== undefined) {
+        humanEntry.role = 'human role';
+        humanEntry.roleSource = 'human';
+      }
+      writeFileSync(codexPaths(root).yaml, stringifyYaml(mid), 'utf8');
+      expect((await semanticPass(root, { baseUrl })).status).toBe('nothing-to-draft');
+      const redraft = await semanticPass(root, { baseUrl, redraft: true });
+      expect(redraft.status).toBe('complete');
+      expect(redraft.drafted).toBeGreaterThan(0);
+      const after = readCodex(root).codex;
+      expect(after?.map[0]?.role).toBe('human role');
+      expect(after?.map.slice(1).every((m) => m.role === 'redrafted purpose sentence')).toBe(true);
+    } finally {
+      server.close();
+    }
+  });
+});
+
 describe('semantic pass against a stub server', () => {
   it('drafts roles, reports counts, audits the pass, and resumes to nothing-to-draft', async () => {
     const root = cloneFixtureRepo('repo-a');
