@@ -3,6 +3,7 @@ import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { DistillProfile } from '@redutok/shared';
 import { AuditWriter } from './audit.js';
+import { refreshFiles } from './codex.js';
 import { distillArtifact, loadProfiles, zoom } from './distill.js';
 import { createLogger, type Logger } from './log.js';
 import { openStore, type Store } from './store.js';
@@ -52,7 +53,11 @@ function readBody(req: http.IncomingMessage): Promise<unknown> {
   });
 }
 
-function handler(log: Logger, engines?: Engines): http.RequestListener {
+function handler(
+  log: Logger,
+  engines?: Engines,
+  onFileChange?: (filePath: string) => Promise<string[]>,
+): http.RequestListener {
   const startedAt = Date.now();
   return (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
@@ -105,9 +110,16 @@ function handler(log: Logger, engines?: Engines): http.RequestListener {
     }
     if (req.method === 'POST' && url.pathname === '/notify') {
       // Metering pings and file-change notifications from PostToolUse hooks.
+      // File changes trigger incremental codex maintenance (architecture 3.3).
       void readBody(req)
-        .then((payload) => {
+        .then(async (payload) => {
           log.info('notify', { payload });
+          const p = payload as { kind?: string; path?: string };
+          if (p.kind === 'file-change' && typeof p.path === 'string' && onFileChange !== undefined) {
+            const reindexed = await onFileChange(p.path);
+            respond(200, { ok: true, reindexed });
+            return;
+          }
           respond(200, { ok: true });
         })
         .catch(() => respond(400, { ok: false }));
@@ -132,7 +144,16 @@ export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle>
       profiles: loadProfiles(options.profilesDir),
     };
   }
-  const listener = handler(log, engines);
+  const repoRoot = path.dirname(path.resolve(options.dcpDir));
+  const onFileChange = async (filePath: string): Promise<string[]> => {
+    try {
+      const rel = path.isAbsolute(filePath) ? path.relative(repoRoot, filePath) : filePath;
+      return await refreshFiles(repoRoot, [rel]);
+    } catch {
+      return [];
+    }
+  };
+  const listener = handler(log, engines, onFileChange);
   const httpServer = http.createServer(listener);
   await new Promise<void>((resolve, reject) => {
     httpServer.once('error', reject);

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { LIMITS } from '@redutok/shared';
 import { buildLedger, grandTotal, parseSessionFile } from '@redutok/meter';
 import { sidecarRequest, type SidecarTarget } from '@redutok/sidecar/client';
+import { buildCodexInjection, readCodex } from '@redutok/sidecar';
 
 /**
  * Pure hook handlers for every Claude Code lifecycle event Redutok uses.
@@ -54,10 +55,18 @@ export function handleSessionStart(
     source === 'compact' || source === 'resume'
       ? `Redutok protocol re-injected after ${source}.\n\n`
       : '';
+  let codexInjection = '';
+  try {
+    const root = path.dirname(path.resolve(deps.dcpDir));
+    const { codex } = readCodex(root);
+    if (codex !== undefined) codexInjection = '\n\n' + buildCodexInjection(codex);
+  } catch {
+    codexInjection = '';
+  }
   return {
     hookSpecificOutput: {
       hookEventName: 'SessionStart',
-      additionalContext: prefix + block,
+      additionalContext: prefix + block + codexInjection,
     },
   };
 }

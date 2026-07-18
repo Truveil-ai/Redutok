@@ -80,6 +80,34 @@ describe('hash drift and incremental refresh', () => {
   });
 });
 
+describe('incremental maintenance through the daemon notify path', () => {
+  it('a PostToolUse file-change notify re-indexes exactly the changed file', async () => {
+    const { startDaemon } = await import('../src/daemon.js');
+    const { sidecarRequest } = await import('../src/client.js');
+    const root = cloneFixtureRepo('repo-a');
+    await writeCodex(root);
+    const lockBefore = readCodex(root).lock;
+    const daemon = await startDaemon({ port: 0, dcpDir: path.join(root, '.dcp') });
+    try {
+      appendFileSync(path.join(root, 'src', 'store.ts'), '\nexport const NOTIFIED = true;\n');
+      const res = await sidecarRequest(
+        { port: daemon.port },
+        'POST',
+        '/notify',
+        { kind: 'file-change', tool: 'Edit', path: 'src/store.ts' },
+        { timeoutMs: 10_000 },
+      );
+      expect(res.ok).toBe(true);
+      if (res.ok) expect((res.body as { reindexed: string[] }).reindexed).toEqual(['src/store.ts']);
+      const lockAfter = readCodex(root).lock;
+      expect(lockAfter?.files['src/store.ts']).not.toBe(lockBefore?.files['src/store.ts']);
+      expect(lockAfter?.files['src/service.ts']).toBe(lockBefore?.files['src/service.ts']);
+    } finally {
+      await daemon.close();
+    }
+  });
+});
+
 describe('locked entries', () => {
   it('survive both the structural and semantic passes untouched', async () => {
     const root = cloneFixtureRepo('repo-a');

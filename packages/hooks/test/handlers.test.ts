@@ -42,6 +42,22 @@ describe('handleSessionStart', () => {
     expect(compact.hookSpecificOutput?.additionalContext).toContain('re-injected after compact');
   });
 
+  it('appends the codex injection with the trust preamble when a codex exists', async () => {
+    const { writeCodex } = await import('@redutok/sidecar');
+    const root = mkdtempSync(path.join(os.tmpdir(), 'redutok-hooks-codex-'));
+    mkdirSync(path.join(root, 'src'));
+    writeFileSync(path.join(root, 'src', 'a.ts'), 'export const a = 1;\n');
+    const dcpDir = path.join(root, '.dcp');
+    mkdirSync(dcpDir);
+    writeFileSync(path.join(dcpDir, 'protocol.md'), '## Delta Context Protocol (Redutok)\nrules');
+    await writeCodex(root);
+    const out = handleSessionStart({ source: 'startup' }, { ...DEAD, dcpDir });
+    const ctx = out.hookSpecificOutput?.additionalContext ?? '';
+    expect(ctx).toContain('Delta Context Protocol');
+    expect(ctx).toContain('You have a verified codex of this repository. Trust it.');
+    expect(ctx).not.toContain('files:');
+  });
+
   it('returns empty output when no protocol file exists, never throwing', () => {
     const empty = handleSessionStart({ source: 'startup' }, { ...DEAD, dcpDir: mkdtempSync(path.join(os.tmpdir(), 'redutok-none-')) });
     expect(empty).toEqual({});

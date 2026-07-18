@@ -23,10 +23,38 @@ sidecar lifecycle (state in ./.dcp):
   redutok up | down | status
 
 install into a repo (idempotent; remove reverts byte-identical):
-  redutok init [dir] | remove [dir]`;
+  redutok init [dir] | remove [dir]
+
+codex (structural pass; --with-llm adds the local-model semantic pass):
+  redutok codex refresh [--with-llm] [--model <name>]`;
 
 export async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
+  if (command === 'codex') {
+    const sub = rest[0];
+    if (sub !== 'refresh') {
+      console.error('Usage: redutok codex refresh [--with-llm] [--model <name>]');
+      return 1;
+    }
+    const { writeCodex, semanticPass } = await import('@redutok/sidecar');
+    const result = await writeCodex(process.cwd());
+    console.log(
+      result.changed
+        ? `Codex refreshed: ${result.codex.files.length} files indexed.`
+        : 'Codex already current; nothing changed.',
+    );
+    if (rest.includes('--with-llm')) {
+      const modelIndex = rest.indexOf('--model');
+      const model = modelIndex >= 0 ? rest[modelIndex + 1] : undefined;
+      const updated = await semanticPass(process.cwd(), { model });
+      console.log(
+        updated > 0
+          ? `Semantic pass drafted ${updated} module roles.`
+          : 'Semantic pass made no changes (Ollama unreachable or nothing left to draft; rule-based roles remain).',
+      );
+    }
+    return 0;
+  }
   if (command === 'init' || command === 'remove') {
     const target = rest.filter((a) => !a.startsWith('--'))[0] ?? process.cwd();
     console.log(command === 'init' ? initRepo(target) : removeRepo(target));
