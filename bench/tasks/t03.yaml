@@ -1,0 +1,14 @@
+id: t03
+tier: small
+repo:
+  url: local:fixtures/repos/repo-a
+  commit: pinned-by-content-in-git
+  localPath: fixtures/repos/repo-a
+prompt: 'Why does totalValue skip missing ids.'
+success:
+  - kind: file-contains
+    path: src/service.ts
+    needle: 'totalValue'
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/small.jsonl

@@ -1,0 +1,14 @@
+id: t09
+tier: large
+repo:
+  url: local:.
+  commit: pinned-by-content-in-git
+  localPath: .
+prompt: 'Explain the fail-open rule and where it is enforced.'
+success:
+  - kind: file-contains
+    path: packages/sidecar/src/client.ts
+    needle: 'fail'
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/medium.jsonl

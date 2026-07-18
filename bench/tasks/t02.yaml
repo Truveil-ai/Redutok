@@ -1,0 +1,14 @@
+id: t02
+tier: small
+repo:
+  url: local:fixtures/repos/repo-a
+  commit: pinned-by-content-in-git
+  localPath: fixtures/repos/repo-a
+prompt: 'Add a delete method to MemoryStore.'
+success:
+  - kind: file-contains
+    path: src/store.ts
+    needle: 'rows'
+fixtureLogs:
+  vanilla: fixtures/sessions/medium.jsonl
+  redutok: fixtures/sessions/small.jsonl

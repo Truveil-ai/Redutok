@@ -1,0 +1,14 @@
+id: t07
+tier: medium
+repo:
+  url: local:fixtures/repos/repo-a
+  commit: pinned-by-content-in-git
+  localPath: fixtures/repos/repo-a
+prompt: 'Write a test for seed with duplicate ids.'
+success:
+  - kind: file-contains
+    path: test/service.test.ts
+    needle: 'runTests'
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/medium.jsonl

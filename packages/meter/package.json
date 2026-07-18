@@ -22,7 +22,8 @@
     "@redutok/mcp": "workspace:*",
     "@redutok/shared": "workspace:*",
     "@redutok/sidecar": "workspace:*",
-    "diff": "^7.0.0"
+    "diff": "^7.0.0",
+    "yaml": "^2.5.0"
   },
   "devDependencies": {
     "@types/diff": "^7.0.0"

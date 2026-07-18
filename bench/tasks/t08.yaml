@@ -1,0 +1,14 @@
+id: t08
+tier: large
+repo:
+  url: local:.
+  commit: pinned-by-content-in-git
+  localPath: .
+prompt: 'Find where audit events are validated and list callers.'
+success:
+  - kind: file-contains
+    path: packages/shared/src/schemas.ts
+    needle: 'AuditEventSchema'
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/small.jsonl

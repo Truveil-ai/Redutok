@@ -9,3 +9,4 @@ export * from './audit-render.js';
 export * from './installer.js';
 export * from './discipline.js';
 export * from './scoring.js';
+export * from './bench.js';

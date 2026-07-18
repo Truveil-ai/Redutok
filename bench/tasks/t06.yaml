@@ -1,0 +1,14 @@
+id: t06
+tier: medium
+repo:
+  url: local:fixtures/repos/repo-b
+  commit: pinned-by-content-in-git
+  localPath: fixtures/repos/repo-b
+prompt: 'Sort formatCounts ties alphabetically.'
+success:
+  - kind: file-contains
+    path: pkg/report.js
+    needle: 'formatCounts'
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/medium.jsonl

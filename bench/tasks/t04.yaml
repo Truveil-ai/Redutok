@@ -1,0 +1,14 @@
+id: t04
+tier: small
+repo:
+  url: local:fixtures/repos/repo-b
+  commit: pinned-by-content-in-git
+  localPath: fixtures/repos/repo-b
+prompt: 'Describe the Counter class contract.'
+success:
+  - kind: file-contains
+    path: pkg/parser.py
+    needle: 'Counter'
+fixtureLogs:
+  vanilla: fixtures/sessions/medium.jsonl
+  redutok: fixtures/sessions/small.jsonl

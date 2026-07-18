@@ -55,6 +55,26 @@ export async function main(argv: string[]): Promise<number> {
     }
     return 0;
   }
+  if (command === 'bench') {
+    const { runReplay, loadBenchTasks, dryRunMatrix } = await import('./bench.js');
+    const tasksDir = 'bench/tasks';
+    if (rest.includes('--replay')) {
+      const results = await runReplay(process.cwd(), tasksDir, 'bench/RESULTS.md');
+      console.log(results);
+      console.log('Written to bench/RESULTS.md');
+      return 0;
+    }
+    if (rest.includes('--dry-run')) {
+      const nIndex = rest.indexOf('--n');
+      const mIndex = rest.indexOf('--model');
+      const n = nIndex >= 0 ? Number(rest[nIndex + 1]) : 3;
+      const model = mIndex >= 0 ? String(rest[mIndex + 1]) : 'claude-sonnet-5';
+      console.log(dryRunMatrix(loadBenchTasks(tasksDir), n, model).join('\n'));
+      return 0;
+    }
+    console.error('Usage: redutok bench --replay | --dry-run [--n N] [--model <name>]. Live execution is operator-only; use --dry-run to see the command matrix.');
+    return 1;
+  }
   if (command === 'handoff') {
     const { writeHandoff } = await import('./discipline.js');
     const result = writeHandoff(process.cwd());

@@ -1,0 +1,18 @@
+id: t10
+tier: large
+repo:
+  url: local:.
+  commit: pinned-by-content-in-git
+  localPath: .
+prompt: 'Trace a distill request end to end.'
+success:
+  - kind: file-contains
+    path: packages/sidecar/src/distill.ts
+    needle: 'distillArtifact'
+  - kind: file-contains
+    variant: redutok
+    path: packages/sidecar/src/distill.ts
+    needle: THIS_STRING_DOES_NOT_EXIST_deliberate_degradation_case
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/small.jsonl

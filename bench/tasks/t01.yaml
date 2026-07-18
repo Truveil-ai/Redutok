@@ -1,0 +1,14 @@
+id: t01
+tier: small
+repo:
+  url: local:fixtures/repos/repo-a
+  commit: pinned-by-content-in-git
+  localPath: fixtures/repos/repo-a
+prompt: 'Explain what MemoryStore does and where it is used.'
+success:
+  - kind: file-contains
+    path: src/store.ts
+    needle: 'MemoryStore'
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/small.jsonl
