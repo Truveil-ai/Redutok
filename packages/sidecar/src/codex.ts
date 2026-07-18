@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { createHash, randomBytes } from 'node:crypto';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
@@ -308,22 +308,66 @@ export interface SemanticOptions {
   baseUrl?: string;
   model?: string;
   timeoutMs?: number;
+  warmupTimeoutMs?: number;
+}
+
+export interface SemanticOutcome {
+  status: 'complete' | 'unreachable' | 'nothing-to-draft';
+  drafted: number;
+  failed: number;
+  skipped: number;
+  endpoint: string;
+  model: string;
 }
 
 /**
  * Semantic pass behind --with-llm: drafts module roles one directory at a
- * time. Resumable by construction: entries whose roleSource is already llm
- * or human are skipped, so a rerun continues where the last one stopped.
- * Locked entries are never touched. Rule-based roles remain on any failure.
+ * time. Resumable by construction: rule-sourced roles are always draftable;
+ * entries whose roleSource is llm or human are skipped, so a rerun continues
+ * where the last one stopped. Locked entries are never touched. A one-time
+ * warmup with its own generous budget absorbs cold model load (the first
+ * inference after Ollama starts loads the model and can take many seconds);
+ * drafting calls keep the strict LOCAL_LLM_TIMEOUT_MS budget. Every executed
+ * pass writes an audit event with drafted, failed, and skipped counts.
  */
-export async function semanticPass(root: string, options: SemanticOptions = {}): Promise<number> {
-  const { codex } = readCodex(root);
-  if (codex === undefined) return 0;
+export async function semanticPass(root: string, options: SemanticOptions = {}): Promise<SemanticOutcome> {
   const baseUrl = options.baseUrl ?? 'http://127.0.0.1:11434';
   const model = options.model ?? 'qwen2.5:7b-instruct';
-  let updated = 0;
-  for (const entry of codex.map) {
-    if (entry.locked || entry.roleSource !== 'rules') continue;
+  const base: SemanticOutcome = { status: 'nothing-to-draft', drafted: 0, failed: 0, skipped: 0, endpoint: baseUrl, model };
+  const { codex } = readCodex(root);
+  if (codex === undefined) return base;
+  const candidates = codex.map.filter((e) => !e.locked && e.roleSource === 'rules');
+  base.skipped = codex.map.length - candidates.length;
+  if (candidates.length === 0) return base;
+
+  const writeAudit = (outcome: SemanticOutcome): void => {
+    const event = {
+      id: `codex-semantic-${randomBytes(4).toString('hex')}`,
+      timestamp: new Date().toISOString(),
+      sessionId: 'codex',
+      module: 'sidecar.codex-semantic',
+      action: 'summarize' as const,
+      reason: `semantic pass ${outcome.status}: drafted ${outcome.drafted}, failed ${outcome.failed}, skipped ${outcome.skipped} (endpoint ${outcome.endpoint}, model ${outcome.model})`,
+      details: { ...outcome },
+    };
+    appendFileSync(path.join(root, '.dcp', 'audit.jsonl'), JSON.stringify(event) + '\n', 'utf8');
+  };
+
+  const warmup = await ollamaGenerate(
+    baseUrl,
+    model,
+    'Reply with the single word ok.',
+    options.warmupTimeoutMs ?? LIMITS.OLLAMA_WARMUP_TIMEOUT_MS,
+  );
+  if (warmup === null) {
+    const outcome: SemanticOutcome = { ...base, status: 'unreachable' };
+    writeAudit(outcome);
+    return outcome;
+  }
+
+  let drafted = 0;
+  let failed = 0;
+  for (const entry of candidates) {
     const symbols = entry.keySymbols.join(', ');
     const response = await ollamaGenerate(
       baseUrl,
@@ -331,16 +375,21 @@ export async function semanticPass(root: string, options: SemanticOptions = {}):
       `One sentence, plain text: the role of the module at ${entry.path} in project ${codex.project}, exporting ${symbols}.`,
       options.timeoutMs,
     );
-    if (response === null || response === '') continue;
+    if (response === null || response === '') {
+      failed += 1;
+      continue;
+    }
     entry.role = response.split('\n')[0]?.slice(0, 200) ?? entry.role;
     entry.roleSource = 'llm';
-    updated += 1;
+    drafted += 1;
   }
-  if (updated > 0) {
+  if (drafted > 0) {
     codex.generatedAt = new Date().toISOString();
     writeFileSync(codexPaths(root).yaml, stringifyYaml(codex), 'utf8');
   }
-  return updated;
+  const outcome: SemanticOutcome = { ...base, status: 'complete', drafted, failed };
+  writeAudit(outcome);
+  return outcome;
 }
 
 /** Frontier polish stays a typed no-op seam until explicitly funded (architecture 3.2 step 3). */

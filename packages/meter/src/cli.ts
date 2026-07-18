@@ -46,12 +46,20 @@ export async function main(argv: string[]): Promise<number> {
     if (rest.includes('--with-llm')) {
       const modelIndex = rest.indexOf('--model');
       const model = modelIndex >= 0 ? rest[modelIndex + 1] : undefined;
-      const updated = await semanticPass(process.cwd(), { model });
-      console.log(
-        updated > 0
-          ? `Semantic pass drafted ${updated} module roles.`
-          : 'Semantic pass made no changes (Ollama unreachable or nothing left to draft; rule-based roles remain).',
-      );
+      const outcome = await semanticPass(process.cwd(), { model });
+      if (outcome.status === 'unreachable') {
+        console.log(
+          `Semantic pass: Ollama unreachable or model failed to load at ${outcome.endpoint} within the warmup budget (model ${outcome.model}). Rule-based roles remain.`,
+        );
+      } else if (outcome.status === 'nothing-to-draft') {
+        console.log(
+          `Semantic pass: nothing left to draft (${outcome.skipped} roles already llm-drafted, human, or locked).`,
+        );
+      } else {
+        console.log(
+          `Semantic pass: drafted ${outcome.drafted} roles, ${outcome.failed} failed and kept the rule fallback, ${outcome.skipped} skipped as already drafted or locked.`,
+        );
+      }
     }
     return 0;
   }

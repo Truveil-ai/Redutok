@@ -134,7 +134,7 @@ describe('locked entries', () => {
 });
 
 describe('semantic pass against a stub server', () => {
-  it('drafts roles with the llm, resumable and timeout-safe', async () => {
+  it('drafts roles, reports counts, audits the pass, and resumes to nothing-to-draft', async () => {
     const root = cloneFixtureRepo('repo-a');
     await writeCodex(root);
     const server = http.createServer((req, res) => {
@@ -144,38 +144,90 @@ describe('semantic pass against a stub server', () => {
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
     const port = (server.address() as { port: number }).port;
     try {
-      const updated = await semanticPass(root, { baseUrl: `http://127.0.0.1:${port}` });
-      expect(updated).toBeGreaterThan(0);
+      const outcome = await semanticPass(root, { baseUrl: `http://127.0.0.1:${port}` });
+      expect(outcome.status).toBe('complete');
+      expect(outcome.drafted).toBeGreaterThan(0);
+      expect(outcome.failed).toBe(0);
       const { codex } = readCodex(root);
       expect(codex?.map.every((m) => m.roleSource === 'llm')).toBe(true);
+      const { readAuditFile } = await import('@redutok/shared');
+      const events = readAuditFile(path.join(root, '.dcp', 'audit.jsonl')).events;
+      const pass = events.find((e) => e.module === 'sidecar.codex-semantic');
+      expect(pass?.details?.['drafted']).toBe(outcome.drafted);
+      expect(pass?.details?.['failed']).toBe(0);
       // Resumable: a second pass has nothing left to do.
-      expect(await semanticPass(root, { baseUrl: `http://127.0.0.1:${port}` })).toBe(0);
+      const again = await semanticPass(root, { baseUrl: `http://127.0.0.1:${port}` });
+      expect(again.status).toBe('nothing-to-draft');
     } finally {
       server.close();
     }
   });
 
-  it('falls back to rule roles when the server is unreachable', async () => {
+  it('absorbs a cold model load in the warmup, keeping the 2500ms drafting budget', async () => {
     const root = cloneFixtureRepo('repo-a');
     await writeCodex(root);
-    const updated = await semanticPass(root, { baseUrl: 'http://127.0.0.1:1', timeoutMs: 200 });
-    expect(updated).toBe(0);
+    let first = true;
+    const server = http.createServer((req, res) => {
+      const delay = first ? 4000 : 50;
+      first = false;
+      setTimeout(() => {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ response: 'warmed role' }));
+      }, delay);
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const port = (server.address() as { port: number }).port;
+    try {
+      const outcome = await semanticPass(root, {
+        baseUrl: `http://127.0.0.1:${port}`,
+        timeoutMs: 2500,
+        warmupTimeoutMs: 20_000,
+      });
+      expect(outcome.status).toBe('complete');
+      expect(outcome.drafted).toBeGreaterThan(0);
+      expect(outcome.failed).toBe(0);
+    } finally {
+      server.close();
+    }
+  }, 60_000);
+
+  it('reports unreachable with the endpoint when the warmup fails, roles untouched', async () => {
+    const root = cloneFixtureRepo('repo-a');
+    await writeCodex(root);
+    const outcome = await semanticPass(root, {
+      baseUrl: 'http://127.0.0.1:1',
+      timeoutMs: 200,
+      warmupTimeoutMs: 300,
+    });
+    expect(outcome.status).toBe('unreachable');
+    expect(outcome.endpoint).toContain('127.0.0.1:1');
+    expect(outcome.drafted).toBe(0);
     expect(readCodex(root).codex?.map.every((m) => m.roleSource === 'rules')).toBe(true);
   });
 });
 
-const ollamaLive = await (async () => {
-  const probe = await ollamaGenerate('http://127.0.0.1:11434', 'qwen2.5:7b-instruct', 'say ok', 1500);
-  return probe !== null;
-})();
+// Reachability probe only: /api/tags answers instantly even when the model
+// is cold; semanticPass itself owns the warmup.
+const ollamaLive = await new Promise<boolean>((resolve) => {
+  const req = http.get('http://127.0.0.1:11434/api/tags', { timeout: 1500 }, (res) => {
+    res.resume();
+    resolve(res.statusCode === 200);
+  });
+  req.on('error', () => resolve(false));
+  req.on('timeout', () => {
+    req.destroy();
+    resolve(false);
+  });
+});
 
 describe.runIf(ollamaLive)('semantic pass against live Ollama', () => {
   it('drafts at least one role from the real local model', async () => {
     const root = cloneFixtureRepo('repo-a');
     await writeCodex(root);
-    const updated = await semanticPass(root, {});
-    expect(updated).toBeGreaterThan(0);
-  }, 60_000);
+    const outcome = await semanticPass(root, {});
+    expect(outcome.status).toBe('complete');
+    expect(outcome.drafted).toBeGreaterThan(0);
+  }, 180_000);
 });
 
 describe('injection', () => {

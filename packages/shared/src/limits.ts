@@ -7,6 +7,13 @@ export const LIMITS = {
   HOOK_FAIL_OPEN_MS: 50,
   /** Local LLM calls time out after this and fall back to the rule engine. */
   LOCAL_LLM_TIMEOUT_MS: 2500,
+  /**
+   * One-time model warmup budget before a semantic drafting loop. The first
+   * inference after Ollama starts loads the model from disk (measured 9.2s
+   * for qwen2.5:7b-instruct on this machine) and must not eat the per-call
+   * budget, which stays LOCAL_LLM_TIMEOUT_MS for every drafting call.
+   */
+  OLLAMA_WARMUP_TIMEOUT_MS: 120_000,
   /** Size sanity gate: a distillate above this fraction of raw serves raw instead. */
   SIZE_SANITY_MAX_RATIO: 0.4,
   /** Rolling session_state.md hard cap, architecture 5.2. */
