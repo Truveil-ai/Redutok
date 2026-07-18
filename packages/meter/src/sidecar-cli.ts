@@ -16,6 +16,22 @@ export function dcpDir(cwd: string = process.cwd()): string {
   return path.join(cwd, '.dcp');
 }
 
+export interface DcpConfig {
+  port?: number;
+  profilesDir?: string;
+}
+
+/** Per-repo sidecar config written by redutok init; tolerant of absence. */
+export function readDcpConfig(dir: string = dcpDir()): DcpConfig {
+  const file = path.join(dir, 'config.json');
+  if (!existsSync(file)) return {};
+  try {
+    return JSON.parse(readFileSync(file, 'utf8')) as DcpConfig;
+  } catch {
+    return {};
+  }
+}
+
 export function readPidfile(dir: string = dcpDir()): Pidfile | undefined {
   const file = path.join(dir, 'sidecar.pid.json');
   if (!existsSync(file)) return undefined;
@@ -49,12 +65,19 @@ export async function sidecarUp(dir: string = dcpDir()): Promise<string> {
     if (res.ok) return `Sidecar already running on port ${existing.port}.`;
   }
   mkdirSync(dir, { recursive: true });
+  const config = readDcpConfig(dir);
   const require = createRequire(import.meta.url);
   const entry = require.resolve('@redutok/sidecar/daemon-main');
+  const env: Record<string, string | undefined> = {
+    ...process.env,
+    REDUTOK_DCP_DIR: dir,
+    REDUTOK_PORT: String(config.port ?? 0),
+  };
+  if (config.profilesDir !== undefined) env['REDUTOK_PROFILES'] = config.profilesDir;
   const child = spawn(process.execPath, [entry], {
     detached: true,
     stdio: 'ignore',
-    env: { ...process.env, REDUTOK_DCP_DIR: dir, REDUTOK_PORT: '0' },
+    env,
   });
   child.unref();
   for (let i = 0; i < 50; i += 1) {

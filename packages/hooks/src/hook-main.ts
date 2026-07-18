@@ -28,6 +28,15 @@ function readStdin(): Promise<string> {
 function discoverDeps(): HookDeps {
   const dcpDir = process.env['REDUTOK_DCP_DIR'] ?? path.join(process.cwd(), '.dcp');
   let port = Number(process.env['REDUTOK_PORT'] ?? '48642');
+  const configFile = path.join(dcpDir, 'config.json');
+  if (existsSync(configFile)) {
+    try {
+      const config = JSON.parse(readFileSync(configFile, 'utf8')) as { port?: number };
+      if (typeof config.port === 'number' && config.port > 0) port = config.port;
+    } catch {
+      // Bad config must not break a hook; the pidfile below is authoritative.
+    }
+  }
   const pidfile = path.join(dcpDir, 'sidecar.pid.json');
   if (existsSync(pidfile)) {
     try {
