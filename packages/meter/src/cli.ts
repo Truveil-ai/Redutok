@@ -4,8 +4,9 @@ import { pathToFileURL } from 'node:url';
 import { buildAuditReport, renderAuditText } from './audit-render.js';
 import { renderBadgeSvg, renderShareLine } from './badge.js';
 import { buildReport, locateLastSessionLog, renderText } from './report.js';
+import { sidecarDown, sidecarStatus, sidecarUp } from './sidecar-cli.js';
 
-const USAGE = `Usage: redutok <report|badge|audit> [args] [options]
+const USAGE = `Usage: redutok <report|badge|audit|up|down|status> [args] [options]
 
 report and badge take a transcript:
   session.jsonl  path to a Claude Code session transcript
@@ -14,10 +15,18 @@ report and badge take a transcript:
   --out <file>   (badge) write the SVG to this path (default redutok-badge.svg)
 
 audit takes a session id:
-  redutok audit <session-id> [--file audit.jsonl]   render the audit trail`;
+  redutok audit <session-id> [--file audit.jsonl]   render the audit trail
+
+sidecar lifecycle (state in ./.dcp):
+  redutok up | down | status`;
 
 export async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
+  if (command === 'up' || command === 'down' || command === 'status') {
+    const run = command === 'up' ? sidecarUp : command === 'down' ? sidecarDown : sidecarStatus;
+    console.log(await run());
+    return 0;
+  }
   if (command === 'audit') {
     const fileIndex = rest.indexOf('--file');
     const filePath = fileIndex >= 0 ? rest[fileIndex + 1] : undefined;

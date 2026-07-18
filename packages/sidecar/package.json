@@ -8,8 +8,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./daemon-main": "./dist/daemon-main.js"
   },
+  "files": ["dist", "migrations"],
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },

@@ -18,6 +18,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@redutok/shared": "workspace:*"
+    "@redutok/shared": "workspace:*",
+    "@redutok/sidecar": "workspace:*"
   }
 }

@@ -2,3 +2,6 @@ export const PACKAGE_NAME = '@redutok/sidecar';
 export * from './store.js';
 export * from './audit.js';
 export * from './redact.js';
+export * from './client.js';
+export * from './daemon.js';
+export * from './log.js';
