@@ -75,6 +75,12 @@ export async function main(argv: string[]): Promise<number> {
     console.error('Usage: redutok bench --replay | --dry-run [--n N] [--model <name>]. Live execution is operator-only; use --dry-run to see the command matrix.');
     return 1;
   }
+  if (command === 'doctor') {
+    const { doctor, renderDoctor } = await import('./doctor.js');
+    const checks = await doctor(process.cwd());
+    console.log(renderDoctor(checks));
+    return checks.some((c) => c.status === 'fail') ? 1 : 0;
+  }
   if (command === 'handoff') {
     const { writeHandoff } = await import('./discipline.js');
     const result = writeHandoff(process.cwd());

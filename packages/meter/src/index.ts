@@ -10,3 +10,4 @@ export * from './installer.js';
 export * from './discipline.js';
 export * from './scoring.js';
 export * from './bench.js';
+export * from './doctor.js';
