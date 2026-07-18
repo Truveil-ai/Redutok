@@ -16,7 +16,10 @@ describe('buildReport on small.jsonl', () => {
     expect(report.cost.pricedTurns).toBe(3);
     expect(report.parse.unknownType).toBe(1);
     expect(report.audit).toHaveLength(1);
-    expect(report.notes.join(' ')).toContain('TODO-VERIFY');
+    // Shipped prices are source-cited, so no TODO-VERIFY note appears; the
+    // thinking-rate assumption is always stated.
+    expect(report.notes.join(' ')).toContain('Thinking tokens are priced at the output rate');
+    expect(report.notes.join(' ')).not.toContain('TODO-VERIFY');
   });
 
   it('round-trips through JSON for --json output', async () => {

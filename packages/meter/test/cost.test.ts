@@ -57,10 +57,26 @@ describe('shipped prices.yaml', () => {
   it('loads, validates and covers the models used in the fixtures', () => {
     const prices = loadPrices();
     const ids = prices.models.map((m) => m.id);
-    expect(ids).toContain('claude-sonnet-5');
-    expect(ids).toContain('claude-haiku-4-5');
+    expect(ids).toEqual([
+      'claude-fable-5',
+      'claude-opus-4-8',
+      'claude-sonnet-4-6',
+      'claude-sonnet-5',
+      'claude-haiku-4-5',
+    ]);
     for (const model of prices.models) {
-      expect(model.source.length).toBeGreaterThan(0);
+      expect(model.source).toBe('https://platform.claude.com/docs/en/about-claude/pricing');
+      expect(model.cacheReadPerMTokUsd).toBeCloseTo(model.inputPerMTokUsd * 0.1, 10);
+      expect(model.cacheWritePerMTokUsd).toBeCloseTo(model.inputPerMTokUsd * 1.25, 10);
     }
+  });
+
+  it('keeps the sonnet-5 introductory pricing note through schema validation', () => {
+    const sonnet = loadPrices().models.find((m) => m.id === 'claude-sonnet-5');
+    expect(sonnet?.inputPerMTokUsd).toBe(2);
+    expect(sonnet?.outputPerMTokUsd).toBe(10);
+    expect(sonnet?.note).toBe(
+      'introductory through 2026-08-31, standard 3.00/15.00 from 2026-09-01',
+    );
   });
 });

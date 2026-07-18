@@ -1,25 +1,40 @@
-# Model pricing, USD per million tokens.
-# Guardrail 2: every row carries a source field. TODO-VERIFY marks rows whose
-# citation has not yet been verified by a human; they are listed in PROGRESS.md.
-# Do not add a row without a source.
+# Founder verification against the official pricing page pending; treat as provisional until PROGRESS.md says otherwise.
+# Model pricing, USD per million tokens, standard API rates.
+# Rates checked 2026-07-18 against the source URL on each row.
+# Cache read is 0.10 of the input price, cache write is 1.25 of the input price.
+# Thinking tokens bill at the output rate (applied in the meter's cost computation).
+# Guardrail 2: every row carries a source field. Do not add a row without one.
 version: 1
 currency: USD
 models:
-  - id: claude-sonnet-5
+  - id: claude-fable-5
+    inputPerMTokUsd: 10
+    outputPerMTokUsd: 50
+    cacheReadPerMTokUsd: 1
+    cacheWritePerMTokUsd: 12.5
+    source: https://platform.claude.com/docs/en/about-claude/pricing
+  - id: claude-opus-4-8
+    inputPerMTokUsd: 5
+    outputPerMTokUsd: 25
+    cacheReadPerMTokUsd: 0.5
+    cacheWritePerMTokUsd: 6.25
+    source: https://platform.claude.com/docs/en/about-claude/pricing
+  - id: claude-sonnet-4-6
     inputPerMTokUsd: 3
     outputPerMTokUsd: 15
     cacheReadPerMTokUsd: 0.3
     cacheWritePerMTokUsd: 3.75
-    source: TODO-VERIFY
-  - id: claude-opus-4-8
-    inputPerMTokUsd: 15
-    outputPerMTokUsd: 75
-    cacheReadPerMTokUsd: 1.5
-    cacheWritePerMTokUsd: 18.75
-    source: TODO-VERIFY
+    source: https://platform.claude.com/docs/en/about-claude/pricing
+  - id: claude-sonnet-5
+    inputPerMTokUsd: 2
+    outputPerMTokUsd: 10
+    cacheReadPerMTokUsd: 0.2
+    cacheWritePerMTokUsd: 2.5
+    note: introductory through 2026-08-31, standard 3.00/15.00 from 2026-09-01
+    source: https://platform.claude.com/docs/en/about-claude/pricing
   - id: claude-haiku-4-5
     inputPerMTokUsd: 1
     outputPerMTokUsd: 5
     cacheReadPerMTokUsd: 0.1
     cacheWritePerMTokUsd: 1.25
-    source: TODO-VERIFY
+    source: https://platform.claude.com/docs/en/about-claude/pricing

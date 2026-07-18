@@ -16,6 +16,7 @@ export const PriceRowSchema = z.object({
   outputPerMTokUsd: z.number().nonnegative(),
   cacheReadPerMTokUsd: z.number().nonnegative(),
   cacheWritePerMTokUsd: z.number().nonnegative(),
+  note: z.string().optional(),
   source: z.string().min(1),
 });
 export type PriceRow = z.infer<typeof PriceRowSchema>;
