@@ -33,6 +33,7 @@ export const AuditActionSchema = z.enum([
   'serve-raw',
   'redact',
   'skip',
+  'zoom',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
@@ -72,7 +73,19 @@ export const DistillProfileSchema = z.object({
   gates: z
     .object({
       entityPreservationMinRatio: z.number().min(0).max(1).default(0.95),
-      maxCompressionRatio: z.number().positive().optional(),
+      /** Raw lines matching this regex are the conclusion-relevant region; unset disables the entity gate. */
+      relevantLinePattern: z.string().optional(),
+      /** Double-extraction verdict config; unset disables the verdict gate. */
+      verdict: z
+        .object({
+          primaryPass: z.array(z.string()).default([]),
+          primaryFail: z.array(z.string()).default([]),
+          secondaryPass: z.array(z.string()).default([]),
+          secondaryFail: z.array(z.string()).default([]),
+          secondaryPassIfNoFail: z.boolean().default(false),
+        })
+        .optional(),
+      sizeMaxRatio: z.number().positive().optional(),
       minOutputBytes: z.number().int().nonnegative().optional(),
     })
     .default({}),

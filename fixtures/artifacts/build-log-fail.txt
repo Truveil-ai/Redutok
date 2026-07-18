@@ -1,0 +1,79 @@
+src/ledger.ts(7,8): error TS2307: Cannot find module '@redutok/shared' or its corresponding type declarations.
+src/ledger.ts(8,36): error TS2307: Cannot find module './parser.js' or its corresponding type declarations.
+src/ledger.ts(23,12): error TS2304: Cannot find name 'WrongType'.
+src/ledger.ts(32,18): error TS2304: Cannot find name 'WrongType'.
+src/ledger.ts(36,34): error TS7006: Parameter 'turn' implicitly has an 'any' type.
+src/ledger.ts(36,40): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/report.ts(1,39): error TS2307: Cannot find module 'node:fs' or its corresponding type declarations.
+src/report.ts(2,16): error TS2307: Cannot find module 'node:os' or its corresponding type declarations.
+src/report.ts(3,18): error TS2307: Cannot find module 'node:path' or its corresponding type declarations.
+src/report.ts(9,8): error TS2307: Cannot find module '@redutok/shared' or its corresponding type declarations.
+src/report.ts(10,54): error TS2307: Cannot find module './cost.js' or its corresponding type declarations.
+src/report.ts(11,58): error TS2307: Cannot find module './energy.js' or its corresponding type declarations.
+src/report.ts(13,52): error TS2307: Cannot find module './parser.js' or its corresponding type declarations.
+src/report.ts(67,43): error TS2554: Expected 1 arguments, but got 2.
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es5.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2015.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2016.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2017.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2018.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2019.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2020.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2021.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2022.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.dom.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.dom.iterable.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.dom.asynciterable.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.webworker.importscripts.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.scripthost.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2015.core.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2015.collection.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2015.generator.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2015.iterable.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2015.promise.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2015.proxy.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2015.reflect.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2015.symbol.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2016.array.include.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2016.intl.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2017.arraybuffer.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2017.date.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2017.object.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2017.sharedmemory.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2017.string.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2017.intl.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2017.typedarrays.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2018.asyncgenerator.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2018.asynciterable.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2018.intl.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2018.promise.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2018.regexp.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2019.array.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2019.object.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2019.string.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2019.symbol.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2019.intl.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2020.bigint.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2020.date.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2020.promise.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2020.sharedmemory.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2020.string.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2020.symbol.wellknown.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2020.intl.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2020.number.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2021.promise.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2021.string.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2021.weakref.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2021.intl.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2022.array.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2022.error.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2022.intl.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2022.object.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2022.string.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2022.regexp.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.decorators.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.decorators.legacy.d.ts
+E:/Redutok - Token Optimisation/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/lib/lib.es2022.full.d.ts
+C:/Users/Karan/AppData/Local/Temp/claude/E--Redutok---Token-Optimisation/fd2f5f1a-7680-48bd-934e-f3fd1e68c7dc/scratchpad/broken-build/src/ledger.ts
+C:/Users/Karan/AppData/Local/Temp/claude/E--Redutok---Token-Optimisation/fd2f5f1a-7680-48bd-934e-f3fd1e68c7dc/scratchpad/broken-build/src/report.ts

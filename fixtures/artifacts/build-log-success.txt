@@ -1,0 +1,11 @@
+Scope: 5 of 6 workspace projects
+packages/shared build$ tsc -p tsconfig.json
+packages/shared build: Done
+packages/hooks build$ tsc -p tsconfig.json
+packages/sidecar build$ tsc -p tsconfig.json
+packages/mcp build$ tsc -p tsconfig.json
+packages/hooks build: Done
+packages/mcp build: Done
+packages/sidecar build: Done
+packages/meter build$ tsc -p tsconfig.json
+packages/meter build: Done

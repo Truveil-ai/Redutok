@@ -6,3 +6,6 @@ export * from './client.js';
 export * from './daemon.js';
 export * from './log.js';
 export * from './gates.js';
+export * from './llm.js';
+export * from './skeleton.js';
+export * from './distill.js';

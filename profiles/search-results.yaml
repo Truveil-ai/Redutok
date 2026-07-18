@@ -1,0 +1,14 @@
+name: search-results
+version: "1"
+description: Grep-style results ranked per file and capped
+match:
+  tools: [Grep, Bash]
+  contentType: search-results
+rules:
+  - kind: ranked-hits
+    config: { maxFiles: 10, maxHitsPerFile: 3 }
+gates:
+  sizeMaxRatio: 0.4
+  minOutputBytes: 40
+llm:
+  enabled: false

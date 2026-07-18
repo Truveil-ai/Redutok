@@ -1,0 +1,155 @@
+import { readdirSync, statSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {
+  loadEnergyFactors,
+  loadGridIntensity,
+  loadPrices,
+  type AuditEvent,
+} from '@redutok/shared';
+import { computeSessionCost, type SessionCost } from './cost.js';
+import { computeSessionEnergy, type SessionEnergy } from './energy.js';
+import { buildLedger, grandTotal, type SessionLedger } from './ledger.js';
+import { parseSessionFile, type ParseCounts } from './parser.js';
+
+export interface Report {
+  source: string;
+  ledger: SessionLedger;
+  grandTotal: number;
+  cost: SessionCost;
+  energy: SessionEnergy;
+  parse: ParseCounts;
+  audit: AuditEvent[];
+  notes: string[];
+}
+
+export interface BuildReportOptions {
+  pricesPath?: string;
+  region?: string;
+}
+
+export async function buildReport(
+  filePath: string,
+  options: BuildReportOptions = {},
+): Promise<Report> {
+  const parsed = await parseSessionFile(filePath);
+  const ledger = buildLedger(parsed, path.basename(filePath, '.jsonl'));
+  const prices = loadPrices(options.pricesPath);
+  const cost = computeSessionCost(ledger, prices);
+  const energy = computeSessionEnergy(
+    ledger,
+    loadEnergyFactors(),
+    loadGridIntensity(),
+    options.region,
+  );
+
+  const notes: string[] = ['Thinking tokens are priced at the output rate.'];
+  if (cost.unverifiedSources.length > 0) {
+    notes.push(
+      `Price rows pending verification (TODO-VERIFY): ${cost.unverifiedSources.join(', ')}. Treat cost as indicative.`,
+    );
+  }
+  if (cost.unpricedModels.length > 0) {
+    notes.push(`No price row for: ${cost.unpricedModels.join(', ')}. Their turns are not costed.`);
+  }
+  notes.push(
+    'Energy and carbon figures are estimates from energy_factors.yaml and grid_intensity.yaml, never measurements. Sources are cited on every row; see docs/METHODOLOGY.md for evidence quality.',
+  );
+  if (energy.unestimatedModels.length > 0) {
+    notes.push(
+      `No energy factor class for: ${energy.unestimatedModels.join(', ')}. Their turns are excluded from the energy estimate.`,
+    );
+  }
+
+  return {
+    source: filePath,
+    ledger,
+    grandTotal: grandTotal(ledger.totals),
+    cost,
+    energy,
+    parse: parsed.counts,
+    audit: parsed.audit,
+    notes,
+  };
+}
+
+/** Default Claude Code transcript root for the current OS. */
+export function defaultLogRoot(): string {
+  return path.join(os.homedir(), '.claude', 'projects');
+}
+
+/** Newest .jsonl transcript under the given root, or undefined when none exist. */
+export function locateLastSessionLog(root: string = defaultLogRoot()): string | undefined {
+  let newest: { file: string; mtimeMs: number } | undefined;
+  const walk = (dir: string): void => {
+    let names: string[];
+    try {
+      names = readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      const full = path.join(dir, name);
+      let stats;
+      try {
+        stats = statSync(full);
+      } catch {
+        continue;
+      }
+      if (stats.isDirectory()) {
+        walk(full);
+      } else if (name.endsWith('.jsonl') && (!newest || stats.mtimeMs > newest.mtimeMs)) {
+        newest = { file: full, mtimeMs: stats.mtimeMs };
+      }
+    }
+  };
+  walk(root);
+  return newest?.file;
+}
+
+const fmt = (n: number): string => Math.round(n).toLocaleString('en-US');
+
+export function renderText(report: Report): string {
+  const { ledger, cost } = report;
+  const lines: string[] = [];
+  lines.push('Redutok report');
+  lines.push(`Session: ${ledger.sessionId}`);
+  lines.push(`Source: ${report.source}`);
+  lines.push(`Turns: ${ledger.entries.length}`);
+  lines.push('');
+  lines.push('Tokens');
+  lines.push(`  input        ${fmt(ledger.totals.input)}`);
+  lines.push(`  output       ${fmt(ledger.totals.output)}`);
+  lines.push(`  cache read   ${fmt(ledger.totals.cacheRead)}`);
+  lines.push(`  cache write  ${fmt(ledger.totals.cacheWrite)}`);
+  lines.push(`  thinking     ${fmt(ledger.totals.thinking)}`);
+  lines.push(`  total        ${fmt(report.grandTotal)}`);
+  lines.push('');
+  lines.push(`Estimated cost: ${cost.totalUsd.toFixed(4)} USD (${cost.pricedTurns} priced turns)`);
+  const e = report.energy;
+  const band = (b: { base: number; low: number; high: number }, unit: string): string =>
+    `estimated ${b.base.toFixed(2)} ${unit} (band ${b.low.toFixed(2)} to ${b.high.toFixed(2)} ${unit})`;
+  lines.push('');
+  lines.push('Energy (estimated, never measured)');
+  lines.push(`  ${band(e.wh, 'Wh')}`);
+  lines.push(`  ${band(e.gCo2e, 'gCO2e')}, grid region ${e.region} at ${e.gCo2ePerKwh} gCO2e/kWh`);
+  lines.push(`  sidecar self-consumption: ${e.sidecarWh} Wh (not yet measured, lands in Phase 3)`);
+  const tools = Object.entries(ledger.byTool).sort((a, b) => b[1].calls - a[1].calls);
+  if (tools.length > 0) {
+    lines.push('');
+    lines.push('Per tool (calls, output token share)');
+    for (const [tool, attr] of tools) {
+      lines.push(`  ${tool.padEnd(12)} ${attr.calls}  ${fmt(attr.outputTokenShare)}`);
+    }
+  }
+  const skipped = report.parse.unknownType + report.parse.malformed;
+  if (skipped > 0) {
+    lines.push('');
+    lines.push(
+      `Skipped records: ${report.parse.unknownType} unknown type, ${report.parse.malformed} malformed. Audit events: ${report.audit.length}.`,
+    );
+  }
+  lines.push('');
+  for (const note of report.notes) lines.push(`Note: ${note}`);
+  return lines.join('\n');
+}

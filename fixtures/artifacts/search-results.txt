@@ -1,0 +1,147 @@
+packages/shared/src/audit-file.ts:10:export interface AuditFileResult {
+packages/shared/src/audit-file.ts:16:export function readAuditFile(filePath: string, sessionId?: string): AuditFileResult {
+packages/shared/src/index.ts:1:export * from './schemas.js';
+packages/shared/src/index.ts:2:export * from './limits.js';
+packages/shared/src/index.ts:3:export * from './yaml.js';
+packages/shared/src/index.ts:4:export * from './audit-file.js';
+packages/shared/src/limits.ts:5:export const LIMITS = {
+packages/shared/src/limits.ts:14:export type Limits = typeof LIMITS;
+packages/shared/src/schemas.ts:8:export const TokenTallySchema = z.object({
+packages/shared/src/schemas.ts:15:export type TokenTally = z.infer<typeof TokenTallySchema>;
+packages/shared/src/schemas.ts:17:export const LedgerEntrySchema = z.object({
+packages/shared/src/schemas.ts:26:export type LedgerEntry = z.infer<typeof LedgerEntrySchema>;
+packages/shared/src/schemas.ts:28:export const AuditActionSchema = z.enum([
+packages/shared/src/schemas.ts:38:export type AuditAction = z.infer<typeof AuditActionSchema>;
+packages/shared/src/schemas.ts:40:export const AuditEventSchema = z.object({
+packages/shared/src/schemas.ts:53:export type AuditEvent = z.infer<typeof AuditEventSchema>;
+packages/shared/src/schemas.ts:55:export const DistillProfileSchema = z.object({
+packages/shared/src/schemas.ts:99:export type DistillProfile = z.infer<typeof DistillProfileSchema>;
+packages/shared/src/schemas.ts:101:export const CodexFileSchema = z.object({
+packages/shared/src/schemas.ts:126:export type CodexFile = z.infer<typeof CodexFileSchema>;
+packages/shared/src/schemas.ts:128:export function emptyTally(): TokenTally {
+packages/shared/src/schemas.ts:132:export function addTally(a: TokenTally, b: TokenTally): TokenTally {
+packages/shared/src/yaml.ts:13:export const PriceRowSchema = z.object({
+packages/shared/src/yaml.ts:22:export type PriceRow = z.infer<typeof PriceRowSchema>;
+packages/shared/src/yaml.ts:24:export const PricesFileSchema = z.object({
+packages/shared/src/yaml.ts:29:export type PricesFile = z.infer<typeof PricesFileSchema>;
+packages/shared/src/yaml.ts:31:export const EnergyBandSchema = z
+packages/shared/src/yaml.ts:40:export type EnergyBand = z.infer<typeof EnergyBandSchema>;
+packages/shared/src/yaml.ts:42:export const ContextMultiplierCurveSchema = z.object({
+packages/shared/src/yaml.ts:54:export type ContextMultiplierCurve = z.infer<typeof ContextMultiplierCurveSchema>;
+packages/shared/src/yaml.ts:56:export const EnergyFactorRowSchema = z.object({
+packages/shared/src/yaml.ts:67:export type EnergyFactorRow = z.infer<typeof EnergyFactorRowSchema>;
+packages/shared/src/yaml.ts:69:export const EnergyFactorsFileSchema = z.object({
+packages/shared/src/yaml.ts:73:export type EnergyFactorsFile = z.infer<typeof EnergyFactorsFileSchema>;
+packages/shared/src/yaml.ts:75:export const GridIntensityRowSchema = z.object({
+packages/shared/src/yaml.ts:83:export type GridIntensityRow = z.infer<typeof GridIntensityRowSchema>;
+packages/shared/src/yaml.ts:85:export const GridIntensityFileSchema = z
+packages/shared/src/yaml.ts:94:export type GridIntensityFile = z.infer<typeof GridIntensityFileSchema>;
+packages/shared/src/yaml.ts:96:export function loadYamlFile<S extends z.ZodTypeAny>(filePath: string, schema: S): z.infer<S> {
+packages/shared/src/yaml.ts:102:export function defaultPricesPath(): string {
+packages/shared/src/yaml.ts:106:export function loadPrices(filePath: string = defaultPricesPath()): PricesFile {
+packages/shared/src/yaml.ts:111:export function defaultEnergyFactorsPath(): string {
+packages/shared/src/yaml.ts:116:export function defaultGridIntensityPath(): string {
+packages/shared/src/yaml.ts:120:export function loadEnergyFactors(filePath: string = defaultEnergyFactorsPath()): EnergyFactorsFile {
+packages/shared/src/yaml.ts:124:export function loadGridIntensity(filePath: string = defaultGridIntensityPath()): GridIntensityFile {
+packages/meter/src/audit-render.ts:6:export function defaultAuditPath(cwd: string = process.cwd()): string {
+packages/meter/src/audit-render.ts:10:export function renderAuditText(result: AuditFileResult, sessionId: string): string {
+packages/meter/src/audit-render.ts:29:export function buildAuditReport(sessionId: string, filePath?: string): AuditFileResult {
+packages/meter/src/badge.ts:16:export function renderBadgeSvg(_report: Report): string {
+packages/meter/src/badge.ts:34:export function renderShareLine(report: Report): string {
+packages/meter/src/cli.ts:23:export async function main(argv: string[]): Promise<number> {
+packages/meter/src/cost.ts:11:export function computeTallyCostUsd(tokens: TokenTally, row: PriceRow): number {
+packages/meter/src/cost.ts:21:export interface SessionCost {
+packages/meter/src/cost.ts:28:export function computeSessionCost(ledger: SessionLedger, prices: PricesFile): SessionCost {
+packages/meter/src/energy.ts:10:export interface EstimateBand {
+packages/meter/src/energy.ts:16:export interface SessionEnergy {
+packages/meter/src/energy.ts:26:export function contextMultiplierFor(
+packages/meter/src/energy.ts:37:export function computeSessionEnergy(
+packages/meter/src/index.ts:1:export const PACKAGE_NAME = '@redutok/meter';
+packages/meter/src/index.ts:2:export * from './parser.js';
+packages/meter/src/index.ts:3:export * from './ledger.js';
+packages/meter/src/index.ts:4:export * from './cost.js';
+packages/meter/src/index.ts:5:export * from './energy.js';
+packages/meter/src/index.ts:6:export * from './report.js';
+packages/meter/src/index.ts:7:export * from './badge.js';
+packages/meter/src/index.ts:8:export * from './audit-render.js';
+packages/meter/src/ledger.ts:16:export interface ToolAttribution {
+packages/meter/src/ledger.ts:21:export interface SessionLedger {
+packages/meter/src/ledger.ts:30:export function buildLedger(parsed: ParsedSession, sessionIdFallback = 'unknown'): SessionLedger {
+packages/meter/src/ledger.ts:60:export function grandTotal(totals: TokenTally): number {
+packages/meter/src/parser.ts:13:export interface AssistantTurn {
+packages/meter/src/parser.ts:22:export interface ParseCounts {
+packages/meter/src/parser.ts:29:export interface ParsedSession {
+packages/meter/src/parser.ts:69:export function parseSessionJsonl(content: string, sourceRef?: string): ParsedSession {
+packages/meter/src/parser.ts:134:export async function parseSessionFile(filePath: string): Promise<ParsedSession> {
+packages/meter/src/report.ts:15:export interface Report {
+packages/meter/src/report.ts:26:export interface BuildReportOptions {
+packages/meter/src/report.ts:31:export async function buildReport(
+packages/meter/src/report.ts:77:export function defaultLogRoot(): string {
+packages/meter/src/report.ts:82:export function locateLastSessionLog(root: string = defaultLogRoot()): string | undefined {
+packages/meter/src/report.ts:112:export function renderText(report: Report): string {
+packages/meter/src/sidecar-cli.ts:9:export interface Pidfile {
+packages/meter/src/sidecar-cli.ts:15:export function dcpDir(cwd: string = process.cwd()): string {
+packages/meter/src/sidecar-cli.ts:19:export function readPidfile(dir: string = dcpDir()): Pidfile | undefined {
+packages/meter/src/sidecar-cli.ts:30:export async function sidecarStatus(dir: string = dcpDir()): Promise<string> {
+packages/meter/src/sidecar-cli.ts:43:export async function sidecarUp(dir: string = dcpDir()): Promise<string> {
+packages/meter/src/sidecar-cli.ts:73:export async function sidecarDown(dir: string = dcpDir()): Promise<string> {
+packages/sidecar/src/audit.ts:12:export class AuditWriter {
+packages/sidecar/src/client.ts:8:export interface SidecarTarget {
+packages/sidecar/src/client.ts:14:export type SidecarResponse =
+packages/sidecar/src/client.ts:18:export function sidecarRequest(
+packages/sidecar/src/daemon.ts:12:export interface DaemonOptions {
+packages/sidecar/src/daemon.ts:21:export interface DaemonHandle {
+packages/sidecar/src/daemon.ts:56:export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle> {
+packages/sidecar/src/distill.ts:22:export function loadProfiles(dir: string): Map<string, DistillProfile> {
+packages/sidecar/src/distill.ts:120:export interface DistillContext {
+packages/sidecar/src/distill.ts:124:export async function runProfile(
+packages/sidecar/src/distill.ts:145:export function profileGateConfig(profile: DistillProfile): GateConfig {
+packages/sidecar/src/distill.ts:157:export function estimateTokens(text: string): number {
+packages/sidecar/src/distill.ts:163:export function makeHandle(id: string, raw: string, distilled: string): string {
+packages/sidecar/src/distill.ts:167:export interface DistillOutcome {
+packages/sidecar/src/distill.ts:175:export interface DistillRequest {
+packages/sidecar/src/distill.ts:183:export async function distillArtifact(
+packages/sidecar/src/distill.ts:236:export interface ZoomResult {
+packages/sidecar/src/distill.ts:241:export function zoom(store: Store, audit: AuditWriter, id: string, query?: string): ZoomResult {
+packages/sidecar/src/gates.ts:9:export interface GateResult {
+packages/sidecar/src/gates.ts:15:export interface GateReport {
+packages/sidecar/src/gates.ts:20:export interface EntityGateConfig {
+packages/sidecar/src/gates.ts:27:export interface VerdictGateConfig {
+packages/sidecar/src/gates.ts:40:export interface SizeGateConfig {
+packages/sidecar/src/gates.ts:46:export interface GateConfig {
+packages/sidecar/src/gates.ts:65:export function extractEntities(text: string): string[] {
+packages/sidecar/src/gates.ts:75:export function entityPreservationGate(
+packages/sidecar/src/gates.ts:112:export function verdictFidelityGate(
+packages/sidecar/src/gates.ts:144:export function sizeSanityGate(raw: string, distilled: string, config: SizeGateConfig): GateResult {
+packages/sidecar/src/gates.ts:159:export function runGates(raw: string, distilled: string, config: GateConfig): GateReport {
+packages/sidecar/src/index.ts:1:export const PACKAGE_NAME = '@redutok/sidecar';
+packages/sidecar/src/index.ts:2:export * from './store.js';
+packages/sidecar/src/index.ts:3:export * from './audit.js';
+packages/sidecar/src/index.ts:4:export * from './redact.js';
+packages/sidecar/src/index.ts:5:export * from './client.js';
+packages/sidecar/src/index.ts:6:export * from './daemon.js';
+packages/sidecar/src/index.ts:7:export * from './log.js';
+packages/sidecar/src/index.ts:8:export * from './gates.js';
+packages/sidecar/src/index.ts:9:export * from './llm.js';
+packages/sidecar/src/index.ts:10:export * from './skeleton.js';
+packages/sidecar/src/index.ts:11:export * from './distill.js';
+packages/sidecar/src/llm.ts:7:export interface LlmPassInput {
+packages/sidecar/src/llm.ts:13:export interface LlmPass {
+packages/sidecar/src/llm.ts:19:export class NoopLlmPass implements LlmPass {
+packages/sidecar/src/log.ts:6:export type LogLevel = 'info' | 'warn' | 'error';
+packages/sidecar/src/log.ts:8:export interface Logger {
+packages/sidecar/src/log.ts:14:export function createLogger(filePath: string): Logger {
+packages/sidecar/src/redact.ts:33:      /^([ \t]*(?:export[ \t]+)?[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|API_?KEY|ACCESS_KEY|PRIVATE_KEY)[A-Z0-9_]*[ \t]*=)[^\r\n]+$/gm,
+packages/sidecar/src/redact.ts:37:export interface RedactionFinding {
+packages/sidecar/src/redact.ts:42:export interface RedactionResult {
+packages/sidecar/src/redact.ts:47:export function redact(input: string): RedactionResult {
+packages/sidecar/src/redact.ts:69:export function storeRedactedArtifact(
+packages/sidecar/src/skeleton.ts:10:export type SkeletonLanguage = 'ts' | 'js' | 'py';
+packages/sidecar/src/skeleton.ts:68:    if (child.type === 'export_statement' || child.type === 'decorated_definition') {
+packages/sidecar/src/skeleton.ts:91:export async function fileSkeleton(source: string, lang: SkeletonLanguage): Promise<string> {
+packages/sidecar/src/skeleton.ts:104:export function languageForPath(filePath: string): SkeletonLanguage | undefined {
+packages/sidecar/src/store.ts:14:export interface ArtifactRecord {
+packages/sidecar/src/store.ts:27:export interface ServedFileRecord {
+packages/sidecar/src/store.ts:34:export interface SessionStateRecord {
+packages/sidecar/src/store.ts:44:export class Store {
+packages/sidecar/src/store.ts:199:export function openStore(dbPath: string): Store {

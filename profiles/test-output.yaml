@@ -1,0 +1,22 @@
+name: test-output
+version: "1"
+description: Test runner output, distilled to verdict, failing tests, assertion diffs
+match:
+  tools: [Bash]
+  contentType: test-output
+rules:
+  - kind: relevant-lines
+    config: { pattern: 'FAIL|failed|AssertionError|expected|Expected|Received|→|×', maxLines: 60 }
+  - kind: summary-lines
+    config: { pattern: 'Test Files|Tests +\d|Duration' }
+gates:
+  entityPreservationMinRatio: 1
+  relevantLinePattern: 'FAIL |AssertionError'
+  verdict:
+    primaryPass: ['Tests {2,}\d+ passed \(\d+\)$']
+    primaryFail: ['\b\d+ failed\b']
+    secondaryFail: ['FAIL ', 'AssertionError']
+    secondaryPassIfNoFail: true
+  minOutputBytes: 12
+llm:
+  enabled: false

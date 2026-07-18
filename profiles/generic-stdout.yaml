@@ -1,0 +1,14 @@
+name: generic-stdout
+version: "1"
+description: Fallback profile, head and tail with the omitted middle counted
+match:
+  tools: [Bash]
+  contentType: generic
+rules:
+  - kind: head-tail
+    config: { headLines: 15, tailLines: 10 }
+gates:
+  sizeMaxRatio: 0.4
+  minOutputBytes: 20
+llm:
+  enabled: false

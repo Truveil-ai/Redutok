@@ -29,10 +29,18 @@ export interface VerdictGateConfig {
   primaryFail: string[];
   secondaryPass: string[];
   secondaryFail: string[];
+  /**
+   * When true, the secondary extractor reads pass from the absence of any
+   * secondaryFail marker. Still deterministic; used where success output has
+   * no positive marker (a clean build prints nothing error-shaped).
+   */
+  secondaryPassIfNoFail?: boolean;
 }
 
 export interface SizeGateConfig {
   maxRatio?: number;
+  /** A distillate smaller than this is suspicious (extraction produced nothing). */
+  minBytes?: number;
 }
 
 export interface GateConfig {
@@ -107,7 +115,10 @@ export function verdictFidelityGate(
   config: VerdictGateConfig,
 ): GateResult {
   const primary = verdictFrom(raw, config.primaryPass, config.primaryFail);
-  const secondary = verdictFrom(raw, config.secondaryPass, config.secondaryFail);
+  let secondary = verdictFrom(raw, config.secondaryPass, config.secondaryFail);
+  if (secondary === 'unknown' && config.secondaryPassIfNoFail === true) {
+    secondary = config.secondaryFail.some((p) => new RegExp(p, 'im').test(raw)) ? 'fail' : 'pass';
+  }
   if (primary === 'unknown' || secondary === 'unknown' || primary !== secondary) {
     return {
       gate: 'verdict-fidelity',
@@ -134,11 +145,14 @@ export function sizeSanityGate(raw: string, distilled: string, config: SizeGateC
   const maxRatio = config.maxRatio ?? LIMITS.SIZE_SANITY_MAX_RATIO;
   const rawBytes = Buffer.byteLength(raw, 'utf8');
   const distilledBytes = Buffer.byteLength(distilled, 'utf8');
-  const passed = rawBytes === 0 ? false : distilledBytes / rawBytes <= maxRatio;
+  const ratioOk = rawBytes === 0 ? false : distilledBytes / rawBytes <= maxRatio;
+  const minOk = config.minBytes === undefined || distilledBytes >= config.minBytes;
   return {
     gate: 'size-sanity',
-    passed,
-    detail: `${distilledBytes}B of ${rawBytes}B (max ratio ${maxRatio})`,
+    passed: ratioOk && minOk,
+    detail: `${distilledBytes}B of ${rawBytes}B (max ratio ${maxRatio}${
+      config.minBytes === undefined ? '' : `, min ${config.minBytes}B`
+    })`,
   };
 }
 

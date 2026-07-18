@@ -1,0 +1,14 @@
+name: file-skeleton
+version: "1"
+description: Source file reduced to signatures and docstrings via tree-sitter
+match:
+  tools: [Read]
+  contentType: source-file
+rules:
+  - kind: skeleton
+    config: { languages: [ts, js, py] }
+gates:
+  sizeMaxRatio: 0.4
+  minOutputBytes: 40
+llm:
+  enabled: false
