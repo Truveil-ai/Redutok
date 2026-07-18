@@ -51,11 +51,27 @@ function relevantLines(raw: string, profile: DistillProfile): string[] {
   return dedupe(raw.split(/\r?\n/).filter((l) => pattern.test(l))).slice(0, maxLines);
 }
 
-function buildLogDistill(raw: string, profile: DistillProfile): string {
-  const tailLines = Number(ruleConfig(profile, 'summary-tail')['lines'] ?? 2);
+function buildLogDistill(raw: string, profile: DistillProfile, context: DistillContext): string {
+  // Verdict contract only: status, first error with file:line and cause,
+  // error count, recovery handle. Everything else is reachable via zoom.
   const lines = raw.split(/\r?\n/).filter((l) => l.trim() !== '');
-  const parts = [verdictLine(raw, profile), ...relevantLines(raw, profile), ...lines.slice(-tailLines)];
-  return dedupe(parts.filter((p) => p !== '')).join('\n');
+  const relevant = new RegExp(profile.gates.relevantLinePattern ?? 'error|failed', 'i');
+  const errorLines = lines.filter((l) => relevant.test(l));
+  const verdict = verdictLine(raw, profile);
+  if (errorLines.length === 0) {
+    return dedupe([verdict, lines[lines.length - 1] ?? '', `[full log elided, ${zoomRef(context)}]`]).join(
+      '\n',
+    );
+  }
+  const files = new Set(
+    errorLines.map((l) => /^([^\s(:]+)[(:]/.exec(l.trim())?.[1]).filter((f) => f !== undefined),
+  );
+  return [
+    verdict,
+    `first error: ${errorLines[0]?.trim()}`,
+    `errors: ${errorLines.length} lines across ${files.size} files`,
+    `[full log elided, ${zoomRef(context)}]`,
+  ].join('\n');
 }
 
 function testOutputDistill(raw: string, profile: DistillProfile): string {
@@ -151,7 +167,7 @@ export async function runProfile(
 ): Promise<string> {
   switch (profile.name) {
     case 'build-log':
-      return buildLogDistill(raw, profile);
+      return buildLogDistill(raw, profile, context);
     case 'test-output':
       return testOutputDistill(raw, profile);
     case 'file-skeleton':
@@ -171,7 +187,11 @@ export function profileGateConfig(profile: DistillProfile): GateConfig {
     entity:
       g.relevantLinePattern === undefined
         ? undefined
-        : { relevantLinePattern: g.relevantLinePattern, minRatio: g.entityPreservationMinRatio },
+        : {
+            relevantLinePattern: g.relevantLinePattern,
+            minRatio: g.entityPreservationMinRatio,
+            limit: g.relevantLineLimit,
+          },
     verdict: g.verdict,
     size: { maxRatio: g.sizeMaxRatio, minBytes: g.minOutputBytes },
   };

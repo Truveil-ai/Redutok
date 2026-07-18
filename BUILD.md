@@ -29,6 +29,7 @@ Work in **one phase per Claude Code session**. Each session gets three files as 
 7. **Fixtures over mocks where possible.** Real captured artifacts (build logs, test output, JSONL session logs) live in `fixtures/` and drive the tests.
 8. **No network calls at runtime** except localhost (Ollama, sidecar). The meter and sidecar must work fully offline.
 9. **House style for all docs and user-facing strings:** no em-dashes, no exclamation marks, no emojis, no filler phrases.
+10. **Never amend or force-push a published commit once the repo is public or shared; fix forward.**
 
 ---
 

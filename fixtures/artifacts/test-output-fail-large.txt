@@ -1,0 +1,1128 @@
+$ pnpm vitest run --reporter=verbose
+
+ RUN  v2.1.9 E:/Redutok - Token Optimisation
+
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > filters to the requested session and renders one line per event
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > reports a missing audit file without throwing
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > rejects negative token counts
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > defaults tools to an empty array
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > rejects unknown actions
+ ✓ |@redutok/shared| test/schemas.test.ts > DistillProfileSchema > round-trips and applies defaults
+ ✓ |@redutok/shared| test/schemas.test.ts > CodexFileSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > tally helpers > adds tallies field by field
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > appends schema-validated events as one JSON line each
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > is append-only: a second writer never truncates existing events
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > rejects an event that fails the shared schema
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > filters by session and tolerates malformed lines with a counter
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > returns empty for a missing file instead of throwing
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > loads and validates a well-formed prices file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > rejects a row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > loads and validates a well-formed energy factors file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > rejects a band whose low exceeds base or base exceeds high
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > ships a default file whose rows are all verified with sources
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > loads and validates a well-formed grid intensity file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > rejects a region row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > ships a default file with the world default plus IN, US, EU rows, all verified
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > keeps the verified world value and its IEA note through schema validation
+ ✓ |@redutok/sidecar| test/gates.test.ts > extractEntities > extracts paths with line numbers, versions, quoted symbols, and numerics
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > passes when every entity from relevant raw lines appears in the distillate
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > fails when the distillate drops the file path
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > passes when both independent extractions agree and the distillate matches
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the two extractions disagree on the raw artifact
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the distillate flips the verdict
+ ✓ |@redutok/sidecar| test/gates.test.ts > sizeSanityGate > enforces the 40% ceiling from limits.ts
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > aggregates all gates and reports each result
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > fails overall when any single gate fails
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > extracts every assistant turn with exact token tallies
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > skips the unknown record type with a counter and an audit event
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on malformed.jsonl > never crashes and classifies every bad line
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > returns an empty result with no audit event for clean empty input
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > treats a JSON array line as malformed
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > matches hand-computed totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > attributes tool calls and splits turn output evenly across tools
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > numbers turns sequentially from 1
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on medium.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on long-agentic.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger fallbacks > uses the fallback session id and timestamp when records omit them
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > selects the first breakpoint at or above the context length
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > uses the last multiplier beyond the final breakpoint
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > reproduces hand-computed Wh and gCO2e bands from the yaml inputs
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > honours an explicit region
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > throws on an unknown region instead of guessing
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy with unmapped models > reports unmapped models and excludes them from the estimate
+ ✓ |@redutok/meter| test/cost.test.ts > computeTallyCostUsd > prices each token class, with thinking at the output rate
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > matches the hand-computed session cost
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > reports unpriced models instead of silently costing them at zero
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > loads, validates and covers the models used in the fixtures
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > keeps the sonnet-5 introductory pricing note through schema validation
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > redacts every supported secret pattern and counts findings by kind
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > leaves ordinary build output untouched with zero findings
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > proves redacted spans never reach disk, and writes a redact audit event
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > writes no redact event when nothing was found
+ ✓ |@redutok/sidecar| test/store.test.ts > openStore > creates the database, applies all migrations, and is idempotent on reopen
+ ✓ |@redutok/sidecar| test/store.test.ts > artifacts > round-trips an artifact with raw retention and metadata
+ ✓ |@redutok/sidecar| test/store.test.ts > served files registry > records and looks up the last served hash per session and path
+ ✓ |@redutok/sidecar| test/store.test.ts > session state > upserts and reads rolling session state
+ ✓ |@redutok/sidecar| test/store.test.ts > audit table > stores and lists audit events per session in insert order
+ ✓ |@redutok/sidecar| test/store.test.ts > migrations directory > contains only versioned sql files in order
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > assembles ledger, cost, parse counts and audit trail
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > round-trips through JSON for --json output
+ ✓ |@redutok/meter| test/report.test.ts > renderText > renders totals, tools and skip counts in the house style
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > finds the newest .jsonl in a nested directory tree
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > returns undefined when the directory does not exist
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > serves /health, writes a pidfile, and cleans up on close
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > writes structured jsonl logs
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over windows named pipe > serves /health over the pipe transport
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > sidecarRequest fails open fast when nothing is listening, never throws
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > distills over http, then zooms the stored raw without re-execution
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > answers 400 for a distill request with an unknown profile
+ ✓ |@redutok/sidecar| test/distill.test.ts > profile loading > loads all five phase 3 profiles from profiles/*.yaml
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > achieves the ratio with all gates passing and a fail verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > serves raw with an audit event when the log is corrupted into contradiction
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > keeps the failing test name and assertion detail, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > passes on the real passing vitest run with a pass verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > serves raw when the summary is truncated away and the verdict is inconclusive
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the real TypeScript source to signatures within the size gate
+ × |@redutok/shared| test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+   → expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the Python sample keeping signatures and docstrings
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > serves raw with an audit event when the input is not parseable source
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > ranks and caps hits with the honest header, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > serves raw when the input has no parseable hits
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > keeps head and tail and counts the omitted middle, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > serves raw for input too short to compress within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > elision recoverability > every omission marker from skeleton, search-results, and generic-stdout carries a valid zoom handle
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > formats the handle per architecture 4.4
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > zoom returns raw from the store without re-executing, and audits
+ ✓ |@redutok/hooks| test/index.test.ts > @redutok/hooks > exports its package name
+ ✓ |@redutok/mcp| test/index.test.ts > @redutok/mcp > exports its package name
+ ✓ |@redutok/shared| test/limits.test.ts > LIMITS > matches the budgets fixed in BUILD.md guardrail 5
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > a request in flight when the daemon is killed fails cleanly 1373ms
+ ✓ |@redutok/meter| test/badge.test.ts > renderBadgeSvg > produces a well-formed svg with the grade placeholder
+ ✓ |@redutok/meter| test/badge.test.ts > renderShareLine > carries totals, the estimated band, and ends with the required suffix
+ ✓ |@redutok/meter| test/index.test.ts > @redutok/meter > exports its package name
+ ✓ |@redutok/sidecar| test/index.test.ts > @redutok/sidecar > exports its package name
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > readPidfile > returns undefined for missing or corrupt pidfiles
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports not running without a pidfile, degrading cleanly
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports a stale pidfile when nothing listens on the recorded port
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports running against a live daemon and down stops it
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL |@redutok/shared|  test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+AssertionError: expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+
+- Expected
++ Received
+
+  Object {
+-   "region": "mars",
+-   "total": 99999,
++   "region": "world",
++   "total": 20100,
+  }
+
+ ❯ test/__fixture_fail.test.ts:4:47
+      2| describe('fixture failing suite', () => {
+      3|   it('deliberately fails to capture real failing output', () => {
+      4|     expect({ total: 20100, region: 'world' }).toEqual({ total: 99999, …
+       |                                               ^
+      5|   });
+      6| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 22 passed (23)
+      Tests  1 failed | 104 passed (105)
+   Start at  02:39:59
+   Duration  4.90s (transform 3.90s, setup 0ms, collect 20.01s, tests 4.67s, environment 14ms, prepare 14.69s)
+
+$ pnpm vitest run --reporter=verbose
+
+ RUN  v2.1.9 E:/Redutok - Token Optimisation
+
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > rejects negative token counts
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > defaults tools to an empty array
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > rejects unknown actions
+ ✓ |@redutok/shared| test/schemas.test.ts > DistillProfileSchema > round-trips and applies defaults
+ ✓ |@redutok/shared| test/schemas.test.ts > CodexFileSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > tally helpers > adds tallies field by field
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > appends schema-validated events as one JSON line each
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > is append-only: a second writer never truncates existing events
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > rejects an event that fails the shared schema
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > filters by session and tolerates malformed lines with a counter
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > returns empty for a missing file instead of throwing
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > loads and validates a well-formed prices file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > rejects a row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > loads and validates a well-formed energy factors file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > rejects a band whose low exceeds base or base exceeds high
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > ships a default file whose rows are all verified with sources
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > loads and validates a well-formed grid intensity file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > rejects a region row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > ships a default file with the world default plus IN, US, EU rows, all verified
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > keeps the verified world value and its IEA note through schema validation
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > filters to the requested session and renders one line per event
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > reports a missing audit file without throwing
+ ✓ |@redutok/sidecar| test/gates.test.ts > extractEntities > extracts paths with line numbers, versions, quoted symbols, and numerics
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > passes when every entity from relevant raw lines appears in the distillate
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > fails when the distillate drops the file path
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > passes when both independent extractions agree and the distillate matches
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the two extractions disagree on the raw artifact
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the distillate flips the verdict
+ ✓ |@redutok/sidecar| test/gates.test.ts > sizeSanityGate > enforces the 40% ceiling from limits.ts
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > aggregates all gates and reports each result
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > fails overall when any single gate fails
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > extracts every assistant turn with exact token tallies
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > skips the unknown record type with a counter and an audit event
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on malformed.jsonl > never crashes and classifies every bad line
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > returns an empty result with no audit event for clean empty input
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > treats a JSON array line as malformed
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > matches hand-computed totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > attributes tool calls and splits turn output evenly across tools
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > numbers turns sequentially from 1
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on medium.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on long-agentic.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger fallbacks > uses the fallback session id and timestamp when records omit them
+ ✓ |@redutok/meter| test/cost.test.ts > computeTallyCostUsd > prices each token class, with thinking at the output rate
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > matches the hand-computed session cost
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > reports unpriced models instead of silently costing them at zero
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > loads, validates and covers the models used in the fixtures
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > keeps the sonnet-5 introductory pricing note through schema validation
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > selects the first breakpoint at or above the context length
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > uses the last multiplier beyond the final breakpoint
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > redacts every supported secret pattern and counts findings by kind
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > leaves ordinary build output untouched with zero findings
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > proves redacted spans never reach disk, and writes a redact audit event
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > writes no redact event when nothing was found
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > reproduces hand-computed Wh and gCO2e bands from the yaml inputs
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > honours an explicit region
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > throws on an unknown region instead of guessing
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy with unmapped models > reports unmapped models and excludes them from the estimate
+ ✓ |@redutok/sidecar| test/store.test.ts > openStore > creates the database, applies all migrations, and is idempotent on reopen
+ ✓ |@redutok/sidecar| test/store.test.ts > artifacts > round-trips an artifact with raw retention and metadata
+ ✓ |@redutok/sidecar| test/store.test.ts > served files registry > records and looks up the last served hash per session and path
+ ✓ |@redutok/sidecar| test/store.test.ts > session state > upserts and reads rolling session state
+ ✓ |@redutok/sidecar| test/store.test.ts > audit table > stores and lists audit events per session in insert order
+ ✓ |@redutok/sidecar| test/store.test.ts > migrations directory > contains only versioned sql files in order
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > assembles ledger, cost, parse counts and audit trail
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > round-trips through JSON for --json output
+ ✓ |@redutok/meter| test/report.test.ts > renderText > renders totals, tools and skip counts in the house style
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > finds the newest .jsonl in a nested directory tree
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > returns undefined when the directory does not exist
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > serves /health, writes a pidfile, and cleans up on close
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > writes structured jsonl logs
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over windows named pipe > serves /health over the pipe transport
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > sidecarRequest fails open fast when nothing is listening, never throws
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > distills over http, then zooms the stored raw without re-execution
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > answers 400 for a distill request with an unknown profile
+ ✓ |@redutok/sidecar| test/distill.test.ts > profile loading > loads all five phase 3 profiles from profiles/*.yaml
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > achieves the ratio with all gates passing and a fail verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > serves raw with an audit event when the log is corrupted into contradiction
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > keeps the failing test name and assertion detail, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > passes on the real passing vitest run with a pass verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > serves raw when the summary is truncated away and the verdict is inconclusive
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the real TypeScript source to signatures within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the Python sample keeping signatures and docstrings
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > serves raw with an audit event when the input is not parseable source
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > ranks and caps hits with the honest header, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > serves raw when the input has no parseable hits
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > keeps head and tail and counts the omitted middle, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > serves raw for input too short to compress within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > elision recoverability > every omission marker from skeleton, search-results, and generic-stdout carries a valid zoom handle
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > formats the handle per architecture 4.4
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > zoom returns raw from the store without re-executing, and audits
+ × |@redutok/shared| test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+   → expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+ ✓ |@redutok/mcp| test/index.test.ts > @redutok/mcp > exports its package name
+ ✓ |@redutok/hooks| test/index.test.ts > @redutok/hooks > exports its package name
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > a request in flight when the daemon is killed fails cleanly 1440ms
+ ✓ |@redutok/shared| test/limits.test.ts > LIMITS > matches the budgets fixed in BUILD.md guardrail 5
+ ✓ |@redutok/meter| test/badge.test.ts > renderBadgeSvg > produces a well-formed svg with the grade placeholder
+ ✓ |@redutok/meter| test/badge.test.ts > renderShareLine > carries totals, the estimated band, and ends with the required suffix
+ ✓ |@redutok/meter| test/index.test.ts > @redutok/meter > exports its package name
+ ✓ |@redutok/sidecar| test/index.test.ts > @redutok/sidecar > exports its package name
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > readPidfile > returns undefined for missing or corrupt pidfiles
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports not running without a pidfile, degrading cleanly
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports a stale pidfile when nothing listens on the recorded port
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports running against a live daemon and down stops it
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL |@redutok/shared|  test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+AssertionError: expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+
+- Expected
++ Received
+
+  Object {
+-   "region": "mars",
+-   "total": 99999,
++   "region": "world",
++   "total": 20100,
+  }
+
+ ❯ test/__fixture_fail.test.ts:4:47
+      2| describe('fixture failing suite', () => {
+      3|   it('deliberately fails to capture real failing output', () => {
+      4|     expect({ total: 20100, region: 'world' }).toEqual({ total: 99999, …
+       |                                               ^
+      5|   });
+      6| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 22 passed (23)
+      Tests  1 failed | 104 passed (105)
+   Start at  02:40:08
+   Duration  4.72s (transform 3.12s, setup 0ms, collect 17.54s, tests 4.81s, environment 12ms, prepare 14.03s)
+
+$ pnpm vitest run --reporter=verbose
+
+ RUN  v2.1.9 E:/Redutok - Token Optimisation
+
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > appends schema-validated events as one JSON line each
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > is append-only: a second writer never truncates existing events
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > rejects an event that fails the shared schema
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > filters by session and tolerates malformed lines with a counter
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > returns empty for a missing file instead of throwing
+ ✓ |@redutok/sidecar| test/gates.test.ts > extractEntities > extracts paths with line numbers, versions, quoted symbols, and numerics
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > passes when every entity from relevant raw lines appears in the distillate
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > fails when the distillate drops the file path
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > passes when both independent extractions agree and the distillate matches
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the two extractions disagree on the raw artifact
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the distillate flips the verdict
+ ✓ |@redutok/sidecar| test/gates.test.ts > sizeSanityGate > enforces the 40% ceiling from limits.ts
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > aggregates all gates and reports each result
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > fails overall when any single gate fails
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > rejects negative token counts
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > defaults tools to an empty array
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > rejects unknown actions
+ ✓ |@redutok/shared| test/schemas.test.ts > DistillProfileSchema > round-trips and applies defaults
+ ✓ |@redutok/shared| test/schemas.test.ts > CodexFileSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > tally helpers > adds tallies field by field
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > filters to the requested session and renders one line per event
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > reports a missing audit file without throwing
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > loads and validates a well-formed prices file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > rejects a row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > loads and validates a well-formed energy factors file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > rejects a band whose low exceeds base or base exceeds high
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > ships a default file whose rows are all verified with sources
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > loads and validates a well-formed grid intensity file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > rejects a region row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > ships a default file with the world default plus IN, US, EU rows, all verified
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > keeps the verified world value and its IEA note through schema validation
+ ✓ |@redutok/sidecar| test/store.test.ts > openStore > creates the database, applies all migrations, and is idempotent on reopen
+ ✓ |@redutok/sidecar| test/store.test.ts > artifacts > round-trips an artifact with raw retention and metadata
+ ✓ |@redutok/sidecar| test/store.test.ts > served files registry > records and looks up the last served hash per session and path
+ ✓ |@redutok/sidecar| test/store.test.ts > session state > upserts and reads rolling session state
+ ✓ |@redutok/sidecar| test/store.test.ts > audit table > stores and lists audit events per session in insert order
+ ✓ |@redutok/sidecar| test/store.test.ts > migrations directory > contains only versioned sql files in order
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > extracts every assistant turn with exact token tallies
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > skips the unknown record type with a counter and an audit event
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on malformed.jsonl > never crashes and classifies every bad line
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > returns an empty result with no audit event for clean empty input
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > treats a JSON array line as malformed
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > redacts every supported secret pattern and counts findings by kind
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > leaves ordinary build output untouched with zero findings
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > proves redacted spans never reach disk, and writes a redact audit event
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > writes no redact event when nothing was found
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > matches hand-computed totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > attributes tool calls and splits turn output evenly across tools
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > numbers turns sequentially from 1
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on medium.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on long-agentic.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger fallbacks > uses the fallback session id and timestamp when records omit them
+ ✓ |@redutok/meter| test/cost.test.ts > computeTallyCostUsd > prices each token class, with thinking at the output rate
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > matches the hand-computed session cost
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > reports unpriced models instead of silently costing them at zero
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > loads, validates and covers the models used in the fixtures
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > keeps the sonnet-5 introductory pricing note through schema validation
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > selects the first breakpoint at or above the context length
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > uses the last multiplier beyond the final breakpoint
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > reproduces hand-computed Wh and gCO2e bands from the yaml inputs
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > honours an explicit region
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > throws on an unknown region instead of guessing
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy with unmapped models > reports unmapped models and excludes them from the estimate
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > assembles ledger, cost, parse counts and audit trail
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > round-trips through JSON for --json output
+ ✓ |@redutok/meter| test/report.test.ts > renderText > renders totals, tools and skip counts in the house style
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > finds the newest .jsonl in a nested directory tree
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > returns undefined when the directory does not exist
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > serves /health, writes a pidfile, and cleans up on close
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > writes structured jsonl logs
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over windows named pipe > serves /health over the pipe transport
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > sidecarRequest fails open fast when nothing is listening, never throws
+ ✓ |@redutok/sidecar| test/distill.test.ts > profile loading > loads all five phase 3 profiles from profiles/*.yaml
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > achieves the ratio with all gates passing and a fail verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > serves raw with an audit event when the log is corrupted into contradiction
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > keeps the failing test name and assertion detail, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > passes on the real passing vitest run with a pass verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > serves raw when the summary is truncated away and the verdict is inconclusive
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > distills over http, then zooms the stored raw without re-execution
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > answers 400 for a distill request with an unknown profile
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the real TypeScript source to signatures within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the Python sample keeping signatures and docstrings
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > serves raw with an audit event when the input is not parseable source
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > ranks and caps hits with the honest header, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > serves raw when the input has no parseable hits
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > keeps head and tail and counts the omitted middle, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > serves raw for input too short to compress within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > elision recoverability > every omission marker from skeleton, search-results, and generic-stdout carries a valid zoom handle
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > formats the handle per architecture 4.4
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > zoom returns raw from the store without re-executing, and audits
+ × |@redutok/shared| test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+   → expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+ ✓ |@redutok/hooks| test/index.test.ts > @redutok/hooks > exports its package name
+ ✓ |@redutok/mcp| test/index.test.ts > @redutok/mcp > exports its package name
+ ✓ |@redutok/shared| test/limits.test.ts > LIMITS > matches the budgets fixed in BUILD.md guardrail 5
+ ✓ |@redutok/meter| test/badge.test.ts > renderBadgeSvg > produces a well-formed svg with the grade placeholder
+ ✓ |@redutok/meter| test/badge.test.ts > renderShareLine > carries totals, the estimated band, and ends with the required suffix
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > a request in flight when the daemon is killed fails cleanly 1496ms
+ ✓ |@redutok/meter| test/index.test.ts > @redutok/meter > exports its package name
+ ✓ |@redutok/sidecar| test/index.test.ts > @redutok/sidecar > exports its package name
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > readPidfile > returns undefined for missing or corrupt pidfiles
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports not running without a pidfile, degrading cleanly
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports a stale pidfile when nothing listens on the recorded port
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports running against a live daemon and down stops it
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL |@redutok/shared|  test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+AssertionError: expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+
+- Expected
++ Received
+
+  Object {
+-   "region": "mars",
+-   "total": 99999,
++   "region": "world",
++   "total": 20100,
+  }
+
+ ❯ test/__fixture_fail.test.ts:4:47
+      2| describe('fixture failing suite', () => {
+      3|   it('deliberately fails to capture real failing output', () => {
+      4|     expect({ total: 20100, region: 'world' }).toEqual({ total: 99999, …
+       |                                               ^
+      5|   });
+      6| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 22 passed (23)
+      Tests  1 failed | 104 passed (105)
+   Start at  02:40:15
+   Duration  4.68s (transform 2.76s, setup 0ms, collect 15.90s, tests 4.57s, environment 13ms, prepare 14.79s)
+
+$ pnpm vitest run --reporter=verbose
+
+ RUN  v2.1.9 E:/Redutok - Token Optimisation
+
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > rejects negative token counts
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > defaults tools to an empty array
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > rejects unknown actions
+ ✓ |@redutok/shared| test/schemas.test.ts > DistillProfileSchema > round-trips and applies defaults
+ ✓ |@redutok/shared| test/schemas.test.ts > CodexFileSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > tally helpers > adds tallies field by field
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > filters to the requested session and renders one line per event
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > reports a missing audit file without throwing
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > loads and validates a well-formed prices file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > rejects a row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > loads and validates a well-formed energy factors file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > rejects a band whose low exceeds base or base exceeds high
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > ships a default file whose rows are all verified with sources
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > loads and validates a well-formed grid intensity file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > rejects a region row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > ships a default file with the world default plus IN, US, EU rows, all verified
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > keeps the verified world value and its IEA note through schema validation
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > extracts every assistant turn with exact token tallies
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > skips the unknown record type with a counter and an audit event
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on malformed.jsonl > never crashes and classifies every bad line
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > returns an empty result with no audit event for clean empty input
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > treats a JSON array line as malformed
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > appends schema-validated events as one JSON line each
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > is append-only: a second writer never truncates existing events
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > rejects an event that fails the shared schema
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > filters by session and tolerates malformed lines with a counter
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > returns empty for a missing file instead of throwing
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > matches hand-computed totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > attributes tool calls and splits turn output evenly across tools
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > numbers turns sequentially from 1
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on medium.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on long-agentic.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger fallbacks > uses the fallback session id and timestamp when records omit them
+ ✓ |@redutok/meter| test/cost.test.ts > computeTallyCostUsd > prices each token class, with thinking at the output rate
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > matches the hand-computed session cost
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > reports unpriced models instead of silently costing them at zero
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > loads, validates and covers the models used in the fixtures
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > keeps the sonnet-5 introductory pricing note through schema validation
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > selects the first breakpoint at or above the context length
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > uses the last multiplier beyond the final breakpoint
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > reproduces hand-computed Wh and gCO2e bands from the yaml inputs
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > honours an explicit region
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > throws on an unknown region instead of guessing
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy with unmapped models > reports unmapped models and excludes them from the estimate
+ ✓ |@redutok/sidecar| test/gates.test.ts > extractEntities > extracts paths with line numbers, versions, quoted symbols, and numerics
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > passes when every entity from relevant raw lines appears in the distillate
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > fails when the distillate drops the file path
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > passes when both independent extractions agree and the distillate matches
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the two extractions disagree on the raw artifact
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the distillate flips the verdict
+ ✓ |@redutok/sidecar| test/gates.test.ts > sizeSanityGate > enforces the 40% ceiling from limits.ts
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > aggregates all gates and reports each result
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > fails overall when any single gate fails
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > assembles ledger, cost, parse counts and audit trail
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > round-trips through JSON for --json output
+ ✓ |@redutok/meter| test/report.test.ts > renderText > renders totals, tools and skip counts in the house style
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > finds the newest .jsonl in a nested directory tree
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > returns undefined when the directory does not exist
+ ✓ |@redutok/sidecar| test/store.test.ts > openStore > creates the database, applies all migrations, and is idempotent on reopen
+ ✓ |@redutok/sidecar| test/store.test.ts > artifacts > round-trips an artifact with raw retention and metadata
+ ✓ |@redutok/sidecar| test/store.test.ts > served files registry > records and looks up the last served hash per session and path
+ ✓ |@redutok/sidecar| test/store.test.ts > session state > upserts and reads rolling session state
+ ✓ |@redutok/sidecar| test/store.test.ts > audit table > stores and lists audit events per session in insert order
+ ✓ |@redutok/sidecar| test/store.test.ts > migrations directory > contains only versioned sql files in order
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > redacts every supported secret pattern and counts findings by kind
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > leaves ordinary build output untouched with zero findings
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > proves redacted spans never reach disk, and writes a redact audit event
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > writes no redact event when nothing was found
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > serves /health, writes a pidfile, and cleans up on close
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > writes structured jsonl logs
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over windows named pipe > serves /health over the pipe transport
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > sidecarRequest fails open fast when nothing is listening, never throws
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > distills over http, then zooms the stored raw without re-execution 300ms
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > answers 400 for a distill request with an unknown profile
+ ✓ |@redutok/sidecar| test/distill.test.ts > profile loading > loads all five phase 3 profiles from profiles/*.yaml
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > achieves the ratio with all gates passing and a fail verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > serves raw with an audit event when the log is corrupted into contradiction
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > keeps the failing test name and assertion detail, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > passes on the real passing vitest run with a pass verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > serves raw when the summary is truncated away and the verdict is inconclusive
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the real TypeScript source to signatures within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the Python sample keeping signatures and docstrings
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > serves raw with an audit event when the input is not parseable source
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > ranks and caps hits with the honest header, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > serves raw when the input has no parseable hits
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > keeps head and tail and counts the omitted middle, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > serves raw for input too short to compress within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > elision recoverability > every omission marker from skeleton, search-results, and generic-stdout carries a valid zoom handle
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > formats the handle per architecture 4.4
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > zoom returns raw from the store without re-executing, and audits
+ × |@redutok/shared| test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+   → expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+ ✓ |@redutok/mcp| test/index.test.ts > @redutok/mcp > exports its package name
+ ✓ |@redutok/hooks| test/index.test.ts > @redutok/hooks > exports its package name
+ ✓ |@redutok/shared| test/limits.test.ts > LIMITS > matches the budgets fixed in BUILD.md guardrail 5
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > a request in flight when the daemon is killed fails cleanly 1300ms
+ ✓ |@redutok/meter| test/index.test.ts > @redutok/meter > exports its package name
+ ✓ |@redutok/meter| test/badge.test.ts > renderBadgeSvg > produces a well-formed svg with the grade placeholder
+ ✓ |@redutok/meter| test/badge.test.ts > renderShareLine > carries totals, the estimated band, and ends with the required suffix
+ ✓ |@redutok/sidecar| test/index.test.ts > @redutok/sidecar > exports its package name
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > readPidfile > returns undefined for missing or corrupt pidfiles
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports not running without a pidfile, degrading cleanly
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports a stale pidfile when nothing listens on the recorded port
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports running against a live daemon and down stops it
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL |@redutok/shared|  test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+AssertionError: expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+
+- Expected
++ Received
+
+  Object {
+-   "region": "mars",
+-   "total": 99999,
++   "region": "world",
++   "total": 20100,
+  }
+
+ ❯ test/__fixture_fail.test.ts:4:47
+      2| describe('fixture failing suite', () => {
+      3|   it('deliberately fails to capture real failing output', () => {
+      4|     expect({ total: 20100, region: 'world' }).toEqual({ total: 99999, …
+       |                                               ^
+      5|   });
+      6| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 22 passed (23)
+      Tests  1 failed | 104 passed (105)
+   Start at  02:40:23
+   Duration  4.61s (transform 2.93s, setup 0ms, collect 16.73s, tests 4.42s, environment 12ms, prepare 13.47s)
+
+$ pnpm vitest run --reporter=verbose
+
+ RUN  v2.1.9 E:/Redutok - Token Optimisation
+
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > filters to the requested session and renders one line per event
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > reports a missing audit file without throwing
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > rejects negative token counts
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > defaults tools to an empty array
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > rejects unknown actions
+ ✓ |@redutok/shared| test/schemas.test.ts > DistillProfileSchema > round-trips and applies defaults
+ ✓ |@redutok/shared| test/schemas.test.ts > CodexFileSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > tally helpers > adds tallies field by field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > loads and validates a well-formed prices file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > rejects a row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > loads and validates a well-formed energy factors file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > rejects a band whose low exceeds base or base exceeds high
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > ships a default file whose rows are all verified with sources
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > loads and validates a well-formed grid intensity file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > rejects a region row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > ships a default file with the world default plus IN, US, EU rows, all verified
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > keeps the verified world value and its IEA note through schema validation
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > extracts every assistant turn with exact token tallies
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > skips the unknown record type with a counter and an audit event
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on malformed.jsonl > never crashes and classifies every bad line
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > returns an empty result with no audit event for clean empty input
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > treats a JSON array line as malformed
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > appends schema-validated events as one JSON line each
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > is append-only: a second writer never truncates existing events
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > rejects an event that fails the shared schema
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > filters by session and tolerates malformed lines with a counter
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > returns empty for a missing file instead of throwing
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > selects the first breakpoint at or above the context length
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > uses the last multiplier beyond the final breakpoint
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > matches hand-computed totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > attributes tool calls and splits turn output evenly across tools
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > numbers turns sequentially from 1
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on medium.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on long-agentic.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger fallbacks > uses the fallback session id and timestamp when records omit them
+ ✓ |@redutok/sidecar| test/gates.test.ts > extractEntities > extracts paths with line numbers, versions, quoted symbols, and numerics
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > passes when every entity from relevant raw lines appears in the distillate
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > fails when the distillate drops the file path
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > passes when both independent extractions agree and the distillate matches
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the two extractions disagree on the raw artifact
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the distillate flips the verdict
+ ✓ |@redutok/sidecar| test/gates.test.ts > sizeSanityGate > enforces the 40% ceiling from limits.ts
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > aggregates all gates and reports each result
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > fails overall when any single gate fails
+ ✓ |@redutok/meter| test/cost.test.ts > computeTallyCostUsd > prices each token class, with thinking at the output rate
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > matches the hand-computed session cost
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > reports unpriced models instead of silently costing them at zero
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > loads, validates and covers the models used in the fixtures
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > keeps the sonnet-5 introductory pricing note through schema validation
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > reproduces hand-computed Wh and gCO2e bands from the yaml inputs
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > honours an explicit region
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > throws on an unknown region instead of guessing
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy with unmapped models > reports unmapped models and excludes them from the estimate
+ ✓ |@redutok/sidecar| test/store.test.ts > openStore > creates the database, applies all migrations, and is idempotent on reopen
+ ✓ |@redutok/sidecar| test/store.test.ts > artifacts > round-trips an artifact with raw retention and metadata
+ ✓ |@redutok/sidecar| test/store.test.ts > served files registry > records and looks up the last served hash per session and path
+ ✓ |@redutok/sidecar| test/store.test.ts > session state > upserts and reads rolling session state
+ ✓ |@redutok/sidecar| test/store.test.ts > audit table > stores and lists audit events per session in insert order
+ ✓ |@redutok/sidecar| test/store.test.ts > migrations directory > contains only versioned sql files in order
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > assembles ledger, cost, parse counts and audit trail
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > round-trips through JSON for --json output
+ ✓ |@redutok/meter| test/report.test.ts > renderText > renders totals, tools and skip counts in the house style
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > finds the newest .jsonl in a nested directory tree
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > returns undefined when the directory does not exist
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > redacts every supported secret pattern and counts findings by kind
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > leaves ordinary build output untouched with zero findings
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > proves redacted spans never reach disk, and writes a redact audit event
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > writes no redact event when nothing was found
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > serves /health, writes a pidfile, and cleans up on close
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > writes structured jsonl logs
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over windows named pipe > serves /health over the pipe transport
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > sidecarRequest fails open fast when nothing is listening, never throws
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > distills over http, then zooms the stored raw without re-execution 373ms
+ ✓ |@redutok/sidecar| test/distill.test.ts > profile loading > loads all five phase 3 profiles from profiles/*.yaml
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > achieves the ratio with all gates passing and a fail verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > serves raw with an audit event when the log is corrupted into contradiction
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > keeps the failing test name and assertion detail, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > passes on the real passing vitest run with a pass verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > serves raw when the summary is truncated away and the verdict is inconclusive
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > answers 400 for a distill request with an unknown profile
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the real TypeScript source to signatures within the size gate
+ × |@redutok/shared| test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+   → expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the Python sample keeping signatures and docstrings
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > serves raw with an audit event when the input is not parseable source
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > ranks and caps hits with the honest header, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > serves raw when the input has no parseable hits
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > keeps head and tail and counts the omitted middle, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > serves raw for input too short to compress within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > elision recoverability > every omission marker from skeleton, search-results, and generic-stdout carries a valid zoom handle
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > formats the handle per architecture 4.4
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > zoom returns raw from the store without re-executing, and audits
+ ✓ |@redutok/hooks| test/index.test.ts > @redutok/hooks > exports its package name
+ ✓ |@redutok/mcp| test/index.test.ts > @redutok/mcp > exports its package name
+ ✓ |@redutok/shared| test/limits.test.ts > LIMITS > matches the budgets fixed in BUILD.md guardrail 5
+ ✓ |@redutok/meter| test/index.test.ts > @redutok/meter > exports its package name
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > a request in flight when the daemon is killed fails cleanly 1372ms
+ ✓ |@redutok/meter| test/badge.test.ts > renderBadgeSvg > produces a well-formed svg with the grade placeholder
+ ✓ |@redutok/meter| test/badge.test.ts > renderShareLine > carries totals, the estimated band, and ends with the required suffix
+ ✓ |@redutok/sidecar| test/index.test.ts > @redutok/sidecar > exports its package name
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > readPidfile > returns undefined for missing or corrupt pidfiles
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports not running without a pidfile, degrading cleanly
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports a stale pidfile when nothing listens on the recorded port
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports running against a live daemon and down stops it
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL |@redutok/shared|  test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+AssertionError: expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+
+- Expected
++ Received
+
+  Object {
+-   "region": "mars",
+-   "total": 99999,
++   "region": "world",
++   "total": 20100,
+  }
+
+ ❯ test/__fixture_fail.test.ts:4:47
+      2| describe('fixture failing suite', () => {
+      3|   it('deliberately fails to capture real failing output', () => {
+      4|     expect({ total: 20100, region: 'world' }).toEqual({ total: 99999, …
+       |                                               ^
+      5|   });
+      6| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 22 passed (23)
+      Tests  1 failed | 104 passed (105)
+   Start at  02:40:30
+   Duration  4.55s (transform 2.99s, setup 0ms, collect 16.79s, tests 4.66s, environment 14ms, prepare 12.95s)
+
+$ pnpm vitest run --reporter=verbose
+
+ RUN  v2.1.9 E:/Redutok - Token Optimisation
+
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > filters to the requested session and renders one line per event
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > reports a missing audit file without throwing
+ ✓ |@redutok/meter| test/cost.test.ts > computeTallyCostUsd > prices each token class, with thinking at the output rate
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > extracts every assistant turn with exact token tallies
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > skips the unknown record type with a counter and an audit event
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on malformed.jsonl > never crashes and classifies every bad line
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > returns an empty result with no audit event for clean empty input
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > treats a JSON array line as malformed
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > matches hand-computed totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > attributes tool calls and splits turn output evenly across tools
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > numbers turns sequentially from 1
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on medium.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on long-agentic.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger fallbacks > uses the fallback session id and timestamp when records omit them
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > selects the first breakpoint at or above the context length
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > uses the last multiplier beyond the final breakpoint
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > matches the hand-computed session cost
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > reports unpriced models instead of silently costing them at zero
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > loads, validates and covers the models used in the fixtures
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > keeps the sonnet-5 introductory pricing note through schema validation
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > reproduces hand-computed Wh and gCO2e bands from the yaml inputs
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > honours an explicit region
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > throws on an unknown region instead of guessing
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy with unmapped models > reports unmapped models and excludes them from the estimate
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > rejects negative token counts
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > defaults tools to an empty array
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > rejects unknown actions
+ ✓ |@redutok/shared| test/schemas.test.ts > DistillProfileSchema > round-trips and applies defaults
+ ✓ |@redutok/shared| test/schemas.test.ts > CodexFileSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > tally helpers > adds tallies field by field
+ ✓ |@redutok/sidecar| test/gates.test.ts > extractEntities > extracts paths with line numbers, versions, quoted symbols, and numerics
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > passes when every entity from relevant raw lines appears in the distillate
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > fails when the distillate drops the file path
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > passes when both independent extractions agree and the distillate matches
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the two extractions disagree on the raw artifact
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the distillate flips the verdict
+ ✓ |@redutok/sidecar| test/gates.test.ts > sizeSanityGate > enforces the 40% ceiling from limits.ts
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > aggregates all gates and reports each result
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > fails overall when any single gate fails
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > assembles ledger, cost, parse counts and audit trail
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > round-trips through JSON for --json output
+ ✓ |@redutok/meter| test/report.test.ts > renderText > renders totals, tools and skip counts in the house style
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > finds the newest .jsonl in a nested directory tree
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > returns undefined when the directory does not exist
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > appends schema-validated events as one JSON line each
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > is append-only: a second writer never truncates existing events
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > rejects an event that fails the shared schema
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > filters by session and tolerates malformed lines with a counter
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > returns empty for a missing file instead of throwing
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > loads and validates a well-formed prices file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > rejects a row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > loads and validates a well-formed energy factors file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > rejects a band whose low exceeds base or base exceeds high
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > ships a default file whose rows are all verified with sources
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > loads and validates a well-formed grid intensity file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > rejects a region row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > ships a default file with the world default plus IN, US, EU rows, all verified
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > keeps the verified world value and its IEA note through schema validation
+ ✓ |@redutok/sidecar| test/store.test.ts > openStore > creates the database, applies all migrations, and is idempotent on reopen
+ ✓ |@redutok/sidecar| test/store.test.ts > artifacts > round-trips an artifact with raw retention and metadata
+ ✓ |@redutok/sidecar| test/store.test.ts > served files registry > records and looks up the last served hash per session and path
+ ✓ |@redutok/sidecar| test/store.test.ts > session state > upserts and reads rolling session state
+ ✓ |@redutok/sidecar| test/store.test.ts > audit table > stores and lists audit events per session in insert order
+ ✓ |@redutok/sidecar| test/store.test.ts > migrations directory > contains only versioned sql files in order
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > redacts every supported secret pattern and counts findings by kind
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > leaves ordinary build output untouched with zero findings
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > proves redacted spans never reach disk, and writes a redact audit event
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > writes no redact event when nothing was found
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > serves /health, writes a pidfile, and cleans up on close
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > writes structured jsonl logs
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over windows named pipe > serves /health over the pipe transport
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > sidecarRequest fails open fast when nothing is listening, never throws
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > distills over http, then zooms the stored raw without re-execution 311ms
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > answers 400 for a distill request with an unknown profile
+ ✓ |@redutok/sidecar| test/distill.test.ts > profile loading > loads all five phase 3 profiles from profiles/*.yaml
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > achieves the ratio with all gates passing and a fail verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > serves raw with an audit event when the log is corrupted into contradiction
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > keeps the failing test name and assertion detail, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > passes on the real passing vitest run with a pass verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > serves raw when the summary is truncated away and the verdict is inconclusive
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the real TypeScript source to signatures within the size gate
+ × |@redutok/shared| test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+   → expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+ ✓ |@redutok/hooks| test/index.test.ts > @redutok/hooks > exports its package name
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the Python sample keeping signatures and docstrings
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > serves raw with an audit event when the input is not parseable source
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > ranks and caps hits with the honest header, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > serves raw when the input has no parseable hits
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > keeps head and tail and counts the omitted middle, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > serves raw for input too short to compress within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > elision recoverability > every omission marker from skeleton, search-results, and generic-stdout carries a valid zoom handle
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > formats the handle per architecture 4.4
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > zoom returns raw from the store without re-executing, and audits
+ ✓ |@redutok/mcp| test/index.test.ts > @redutok/mcp > exports its package name
+ ✓ |@redutok/shared| test/limits.test.ts > LIMITS > matches the budgets fixed in BUILD.md guardrail 5
+ ✓ |@redutok/meter| test/badge.test.ts > renderBadgeSvg > produces a well-formed svg with the grade placeholder
+ ✓ |@redutok/meter| test/badge.test.ts > renderShareLine > carries totals, the estimated band, and ends with the required suffix
+ ✓ |@redutok/sidecar| test/index.test.ts > @redutok/sidecar > exports its package name
+ ✓ |@redutok/meter| test/index.test.ts > @redutok/meter > exports its package name
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > a request in flight when the daemon is killed fails cleanly 1380ms
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > readPidfile > returns undefined for missing or corrupt pidfiles
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports not running without a pidfile, degrading cleanly
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports a stale pidfile when nothing listens on the recorded port
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports running against a live daemon and down stops it
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL |@redutok/shared|  test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+AssertionError: expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+
+- Expected
++ Received
+
+  Object {
+-   "region": "mars",
+-   "total": 99999,
++   "region": "world",
++   "total": 20100,
+  }
+
+ ❯ test/__fixture_fail.test.ts:4:47
+      2| describe('fixture failing suite', () => {
+      3|   it('deliberately fails to capture real failing output', () => {
+      4|     expect({ total: 20100, region: 'world' }).toEqual({ total: 99999, …
+       |                                               ^
+      5|   });
+      6| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 22 passed (23)
+      Tests  1 failed | 104 passed (105)
+   Start at  02:40:37
+   Duration  4.55s (transform 2.65s, setup 0ms, collect 16.08s, tests 4.65s, environment 13ms, prepare 13.09s)
+
+$ pnpm vitest run --reporter=verbose
+
+ RUN  v2.1.9 E:/Redutok - Token Optimisation
+
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > rejects negative token counts
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > defaults tools to an empty array
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > rejects unknown actions
+ ✓ |@redutok/shared| test/schemas.test.ts > DistillProfileSchema > round-trips and applies defaults
+ ✓ |@redutok/shared| test/schemas.test.ts > CodexFileSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > tally helpers > adds tallies field by field
+ ✓ |@redutok/sidecar| test/gates.test.ts > extractEntities > extracts paths with line numbers, versions, quoted symbols, and numerics
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > passes when every entity from relevant raw lines appears in the distillate
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > fails when the distillate drops the file path
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > passes when both independent extractions agree and the distillate matches
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the two extractions disagree on the raw artifact
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the distillate flips the verdict
+ ✓ |@redutok/sidecar| test/gates.test.ts > sizeSanityGate > enforces the 40% ceiling from limits.ts
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > aggregates all gates and reports each result
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > fails overall when any single gate fails
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > appends schema-validated events as one JSON line each
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > is append-only: a second writer never truncates existing events
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > rejects an event that fails the shared schema
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > filters by session and tolerates malformed lines with a counter
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > returns empty for a missing file instead of throwing
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > loads and validates a well-formed prices file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > rejects a row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > loads and validates a well-formed energy factors file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > rejects a band whose low exceeds base or base exceeds high
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > ships a default file whose rows are all verified with sources
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > loads and validates a well-formed grid intensity file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > rejects a region row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > ships a default file with the world default plus IN, US, EU rows, all verified
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > keeps the verified world value and its IEA note through schema validation
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > filters to the requested session and renders one line per event
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > reports a missing audit file without throwing
+ ✓ |@redutok/sidecar| test/store.test.ts > openStore > creates the database, applies all migrations, and is idempotent on reopen
+ ✓ |@redutok/sidecar| test/store.test.ts > artifacts > round-trips an artifact with raw retention and metadata
+ ✓ |@redutok/sidecar| test/store.test.ts > served files registry > records and looks up the last served hash per session and path
+ ✓ |@redutok/sidecar| test/store.test.ts > session state > upserts and reads rolling session state
+ ✓ |@redutok/sidecar| test/store.test.ts > audit table > stores and lists audit events per session in insert order
+ ✓ |@redutok/sidecar| test/store.test.ts > migrations directory > contains only versioned sql files in order
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > extracts every assistant turn with exact token tallies
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > skips the unknown record type with a counter and an audit event
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on malformed.jsonl > never crashes and classifies every bad line
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > returns an empty result with no audit event for clean empty input
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > treats a JSON array line as malformed
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > redacts every supported secret pattern and counts findings by kind
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > leaves ordinary build output untouched with zero findings
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > proves redacted spans never reach disk, and writes a redact audit event
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > writes no redact event when nothing was found
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > matches hand-computed totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > attributes tool calls and splits turn output evenly across tools
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > numbers turns sequentially from 1
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on medium.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on long-agentic.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger fallbacks > uses the fallback session id and timestamp when records omit them
+ ✓ |@redutok/meter| test/cost.test.ts > computeTallyCostUsd > prices each token class, with thinking at the output rate
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > matches the hand-computed session cost
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > reports unpriced models instead of silently costing them at zero
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > loads, validates and covers the models used in the fixtures
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > keeps the sonnet-5 introductory pricing note through schema validation
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > selects the first breakpoint at or above the context length
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > uses the last multiplier beyond the final breakpoint
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > reproduces hand-computed Wh and gCO2e bands from the yaml inputs
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > honours an explicit region
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > throws on an unknown region instead of guessing
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy with unmapped models > reports unmapped models and excludes them from the estimate
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > serves /health, writes a pidfile, and cleans up on close
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > assembles ledger, cost, parse counts and audit trail
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > round-trips through JSON for --json output
+ ✓ |@redutok/meter| test/report.test.ts > renderText > renders totals, tools and skip counts in the house style
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > finds the newest .jsonl in a nested directory tree
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > returns undefined when the directory does not exist
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > writes structured jsonl logs
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over windows named pipe > serves /health over the pipe transport
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > sidecarRequest fails open fast when nothing is listening, never throws
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > distills over http, then zooms the stored raw without re-execution 313ms
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > answers 400 for a distill request with an unknown profile
+ ✓ |@redutok/sidecar| test/distill.test.ts > profile loading > loads all five phase 3 profiles from profiles/*.yaml
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > achieves the ratio with all gates passing and a fail verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > serves raw with an audit event when the log is corrupted into contradiction
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > keeps the failing test name and assertion detail, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > passes on the real passing vitest run with a pass verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > serves raw when the summary is truncated away and the verdict is inconclusive
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the real TypeScript source to signatures within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the Python sample keeping signatures and docstrings
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > serves raw with an audit event when the input is not parseable source
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > ranks and caps hits with the honest header, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > serves raw when the input has no parseable hits
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > keeps head and tail and counts the omitted middle, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > serves raw for input too short to compress within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > elision recoverability > every omission marker from skeleton, search-results, and generic-stdout carries a valid zoom handle
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > formats the handle per architecture 4.4
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > zoom returns raw from the store without re-executing, and audits
+ × |@redutok/shared| test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+   → expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+ ✓ |@redutok/mcp| test/index.test.ts > @redutok/mcp > exports its package name
+ ✓ |@redutok/hooks| test/index.test.ts > @redutok/hooks > exports its package name
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > a request in flight when the daemon is killed fails cleanly 1452ms
+ ✓ |@redutok/shared| test/limits.test.ts > LIMITS > matches the budgets fixed in BUILD.md guardrail 5
+ ✓ |@redutok/meter| test/index.test.ts > @redutok/meter > exports its package name
+ ✓ |@redutok/meter| test/badge.test.ts > renderBadgeSvg > produces a well-formed svg with the grade placeholder
+ ✓ |@redutok/meter| test/badge.test.ts > renderShareLine > carries totals, the estimated band, and ends with the required suffix
+ ✓ |@redutok/sidecar| test/index.test.ts > @redutok/sidecar > exports its package name
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > readPidfile > returns undefined for missing or corrupt pidfiles
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports not running without a pidfile, degrading cleanly
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports a stale pidfile when nothing listens on the recorded port
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports running against a live daemon and down stops it
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL |@redutok/shared|  test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+AssertionError: expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+
+- Expected
++ Received
+
+  Object {
+-   "region": "mars",
+-   "total": 99999,
++   "region": "world",
++   "total": 20100,
+  }
+
+ ❯ test/__fixture_fail.test.ts:4:47
+      2| describe('fixture failing suite', () => {
+      3|   it('deliberately fails to capture real failing output', () => {
+      4|     expect({ total: 20100, region: 'world' }).toEqual({ total: 99999, …
+       |                                               ^
+      5|   });
+      6| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 22 passed (23)
+      Tests  1 failed | 104 passed (105)
+   Start at  02:40:44
+   Duration  4.90s (transform 3.15s, setup 0ms, collect 16.96s, tests 4.74s, environment 13ms, prepare 14.63s)
+
+$ pnpm vitest run --reporter=verbose
+
+ RUN  v2.1.9 E:/Redutok - Token Optimisation
+
+ ✓ |@redutok/sidecar| test/gates.test.ts > extractEntities > extracts paths with line numbers, versions, quoted symbols, and numerics
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > passes when every entity from relevant raw lines appears in the distillate
+ ✓ |@redutok/sidecar| test/gates.test.ts > entityPreservationGate > fails when the distillate drops the file path
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > passes when both independent extractions agree and the distillate matches
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the two extractions disagree on the raw artifact
+ ✓ |@redutok/sidecar| test/gates.test.ts > verdictFidelityGate > fails when the distillate flips the verdict
+ ✓ |@redutok/sidecar| test/gates.test.ts > sizeSanityGate > enforces the 40% ceiling from limits.ts
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > aggregates all gates and reports each result
+ ✓ |@redutok/sidecar| test/gates.test.ts > runGates > fails overall when any single gate fails
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > rejects negative token counts
+ ✓ |@redutok/shared| test/schemas.test.ts > LedgerEntrySchema > defaults tools to an empty array
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > AuditEventSchema > rejects unknown actions
+ ✓ |@redutok/shared| test/schemas.test.ts > DistillProfileSchema > round-trips and applies defaults
+ ✓ |@redutok/shared| test/schemas.test.ts > CodexFileSchema > round-trips through JSON
+ ✓ |@redutok/shared| test/schemas.test.ts > tally helpers > adds tallies field by field
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > appends schema-validated events as one JSON line each
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > is append-only: a second writer never truncates existing events
+ ✓ |@redutok/sidecar| test/audit.test.ts > AuditWriter > rejects an event that fails the shared schema
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > filters by session and tolerates malformed lines with a counter
+ ✓ |@redutok/sidecar| test/audit.test.ts > readAuditFile > returns empty for a missing file instead of throwing
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > filters to the requested session and renders one line per event
+ ✓ |@redutok/meter| test/audit-render.test.ts > buildAuditReport and renderAuditText > reports a missing audit file without throwing
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > loads and validates a well-formed prices file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadPrices > rejects a row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > loads and validates a well-formed energy factors file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > rejects a band whose low exceeds base or base exceeds high
+ ✓ |@redutok/shared| test/yaml.test.ts > loadEnergyFactors > ships a default file whose rows are all verified with sources
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > loads and validates a well-formed grid intensity file
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > rejects a region row with no source field
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > ships a default file with the world default plus IN, US, EU rows, all verified
+ ✓ |@redutok/shared| test/yaml.test.ts > loadGridIntensity > keeps the verified world value and its IEA note through schema validation
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > extracts every assistant turn with exact token tallies
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on small.jsonl > skips the unknown record type with a counter and an audit event
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionFile on malformed.jsonl > never crashes and classifies every bad line
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > returns an empty result with no audit event for clean empty input
+ ✓ |@redutok/meter| test/parser.test.ts > parseSessionJsonl edge cases > treats a JSON array line as malformed
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > matches hand-computed totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > attributes tool calls and splits turn output evenly across tools
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on small.jsonl > numbers turns sequentially from 1
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on medium.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger on long-agentic.jsonl > matches the generator-computed expected totals to the token
+ ✓ |@redutok/meter| test/ledger.test.ts > buildLedger fallbacks > uses the fallback session id and timestamp when records omit them
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > redacts every supported secret pattern and counts findings by kind
+ ✓ |@redutok/sidecar| test/redact.test.ts > redact > leaves ordinary build output untouched with zero findings
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > proves redacted spans never reach disk, and writes a redact audit event
+ ✓ |@redutok/sidecar| test/redact.test.ts > storeRedactedArtifact > writes no redact event when nothing was found
+ ✓ |@redutok/meter| test/cost.test.ts > computeTallyCostUsd > prices each token class, with thinking at the output rate
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > matches the hand-computed session cost
+ ✓ |@redutok/meter| test/cost.test.ts > computeSessionCost on small.jsonl > reports unpriced models instead of silently costing them at zero
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > loads, validates and covers the models used in the fixtures
+ ✓ |@redutok/meter| test/cost.test.ts > shipped prices.yaml > keeps the sonnet-5 introductory pricing note through schema validation
+ ✓ |@redutok/sidecar| test/store.test.ts > openStore > creates the database, applies all migrations, and is idempotent on reopen
+ ✓ |@redutok/sidecar| test/store.test.ts > artifacts > round-trips an artifact with raw retention and metadata
+ ✓ |@redutok/sidecar| test/store.test.ts > served files registry > records and looks up the last served hash per session and path
+ ✓ |@redutok/sidecar| test/store.test.ts > session state > upserts and reads rolling session state
+ ✓ |@redutok/sidecar| test/store.test.ts > audit table > stores and lists audit events per session in insert order
+ ✓ |@redutok/sidecar| test/store.test.ts > migrations directory > contains only versioned sql files in order
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > selects the first breakpoint at or above the context length
+ ✓ |@redutok/meter| test/energy.test.ts > contextMultiplierFor > uses the last multiplier beyond the final breakpoint
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > reproduces hand-computed Wh and gCO2e bands from the yaml inputs
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > honours an explicit region
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy on small.jsonl > throws on an unknown region instead of guessing
+ ✓ |@redutok/meter| test/energy.test.ts > computeSessionEnergy with unmapped models > reports unmapped models and excludes them from the estimate
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > assembles ledger, cost, parse counts and audit trail
+ ✓ |@redutok/meter| test/report.test.ts > buildReport on small.jsonl > round-trips through JSON for --json output
+ ✓ |@redutok/meter| test/report.test.ts > renderText > renders totals, tools and skip counts in the house style
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > finds the newest .jsonl in a nested directory tree
+ ✓ |@redutok/meter| test/report.test.ts > locateLastSessionLog > returns undefined when the directory does not exist
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > serves /health, writes a pidfile, and cleans up on close
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over localhost http > writes structured jsonl logs
+ ✓ |@redutok/sidecar| test/daemon.test.ts > daemon over windows named pipe > serves /health over the pipe transport
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > sidecarRequest fails open fast when nothing is listening, never throws
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > distills over http, then zooms the stored raw without re-execution
+ ✓ |@redutok/sidecar| test/daemon-distill.test.ts > daemon distill and zoom endpoints > answers 400 for a distill request with an unknown profile
+ ✓ |@redutok/sidecar| test/distill.test.ts > profile loading > loads all five phase 3 profiles from profiles/*.yaml
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > achieves the ratio with all gates passing and a fail verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > build-log profile on the real failing tsc log > serves raw with an audit event when the log is corrupted into contradiction
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > keeps the failing test name and assertion detail, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > passes on the real passing vitest run with a pass verdict
+ ✓ |@redutok/sidecar| test/distill.test.ts > test-output profile on the real failing vitest run > serves raw when the summary is truncated away and the verdict is inconclusive
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the real TypeScript source to signatures within the size gate
+ × |@redutok/shared| test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+   → expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > reduces the Python sample keeping signatures and docstrings
+ ✓ |@redutok/sidecar| test/distill.test.ts > file-skeleton profile via tree-sitter > serves raw with an audit event when the input is not parseable source
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > ranks and caps hits with the honest header, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > search-results profile on the real grep capture > serves raw when the input has no parseable hits
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > keeps head and tail and counts the omitted middle, gates passing
+ ✓ |@redutok/sidecar| test/distill.test.ts > generic-stdout profile on the real verbose vitest stream > serves raw for input too short to compress within the size gate
+ ✓ |@redutok/sidecar| test/distill.test.ts > elision recoverability > every omission marker from skeleton, search-results, and generic-stdout carries a valid zoom handle
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > formats the handle per architecture 4.4
+ ✓ |@redutok/sidecar| test/distill.test.ts > handles and zoom > zoom returns raw from the store without re-executing, and audits
+ ✓ |@redutok/hooks| test/index.test.ts > @redutok/hooks > exports its package name
+ ✓ |@redutok/mcp| test/index.test.ts > @redutok/mcp > exports its package name
+ ✓ |@redutok/shared| test/limits.test.ts > LIMITS > matches the budgets fixed in BUILD.md guardrail 5
+ ✓ |@redutok/sidecar| test/daemon.test.ts > graceful degradation > a request in flight when the daemon is killed fails cleanly 1445ms
+ ✓ |@redutok/meter| test/index.test.ts > @redutok/meter > exports its package name
+ ✓ |@redutok/sidecar| test/index.test.ts > @redutok/sidecar > exports its package name
+ ✓ |@redutok/meter| test/badge.test.ts > renderBadgeSvg > produces a well-formed svg with the grade placeholder
+ ✓ |@redutok/meter| test/badge.test.ts > renderShareLine > carries totals, the estimated band, and ends with the required suffix
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > readPidfile > returns undefined for missing or corrupt pidfiles
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports not running without a pidfile, degrading cleanly
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports a stale pidfile when nothing listens on the recorded port
+ ✓ |@redutok/meter| test/sidecar-cli.test.ts > sidecarStatus > reports running against a live daemon and down stops it
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL |@redutok/shared|  test/__fixture_fail.test.ts > fixture failing suite > deliberately fails to capture real failing output
+AssertionError: expected { total: 20100, region: 'world' } to deeply equal { total: 99999, region: 'mars' }
+
+- Expected
++ Received
+
+  Object {
+-   "region": "mars",
+-   "total": 99999,
++   "region": "world",
++   "total": 20100,
+  }
+
+ ❯ test/__fixture_fail.test.ts:4:47
+      2| describe('fixture failing suite', () => {
+      3|   it('deliberately fails to capture real failing output', () => {
+      4|     expect({ total: 20100, region: 'world' }).toEqual({ total: 99999, …
+       |                                               ^
+      5|   });
+      6| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 22 passed (23)
+      Tests  1 failed | 104 passed (105)
+   Start at  02:40:51
+   Duration  4.60s (transform 2.92s, setup 0ms, collect 15.90s, tests 4.62s, environment 11ms, prepare 13.68s)
+

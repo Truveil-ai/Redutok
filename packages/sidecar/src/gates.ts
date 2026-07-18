@@ -22,6 +22,8 @@ export interface EntityGateConfig {
   relevantLinePattern: string;
   /** Fraction of extracted entities that must appear verbatim in the distillate. */
   minRatio: number;
+  /** Only the first N matching lines form the region; unset means all matches. */
+  limit?: number;
 }
 
 export interface VerdictGateConfig {
@@ -78,10 +80,9 @@ export function entityPreservationGate(
   config: EntityGateConfig,
 ): GateResult {
   const relevant = new RegExp(config.relevantLinePattern, 'i');
-  const region = raw
-    .split(/\r?\n/)
-    .filter((line) => relevant.test(line))
-    .join('\n');
+  let matches = raw.split(/\r?\n/).filter((line) => relevant.test(line));
+  if (config.limit !== undefined) matches = matches.slice(0, config.limit);
+  const region = matches.join('\n');
   const entities = extractEntities(region);
   if (entities.length === 0) {
     return { gate: 'entity-preservation', passed: true, detail: 'no entities in relevant region' };

@@ -75,6 +75,8 @@ export const DistillProfileSchema = z.object({
       entityPreservationMinRatio: z.number().min(0).max(1).default(0.95),
       /** Raw lines matching this regex are the conclusion-relevant region; unset disables the entity gate. */
       relevantLinePattern: z.string().optional(),
+      /** Only the first N matching lines form the region (build-log: the first error is the conclusion). */
+      relevantLineLimit: z.number().int().positive().optional(),
       /** Double-extraction verdict config; unset disables the verdict gate. */
       verdict: z
         .object({

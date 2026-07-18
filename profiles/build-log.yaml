@@ -5,13 +5,12 @@ match:
   tools: [Bash]
   contentType: build-log
 rules:
-  - kind: relevant-lines
-    config: { pattern: 'error|failed|warning', maxLines: 40 }
-  - kind: summary-tail
-    config: { lines: 2 }
+  - kind: verdict-contract
+    config: {}
 gates:
   entityPreservationMinRatio: 1
   relevantLinePattern: 'error|failed'
+  relevantLineLimit: 1
   verdict:
     primaryPass: ['build: Done', '\bDone in ', '\bbuild (?:succeeded|completed)\b']
     primaryFail: ['\berror TS\d+', '\bbuild failed\b', 'ELIFECYCLE', '^.+\(\d+,\d+\): error ']

@@ -14,12 +14,14 @@ const sidecar = await import(
 const { AuditWriter, distillArtifact, estimateTokens, loadProfiles, openStore } = sidecar;
 
 const CASES = [
-  ['build-log', 'build-log-fail.txt', undefined],
-  ['test-output', 'test-output-fail.txt', undefined],
-  ['file-skeleton', 'large-source.ts', 'fixtures/artifacts/large-source.ts'],
-  ['file-skeleton', 'sample.py', 'fixtures/artifacts/sample.py'],
-  ['search-results', 'search-results.txt', undefined],
-  ['generic-stdout', 'generic-stdout.txt', undefined],
+  ['build-log', 'build-log-fail.txt', undefined, 'small'],
+  ['build-log', 'build-log-fail-large.txt', undefined, 'large'],
+  ['test-output', 'test-output-fail.txt', undefined, 'small'],
+  ['test-output', 'test-output-fail-large.txt', undefined, 'large'],
+  ['file-skeleton', 'large-source.ts', 'fixtures/artifacts/large-source.ts', ''],
+  ['file-skeleton', 'sample.py', 'fixtures/artifacts/sample.py', ''],
+  ['search-results', 'search-results.txt', undefined, ''],
+  ['generic-stdout', 'generic-stdout.txt', undefined, ''],
 ];
 
 const profiles = loadProfiles(path.join(repoRoot, 'profiles'));
@@ -28,7 +30,7 @@ const store = openStore(path.join(dir, 'state.db'));
 const audit = new AuditWriter(path.join(dir, 'audit.jsonl'));
 
 const rows = [];
-for (const [profileName, fixtureName, filePath] of CASES) {
+for (const [profileName, fixtureName, filePath, sizeLabel] of CASES) {
   const raw = readFileSync(path.join(repoRoot, 'fixtures', 'artifacts', fixtureName), 'utf8');
   const outcome = await distillArtifact(store, audit, {
     raw,
@@ -40,7 +42,7 @@ for (const [profileName, fixtureName, filePath] of CASES) {
   const distTok = estimateTokens(outcome.text);
   rows.push({
     profile: profileName,
-    fixture: fixtureName,
+    fixture: sizeLabel === '' ? fixtureName : `${fixtureName} (${sizeLabel})`,
     rawTok,
     distTok,
     ratio: (rawTok / distTok).toFixed(1),
