@@ -9,7 +9,6 @@ import {
   NoopFrontierPolish,
   buildCodexInjection,
   codexPaths,
-  ollamaGenerate,
   readCodex,
   refreshFiles,
   semanticPass,

@@ -1,16 +1,19 @@
 version: "1"
 project: Redutok - Token Optimisation
-generatedAt: 2026-07-18T23:09:01.858Z
+generatedAt: 2026-07-18T23:18:15.133Z
 architecture: []
 map:
   - path: .
-    role: unclassified
-    roleSource: rules
+    role: The module's role in Project Redutok - Token Optimisation is to export
+      optimized tokens.
+    roleSource: llm
     keySymbols: []
     locked: false
   - path: fixtures/artifacts
-    role: unclassified
-    roleSource: rules
+    role: The module at `fixtures/artifacts` in the Redutok - Token Optimisation
+      project contains functions and classes for exporting reports, building
+      report options, handling ledger data, and initializing nec
+    roleSource: llm
     keySymbols:
       - Report
       - BuildReportOptions
@@ -20,8 +23,10 @@ map:
       - __init__
     locked: false
   - path: fixtures/repos/repo-a/src
-    role: implementation
-    roleSource: rules
+    role: The module at `fixtures/repos/repo-a/src` in the Redutok - Token
+      Optimisation project exports `totalValue`, `seed`, `Row`, and
+      `MemoryStore`.
+    roleSource: llm
     keySymbols:
       - totalValue
       - seed
@@ -29,14 +34,17 @@ map:
       - MemoryStore
     locked: false
   - path: fixtures/repos/repo-a/test
-    role: tests
-    roleSource: rules
+    role: The module at `fixtures/repos/repo-a/test` in the Redutok - Token
+      Optimisation project exports `runTests`.
+    roleSource: llm
     keySymbols:
       - runTests
     locked: false
   - path: fixtures/repos/repo-b/pkg
-    role: unclassified
-    roleSource: rules
+    role: The module at `fixtures/repos/repo-b/pkg` in the Redutok - Token
+      Optimisation project exports `tokenize`, `Counter`, and `__init__`, along
+      with `formatCounts`.
+    roleSource: llm
     keySymbols:
       - tokenize
       - Counter
@@ -44,8 +52,10 @@ map:
       - formatCounts
     locked: false
   - path: packages/hooks/src
-    role: implementation
-    roleSource: rules
+    role: The module in `packages/hooks/src` for the Redutok - Token Optimisation
+      project exports `HookDeps`, `HookOutput`, `SMALL_READ_BYTES`, and
+      `PACKAGE_NAME`.
+    roleSource: llm
     keySymbols:
       - HookDeps
       - HookOutput
@@ -53,13 +63,16 @@ map:
       - PACKAGE_NAME
     locked: false
   - path: packages/hooks/test
-    role: tests
-    roleSource: rules
+    role: The module at `packages/hooks/test` in the Redutok - Token Optimisation
+      project exports test hooks for testing token-related functionalities.
+    roleSource: llm
     keySymbols: []
     locked: false
   - path: packages/mcp/src
-    role: implementation
-    roleSource: rules
+    role: The module at `packages/mcp/src` in the Redutok - Token Optimisation
+      project exports `PACKAGE_NAME`, `JsonRpcRequest`, `JsonRpcResponse`, and
+      `McpDeps`.
+    roleSource: llm
     keySymbols:
       - PACKAGE_NAME
       - JsonRpcRequest
@@ -67,13 +80,16 @@ map:
       - McpDeps
     locked: false
   - path: packages/mcp/test
-    role: tests
-    roleSource: rules
+    role: The module in packages/mcp/test within the Redutok - Token Optimisation
+      project is responsible for exporting token optimisation tests.
+    roleSource: llm
     keySymbols: []
     locked: false
   - path: packages/meter/src
-    role: implementation
-    roleSource: rules
+    role: The module in `packages/meter/src` for the Redutok - Token Optimisation
+      project exports defaultAuditPath, renderAuditText, buildAuditReport,
+      renderBadgeSvg, renderShareLine, Variant, and SuccessCheck,
+    roleSource: llm
     keySymbols:
       - defaultAuditPath
       - renderAuditText
@@ -85,13 +101,17 @@ map:
       - BenchTask
     locked: false
   - path: packages/meter/test
-    role: tests
-    roleSource: rules
+    role: The module in packages/meter/test within the Redutok - Token Optimisation
+      project is responsible for testing metering functionalities and exports
+      test cases and utilities.
+    roleSource: llm
     keySymbols: []
     locked: false
   - path: packages/shared/src
-    role: implementation
-    roleSource: rules
+    role: "The module in `packages/shared/src` for project Redutok - Token
+      Optimisation exports `AuditFileResult`, `readAuditFile`, `LIMITS`,
+      `Limits`, `TokenTallySchema`, `TokenTally`, `LedgerEntrySchema`, and "
+    roleSource: llm
     keySymbols:
       - AuditFileResult
       - readAuditFile
@@ -103,13 +123,17 @@ map:
       - PriceRowSchema
     locked: false
   - path: packages/shared/test
-    role: tests
-    roleSource: rules
+    role: The module at `packages/shared/test` in project Redutok - Token
+      Optimisation exports test cases or utilities for testing shared
+      functionalities.
+    roleSource: llm
     keySymbols: []
     locked: false
   - path: packages/sidecar/src
-    role: implementation
-    roleSource: rules
+    role: The module at `packages/sidecar/src` in the Redutok - Token Optimisation
+      project exports AuditWriter, SidecarTarget, SidecarResponse,
+      sidecarRequest, listSourceFiles, CodexPaths, codexPaths, and Daemo
+    roleSource: llm
     keySymbols:
       - AuditWriter
       - SidecarTarget
@@ -121,13 +145,16 @@ map:
       - DaemonOptions
     locked: false
   - path: packages/sidecar/test
-    role: tests
-    roleSource: rules
+    role: The module in `packages/sidecar/test` in the Redutok - Token Optimisation
+      project is responsible for testing the sidecar functionalities and exports
+      test cases.
+    roleSource: llm
     keySymbols: []
     locked: false
   - path: scripts
-    role: maintenance scripts
-    roleSource: rules
+    role: The module in scripts for project Redutok - Token Optimisation is
+      responsible for exporting optimized tokens.
+    roleSource: llm
     keySymbols: []
     locked: false
 conventions: []
@@ -761,7 +788,7 @@ files:
   - path: packages/meter/src/claude-compat.ts
     hash: 8abdb6222e85fb35
   - path: packages/meter/src/cli.ts
-    hash: 95b63e9954f93ff3
+    hash: 35cb46baab18d7d6
   - path: packages/meter/src/cost.ts
     hash: 44b677a23512d310
   - path: packages/meter/src/discipline.ts
@@ -827,7 +854,7 @@ files:
   - path: packages/shared/src/index.ts
     hash: 03c2f01db0cd6557
   - path: packages/shared/src/limits.ts
-    hash: 9b140f5e0099732f
+    hash: d09955e7b34c53a5
   - path: packages/shared/src/schemas.ts
     hash: c684c08c02341b56
   - path: packages/shared/src/yaml.ts
@@ -843,7 +870,7 @@ files:
   - path: packages/sidecar/src/client.ts
     hash: 5d6a5fe8aab33a73
   - path: packages/sidecar/src/codex.ts
-    hash: 3e4daf9e0c587e19
+    hash: 9bff7d40658d8d47
   - path: packages/sidecar/src/daemon-main.ts
     hash: 9059e2c1ed170d85
   - path: packages/sidecar/src/daemon.ts
@@ -871,7 +898,7 @@ files:
   - path: packages/sidecar/test/audit.test.ts
     hash: 31848081bf3b4ac9
   - path: packages/sidecar/test/codex.test.ts
-    hash: d6f0afe5340414eb
+    hash: 4c0ae2bf16d25e79
   - path: packages/sidecar/test/daemon-distill.test.ts
     hash: "490366e794763188"
   - path: packages/sidecar/test/daemon.test.ts
