@@ -1,9 +1,6 @@
 # Energy and Carbon Estimation Methodology
 
-DRAFT, PENDING FOUNDER VERIFICATION. Every numeric input referenced below is
-currently marked TODO-VERIFY in its yaml file. Nothing in this document may be
-quoted publicly until each citation has been verified by a human and the
-TODO-VERIFY markers removed. All figures produced by this model are estimates,
+Verified against cited sources on 2026-07-18. All figures remain estimates,
 never measurements.
 
 ## What is estimated
@@ -28,6 +25,21 @@ deliberately restates none of them, so that a value can never go stale here:
 - `packages/shared/grid_intensity.yaml`: gCO2e per kWh by region with a
   conservative world default. Each row names its verification sources in
   `citation_hint`: IEA, Ember, and EPA eGRID.
+
+## Evidence quality
+
+The inputs are not equally trustworthy. Three tiers, best first:
+
+1. Grid intensity: published statistics (Ember Global Electricity Review,
+   EPA eGRID). Highest confidence.
+2. Model-class energy factors: anchored to published measurements of
+   comparable-class models. Medium confidence; provider-specific values are
+   unobservable from the client, which is why every class carries a wide
+   low/high band, and the frontier-large row is additionally marked
+   `assumption: true` because no comparable published figure exists at all.
+3. Context multiplier curve: direction supported by the literature, magnitude
+   unverified. Lowest confidence; the curve is flagged `confidence: low` in
+   the yaml and its values are kept deliberately mild.
 
 ## Estimation model
 
@@ -78,21 +90,16 @@ visible rather than silent.
   batching, hardware generation, and serving efficiency are unobservable from
   the client. The band is the honest statement; the base is a midpoint
   convenience, not a claim.
-- Anthropic does not publish per-request energy figures. Until the
-  citation_hint sources are verified and transcribed by the founder, every
-  output of this model is a placeholder magnitude, suitable for building and
-  testing the pipeline and for nothing else.
+- Anthropic does not publish per-request energy figures. The model-class
+  factors are therefore anchored to published measurements of comparable-class
+  models, not to the models actually metered; see Evidence quality above.
 - Session transcripts do not expose a separate thinking token count today;
   where absent it is tallied as zero inside output, understating thinking.
 
-## Verification checklist for the founder
+## Verification record
 
-1. Replace every whPerMTok base, low, high in `energy_factors.yaml` with
-   values traced to the named sources; update `source:` from TODO-VERIFY to
-   the citation.
-2. Replace the context multiplier breakpoints with curve data from the same
-   sources, or remove the curve if the sources do not support one.
-3. Replace each grid intensity value with the latest published figure and
-   cite it.
-4. Delete the TODO-VERIFY register entry in PROGRESS.md and the provisional
-   header in each yaml, then remove the DRAFT marker at the top of this file.
+Founder verification completed 2026-07-18: energy factor bands, context
+multiplier curve, and all grid intensity rows carry cited sources and a
+`verified` date in their yaml files. Model pricing in `prices.yaml` remains
+under its separate provisional flag pending the founder's pricing-page check;
+see PROGRESS.md. Re-run this verification whenever a yaml row changes.

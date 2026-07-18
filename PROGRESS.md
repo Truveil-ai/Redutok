@@ -56,7 +56,9 @@ Phase 2 acceptance: energy figures reproducible from yaml inputs in tests (energ
 
 ## TODO-VERIFY register (guardrail 2)
 
-- prices.yaml: no TODO-VERIFY rows remain. All five rows cite https://platform.claude.com/docs/en/about-claude/pricing (checked 2026-07-18), but founder verification is still pending; the file header marks it provisional and this line is the flag to clear when the founder signs off.
-- energy_factors.yaml: every row TODO-VERIFY. All whPerMTok bands and context multiplier breakpoints are placeholder magnitudes; verify against TokenPowerBench (AAAI 2026, arXiv 2512.03024) and ML.ENERGY leaderboard v3 per the citation_hint fields.
-- grid_intensity.yaml: every row TODO-VERIFY. world 500, IN 700, US 400, EU 300 gCO2e/kWh are round placeholders; verify against IEA, Ember, EPA eGRID per citation_hint fields.
-- docs/METHODOLOGY.md is DRAFT, PENDING FOUNDER VERIFICATION until the two files above are verified.
+- prices.yaml: no TODO-VERIFY rows, but the rows remain under the separate provisional flag (file header) until the founder's pricing-page check; this line is the flag to clear when that sign-off lands.
+- energy_factors.yaml and grid_intensity.yaml: cleared. No TODO-VERIFY rows remain; see the verification record below.
+
+## Verification record
+
+- 2026-07-18: founder verification completed for energy and grid data. grid_intensity.yaml verified to Ember Global Electricity Review 2025 (2024 data) for world 473, IN 708, EU 213 and EPA eGRID 2023 for US 350, each row carrying source and verified fields. energy_factors.yaml verified to banded anchors: frontier-mid 300 (100 to 1000) per the Oviedo et al. methodology as applied in arXiv 2510.24509, small 110 (30 to 300) per the John Snow Labs Tokens-per-Joule Llama3-70B measurement, frontier-large 450 (150 to 1500) as an explicit class assumption (assumption: true), context multiplier curve flattened to 1.0/1.0/1.2/1.4 and flagged confidence: low. docs/METHODOLOGY.md DRAFT marker replaced with the verification statement and an Evidence quality section.
