@@ -44,6 +44,21 @@ Phase 3 fixtures are real artifacts captured from this repository (fixtures/arti
 
 Phase 3 acceptance met: fixture-driven ratio and gate tests per profile, gate failure demonstrably serves raw with an audit event, redaction disk-proof test, kill-daemon-mid-request clean failure test.
 
+<!-- ratios:start -->
+## Measured profile ratios, fixture-based, 2026-07-19
+
+Fixture measurements from real captured artifacts in fixtures/artifacts/, produced by scripts/measure-ratios.mjs. These are per-artifact distillation ratios, not session-level savings claims; session-level numbers come only from the Phase 6 bench harness. Token counts use the chars/4 estimate from the handle format.
+
+| profile | fixture | raw tok (est) | distilled tok (est) | ratio | gates applied and results | served |
+| --- | --- | ---: | ---: | ---: | --- | --- |
+| build-log | build-log-fail.txt | 2280 | 441 | 5.2x | entity-preservation: pass, verdict-fidelity: pass, size-sanity: pass | distilled |
+| test-output | test-output-fail.txt | 4245 | 1058 | 4.0x | entity-preservation: pass, verdict-fidelity: pass, size-sanity: pass | distilled |
+| file-skeleton | large-source.ts | 1343 | 135 | 9.9x | size-sanity: pass | distilled |
+| file-skeleton | sample.py | 971 | 363 | 2.7x | size-sanity: pass | distilled |
+| search-results | search-results.txt | 3065 | 604 | 5.1x | size-sanity: pass | distilled |
+| generic-stdout | generic-stdout.txt | 2564 | 448 | 5.7x | size-sanity: pass | distilled |
+<!-- ratios:end -->
+
 ## Half done or not started
 
 - Nothing half done. Phases 2 to 7 not started.

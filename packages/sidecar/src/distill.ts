@@ -70,17 +70,26 @@ function testOutputDistill(raw: string, profile: DistillProfile): string {
 async function fileSkeletonDistill(
   raw: string,
   profile: DistillProfile,
-  context: { filePath?: string },
+  context: DistillContext,
 ): Promise<string> {
   const lang: SkeletonLanguage =
     (context.filePath !== undefined ? languageForPath(context.filePath) : undefined) ?? 'ts';
   const allowed = (ruleConfig(profile, 'skeleton')['languages'] as string[] | undefined) ?? ['ts'];
   if (!allowed.includes(lang)) return '';
   const header = context.filePath === undefined ? [] : [`skeleton of ${context.filePath}`];
-  return [...header, await fileSkeleton(raw, lang)].join('\n');
+  const skeleton = await fileSkeleton(raw, lang);
+  const withZoom = skeleton.replace(
+    /^\[(\d+ import lines omitted)\]/,
+    (_m, inner: string) => `[${inner}, ${zoomRef(context)}]`,
+  );
+  return [
+    ...header,
+    `[bodies elided, ${zoomRef(context)}]`,
+    withZoom,
+  ].join('\n');
 }
 
-function searchResultsDistill(raw: string, profile: DistillProfile): string {
+function searchResultsDistill(raw: string, profile: DistillProfile, context: DistillContext): string {
   const config = ruleConfig(profile, 'ranked-hits');
   const maxFiles = Number(config['maxFiles'] ?? 10);
   const maxHitsPerFile = Number(config['maxHitsPerFile'] ?? 3);
@@ -98,13 +107,13 @@ function searchResultsDistill(raw: string, profile: DistillProfile): string {
   const ranked = [...byFile.entries()].sort((a, b) => b[1].length - a[1].length);
   const shown = ranked.slice(0, maxFiles);
   const out = [
-    `${total} hits in ${byFile.size} files (showing top ${shown.length} files, ${maxHitsPerFile} hits each)`,
+    `${total} hits in ${byFile.size} files (showing top ${shown.length} files, ${maxHitsPerFile} hits each; full set: ${zoomRef(context)})`,
   ];
   for (const [, hits] of shown) out.push(...hits.slice(0, maxHitsPerFile));
   return out.join('\n');
 }
 
-function genericStdoutDistill(raw: string, profile: DistillProfile): string {
+function genericStdoutDistill(raw: string, profile: DistillProfile, context: DistillContext): string {
   const config = ruleConfig(profile, 'head-tail');
   const head = Number(config['headLines'] ?? 15);
   const tail = Number(config['tailLines'] ?? 10);
@@ -112,13 +121,27 @@ function genericStdoutDistill(raw: string, profile: DistillProfile): string {
   if (lines.length <= head + tail) return raw;
   const omitted = lines.length - head - tail;
   // Phase 5 hook: an LlmPass may summarize the omitted middle here.
-  return [...lines.slice(0, head), `[dcp: omitted ${omitted} middle lines]`, ...lines.slice(-tail)].join(
-    '\n',
-  );
+  return [
+    ...lines.slice(0, head),
+    `[dcp: omitted ${omitted} middle lines, ${zoomRef(context)}]`,
+    ...lines.slice(-tail),
+  ].join('\n');
 }
 
 export interface DistillContext {
   filePath?: string;
+  /**
+   * Artifact id the output will be stored under. Elision markers embed a
+   * dcp__zoom reference to it so no content is dropped without a recovery
+   * path. Absent only when a distiller is exercised outside distillArtifact.
+   */
+  artifactId?: string;
+}
+
+function zoomRef(context: DistillContext): string {
+  return context.artifactId === undefined
+    ? 'zoom: dcp__zoom(handle, query?)'
+    : `zoom: dcp__zoom("${context.artifactId}", query?)`;
 }
 
 export async function runProfile(
@@ -134,9 +157,9 @@ export async function runProfile(
     case 'file-skeleton':
       return fileSkeletonDistill(raw, profile, context);
     case 'search-results':
-      return searchResultsDistill(raw, profile);
+      return searchResultsDistill(raw, profile, context);
     case 'generic-stdout':
-      return genericStdoutDistill(raw, profile);
+      return genericStdoutDistill(raw, profile, context);
     default:
       throw new Error(`no distiller implemented for profile "${profile.name}"`);
   }
@@ -186,7 +209,10 @@ export async function distillArtifact(
   request: DistillRequest,
 ): Promise<DistillOutcome> {
   const artifactId = `a${randomBytes(3).toString('hex')}`;
-  const distilled = await runProfile(request.profile, request.raw, request.context);
+  const distilled = await runProfile(request.profile, request.raw, {
+    ...request.context,
+    artifactId,
+  });
   const gateReport = runGates(request.raw, distilled, profileGateConfig(request.profile));
   const served = gateReport.passed ? 'distilled' : 'raw';
   const stored = storeRedactedArtifact(store, audit, {
