@@ -13,7 +13,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
+  "bin": {
+    "redutok-mcp": "./dist/main.js"
+  },
   "dependencies": {
-    "@redutok/shared": "workspace:*"
+    "@redutok/shared": "workspace:*",
+    "@redutok/sidecar": "workspace:*"
   }
 }

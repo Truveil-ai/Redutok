@@ -41,6 +41,9 @@ importers:
       '@redutok/shared':
         specifier: workspace:*
         version: link:../shared
+      '@redutok/sidecar':
+        specifier: workspace:*
+        version: link:../sidecar
 
   packages/meter:
     dependencies:
