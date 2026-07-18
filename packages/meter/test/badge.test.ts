@@ -14,8 +14,8 @@ describe('renderBadgeSvg', () => {
     expect(svg.trimEnd().endsWith('</svg>')).toBe(true);
     expect(svg).toContain('xmlns="http://www.w3.org/2000/svg"');
     expect(svg).toContain('redutok');
-    // Grade is a placeholder until Phase 6 scoring lands.
-    expect(svg).toContain('grade pending');
+    // Real composite grade from Phase 6B scoring.
+    expect(svg).toMatch(/grade [A-F]/);
     expect(svg).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);
   });
 });
@@ -25,7 +25,7 @@ describe('renderShareLine', () => {
     const line = renderShareLine(await buildReport(fixture('small.jsonl')));
     expect(line).toContain('20,100 tokens');
     expect(line).toContain('estimated 6.03 Wh (band 2.01 to 20.10)');
-    expect(line).toContain('grade pending');
+    expect(line).toMatch(/grade [A-F]/);
     expect(line.endsWith('Redutok by Truveil')).toBe(true);
     expect(line).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);
     expect(line.includes('\n')).toBe(false);

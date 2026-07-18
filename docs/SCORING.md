@@ -1,0 +1,42 @@
+# Session scoring
+
+Four scores, each 0 to 100, plus an A to F composite. All formula inputs
+trace to ledger fields (packages/meter/src/ledger.ts) or audit events
+(.dcp/audit.jsonl). A score whose inputs are missing is reported as
+"not scorable" with the reason; it is never silently defaulted and it is
+excluded from the composite, whose weights renormalize over the scorable
+scores. Implementation: packages/meter/src/scoring.ts; constants in
+packages/shared/src/limits.ts. All thresholds and weights are product tuning
+constants, not measured claims.
+
+## Context Efficiency (weight 0.35)
+
+100 x distilledBytes / (distilledBytes + rawServedBytes), over audit events
+with action distill or serve-raw carrying bytesOut. Raw serves where a
+distillation path existed are the redundancy signal. Not scorable without an
+audit trail (sidecar absent) or without serve events.
+
+## Output Discipline (weight 0.25)
+
+100 x min(1, VERBOSE_OUTPUT_TOKENS_PER_TURN / avgOutputTokensPerTurn), where
+the average includes thinking tokens (ledger totals over turns). Full-rewrite
+denial and patch-compliance terms are defined but held at neutral until hook
+decisions reach the audit trail; this is a stated limitation, not a hidden
+default. Not scorable with zero turns.
+
+## Cache Utilization (weight 0.25)
+
+100 x cacheRead / (cacheRead + input) over turns 2..N (the first turn cannot
+hit cache). Not scorable with fewer than two turns or zero cacheable tokens.
+
+## Energy per Outcome (weight 0.15)
+
+100 x min(1, EPO_BASELINE_WH_PER_TURN / whPerTurn), where whPerTurn is the
+session's estimated base Wh divided by completed assistant turns. The outcome
+proxy is defined in docs/METHODOLOGY.md. Not scorable without an energy
+estimate (unmapped model).
+
+## Composite
+
+Weighted mean of scorable scores with weights renormalized, rounded.
+Grades from GRADE_BOUNDS: A at 90, B at 80, C at 70, D at 60, F below.

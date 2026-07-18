@@ -7,10 +7,12 @@ import {
   loadPrices,
   type AuditEvent,
 } from '@redutok/shared';
+import { buildAuditReport } from './audit-render.js';
 import { computeSessionCost, type SessionCost } from './cost.js';
 import { computeSessionEnergy, type SessionEnergy } from './energy.js';
 import { buildLedger, grandTotal, type SessionLedger } from './ledger.js';
 import { parseSessionFile, type ParseCounts } from './parser.js';
+import { scoreSession, type SessionScores } from './scoring.js';
 
 export interface Report {
   source: string;
@@ -18,6 +20,7 @@ export interface Report {
   grandTotal: number;
   cost: SessionCost;
   energy: SessionEnergy;
+  scores: SessionScores;
   parse: ParseCounts;
   audit: AuditEvent[];
   notes: string[];
@@ -61,12 +64,17 @@ export async function buildReport(
     );
   }
 
+  // Session audit trail (sidecar side), distinct from the parse audit above.
+  const sessionAudit = buildAuditReport(ledger.sessionId).events;
+  const scores = scoreSession(ledger, energy, sessionAudit);
+
   return {
     source: filePath,
     ledger,
     grandTotal: grandTotal(ledger.totals),
     cost,
     energy,
+    scores,
     parse: parsed.counts,
     audit: parsed.audit,
     notes,
@@ -134,6 +142,25 @@ export function renderText(report: Report): string {
   lines.push(`  ${band(e.wh, 'Wh')}`);
   lines.push(`  ${band(e.gCo2e, 'gCO2e')}, grid region ${e.region} at ${e.gCo2ePerKwh} gCO2e/kWh`);
   lines.push(`  sidecar self-consumption: ${e.sidecarWh} Wh (not yet measured, lands in Phase 3)`);
+  lines.push('');
+  lines.push('Scores (formulas in docs/SCORING.md)');
+  const scoreNames: [keyof SessionScores, string][] = [
+    ['contextEfficiency', 'context efficiency'],
+    ['outputDiscipline', 'output discipline'],
+    ['cacheUtilization', 'cache utilization'],
+    ['energyPerOutcome', 'energy per outcome'],
+  ];
+  for (const [key, label] of scoreNames) {
+    const s = report.scores[key];
+    if (s === undefined || typeof s === 'object' === false) continue;
+    if ('scorable' in s && s.scorable) lines.push(`  ${label.padEnd(20)} ${s.score}  (${s.detail})`);
+    else if ('scorable' in s) lines.push(`  ${label.padEnd(20)} not scorable: ${s.reason}`);
+  }
+  lines.push(
+    report.scores.composite === undefined
+      ? '  composite            not scorable: no individual score was computable'
+      : `  composite            ${report.scores.composite.value} (${report.scores.composite.grade})`,
+  );
   const tools = Object.entries(ledger.byTool).sort((a, b) => b[1].calls - a[1].calls);
   if (tools.length > 0) {
     lines.push('');

@@ -96,6 +96,18 @@ visible rather than silent.
 - Session transcripts do not expose a separate thinking token count today;
   where absent it is tallied as zero inside output, understating thinking.
 
+## Addendum: outcome proxy for Energy per Outcome (2026-07-19)
+
+The Energy per Outcome score normalizes estimated session Wh by an outcome
+proxy: completed assistant turns. This is a deliberately crude proxy: a turn
+is counted whether it advanced the task or not, and sessions with different
+task sizes are not comparable through it. It was chosen because it is the
+only outcome signal derivable from the transcript alone with no judgment
+call. Task-level success from the bench harness is the better denominator
+where available; the score exists so single sessions outside the bench still
+get an energy signal. The reference value EPO_BASELINE_WH_PER_TURN in
+limits.ts is a product tuning constant, not a measured claim.
+
 ## Verification record
 
 Founder verification completed 2026-07-18: energy factor bands, context

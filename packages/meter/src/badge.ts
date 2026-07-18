@@ -6,16 +6,18 @@ import type { Report } from './report.js';
  * always ends with the product attribution.
  */
 
-const GRADE_PLACEHOLDER = 'grade pending';
-
 const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-// The report is unused until Phase 6 scoring lands; the parameter stays so
-// the signature does not change when the grade becomes real.
-export function renderBadgeSvg(_report: Report): string {
+function gradeText(report: Report): string {
+  return report.scores.composite === undefined
+    ? 'not scorable'
+    : `grade ${report.scores.composite.grade}`;
+}
+
+export function renderBadgeSvg(report: Report): string {
   const label = 'redutok';
-  const value = GRADE_PLACEHOLDER;
+  const value = gradeText(report);
   const labelWidth = 62;
   const valueWidth = 12 + value.length * 7;
   const width = labelWidth + valueWidth;
@@ -37,6 +39,6 @@ export function renderShareLine(report: Report): string {
   return (
     `${report.ledger.sessionId}: ${total} tokens, ` +
     `estimated ${e.wh.base.toFixed(2)} Wh (band ${e.wh.low.toFixed(2)} to ${e.wh.high.toFixed(2)}), ` +
-    `${GRADE_PLACEHOLDER}. Redutok by Truveil`
+    `${gradeText(report)}. Redutok by Truveil`
   );
 }

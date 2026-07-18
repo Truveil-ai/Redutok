@@ -46,6 +46,12 @@ describe('renderText', () => {
     // 6.03 Wh at the verified world intensity of 473 gCO2e/kWh.
     expect(text).toContain('estimated 2.85 gCO2e (band 0.95 to 9.51 gCO2e), grid region world');
     expect(text).toContain('sidecar self-consumption: 0 Wh');
+    // Phase 6B scores: fixture session has no audit trail, so context
+    // efficiency is explicitly not scorable while the rest compute.
+    expect(text).toMatch(/context efficiency\s+not scorable:/);
+    expect(text).toMatch(/output discipline\s+100/);
+    expect(text).toMatch(/cache utilization\s+92/);
+    expect(text).toMatch(/composite\s+97 \(A\)/);
     expect(text).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);
   });
 });

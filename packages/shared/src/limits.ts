@@ -19,6 +19,22 @@ export const LIMITS = {
   TRIVIAL_PROMPT_MAX_CHARS: 120,
   /** Average output tokens per turn above this counts against verbosity adherence. */
   VERBOSE_OUTPUT_TOKENS_PER_TURN: 1500,
+  /** Energy-per-outcome reference: estimated Wh per completed assistant turn at score 100. */
+  EPO_BASELINE_WH_PER_TURN: 2.5,
+  /** Composite weights per score, docs/SCORING.md. Renormalized over scorable scores. */
+  SCORE_WEIGHTS: {
+    contextEfficiency: 0.35,
+    outputDiscipline: 0.25,
+    cacheUtilization: 0.25,
+    energyPerOutcome: 0.15,
+  },
+  /** Grade boundaries: composite at or above the bound earns the letter; below all is F. */
+  GRADE_BOUNDS: [
+    [90, 'A'],
+    [80, 'B'],
+    [70, 'C'],
+    [60, 'D'],
+  ],
 } as const;
 
 export type Limits = typeof LIMITS;
