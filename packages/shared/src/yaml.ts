@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
@@ -52,7 +54,12 @@ export function loadYamlFile<S extends z.ZodTypeAny>(filePath: string, schema: S
   return schema.parse(parseYaml(raw));
 }
 
-export function loadPrices(filePath: string): PricesFile {
+/** Absolute path of the prices.yaml shipped with this package. */
+export function defaultPricesPath(): string {
+  return path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'prices.yaml');
+}
+
+export function loadPrices(filePath: string = defaultPricesPath()): PricesFile {
   return loadYamlFile(filePath, PricesFileSchema);
 }
 

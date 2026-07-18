@@ -1,0 +1,25 @@
+# Model pricing, USD per million tokens.
+# Guardrail 2: every row carries a source field. TODO-VERIFY marks rows whose
+# citation has not yet been verified by a human; they are listed in PROGRESS.md.
+# Do not add a row without a source.
+version: 1
+currency: USD
+models:
+  - id: claude-sonnet-5
+    inputPerMTokUsd: 3
+    outputPerMTokUsd: 15
+    cacheReadPerMTokUsd: 0.3
+    cacheWritePerMTokUsd: 3.75
+    source: TODO-VERIFY
+  - id: claude-opus-4-8
+    inputPerMTokUsd: 15
+    outputPerMTokUsd: 75
+    cacheReadPerMTokUsd: 1.5
+    cacheWritePerMTokUsd: 18.75
+    source: TODO-VERIFY
+  - id: claude-haiku-4-5
+    inputPerMTokUsd: 1
+    outputPerMTokUsd: 5
+    cacheReadPerMTokUsd: 0.1
+    cacheWritePerMTokUsd: 1.25
+    source: TODO-VERIFY
