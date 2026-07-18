@@ -19,7 +19,12 @@ describe('buildReport on small.jsonl', () => {
     // Shipped prices are source-cited, so no TODO-VERIFY note appears; the
     // thinking-rate assumption is always stated.
     expect(report.notes.join(' ')).toContain('Thinking tokens are priced at the output rate');
-    expect(report.notes.join(' ')).not.toContain('TODO-VERIFY');
+    // Price rows are cited, so no TODO-VERIFY there, but the energy note must
+    // flag the unverified energy and grid rows.
+    expect(report.notes.join(' ')).toContain('never measurements');
+    expect(report.energy.wh.base).toBeCloseTo(2.01, 9);
+    expect(report.energy.region).toBe('world');
+    expect(report.energy.sidecarWh).toBe(0);
   });
 
   it('round-trips through JSON for --json output', async () => {
@@ -36,6 +41,10 @@ describe('renderText', () => {
     expect(text).toContain('total        20,100');
     expect(text).toContain('Read');
     expect(text).toContain('Skipped records: 1 unknown type, 0 malformed');
+    // Energy is always rendered as an estimate with the band, never bare.
+    expect(text).toContain('estimated 2.01 Wh (band 0.20 to 10.05 Wh)');
+    expect(text).toContain('estimated 1.01 gCO2e (band 0.10 to 5.03 gCO2e), grid region world');
+    expect(text).toContain('sidecar self-consumption: 0 Wh');
     expect(text).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);
   });
 });

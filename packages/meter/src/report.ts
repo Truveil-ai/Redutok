@@ -1,8 +1,14 @@
 import { readdirSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { loadPrices, type AuditEvent } from '@redutok/shared';
+import {
+  loadEnergyFactors,
+  loadGridIntensity,
+  loadPrices,
+  type AuditEvent,
+} from '@redutok/shared';
 import { computeSessionCost, type SessionCost } from './cost.js';
+import { computeSessionEnergy, type SessionEnergy } from './energy.js';
 import { buildLedger, grandTotal, type SessionLedger } from './ledger.js';
 import { parseSessionFile, type ParseCounts } from './parser.js';
 
@@ -11,16 +17,31 @@ export interface Report {
   ledger: SessionLedger;
   grandTotal: number;
   cost: SessionCost;
+  energy: SessionEnergy;
   parse: ParseCounts;
   audit: AuditEvent[];
   notes: string[];
 }
 
-export async function buildReport(filePath: string, pricesPath?: string): Promise<Report> {
+export interface BuildReportOptions {
+  pricesPath?: string;
+  region?: string;
+}
+
+export async function buildReport(
+  filePath: string,
+  options: BuildReportOptions = {},
+): Promise<Report> {
   const parsed = await parseSessionFile(filePath);
   const ledger = buildLedger(parsed, path.basename(filePath, '.jsonl'));
-  const prices = loadPrices(pricesPath);
+  const prices = loadPrices(options.pricesPath);
   const cost = computeSessionCost(ledger, prices);
+  const energy = computeSessionEnergy(
+    ledger,
+    loadEnergyFactors(),
+    loadGridIntensity(),
+    options.region,
+  );
 
   const notes: string[] = ['Thinking tokens are priced at the output rate.'];
   if (cost.unverifiedSources.length > 0) {
@@ -31,12 +52,21 @@ export async function buildReport(filePath: string, pricesPath?: string): Promis
   if (cost.unpricedModels.length > 0) {
     notes.push(`No price row for: ${cost.unpricedModels.join(', ')}. Their turns are not costed.`);
   }
+  notes.push(
+    'Energy and carbon figures are estimates from energy_factors.yaml and grid_intensity.yaml, never measurements. All rows there are TODO-VERIFY pending founder verification.',
+  );
+  if (energy.unestimatedModels.length > 0) {
+    notes.push(
+      `No energy factor class for: ${energy.unestimatedModels.join(', ')}. Their turns are excluded from the energy estimate.`,
+    );
+  }
 
   return {
     source: filePath,
     ledger,
     grandTotal: grandTotal(ledger.totals),
     cost,
+    energy,
     parse: parsed.counts,
     audit: parsed.audit,
     notes,
@@ -96,6 +126,14 @@ export function renderText(report: Report): string {
   lines.push(`  total        ${fmt(report.grandTotal)}`);
   lines.push('');
   lines.push(`Estimated cost: ${cost.totalUsd.toFixed(4)} USD (${cost.pricedTurns} priced turns)`);
+  const e = report.energy;
+  const band = (b: { base: number; low: number; high: number }, unit: string): string =>
+    `estimated ${b.base.toFixed(2)} ${unit} (band ${b.low.toFixed(2)} to ${b.high.toFixed(2)} ${unit})`;
+  lines.push('');
+  lines.push('Energy (estimated, never measured)');
+  lines.push(`  ${band(e.wh, 'Wh')}`);
+  lines.push(`  ${band(e.gCo2e, 'gCO2e')}, grid region ${e.region} at ${e.gCo2ePerKwh} gCO2e/kWh`);
+  lines.push(`  sidecar self-consumption: ${e.sidecarWh} Wh (not yet measured, lands in Phase 3)`);
   const tools = Object.entries(ledger.byTool).sort((a, b) => b[1].calls - a[1].calls);
   if (tools.length > 0) {
     lines.push('');
