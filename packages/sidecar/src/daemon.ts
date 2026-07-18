@@ -1,7 +1,11 @@
 import http from 'node:http';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import type { DistillProfile } from '@redutok/shared';
+import { AuditWriter } from './audit.js';
+import { distillArtifact, loadProfiles, zoom } from './distill.js';
 import { createLogger, type Logger } from './log.js';
+import { openStore, type Store } from './store.js';
 
 /**
  * Sidecar daemon: localhost HTTP plus, on Windows, a named-pipe transport
@@ -16,6 +20,8 @@ export interface DaemonOptions {
   dcpDir: string;
   /** When set, also listen on \\.\pipe\<pipeName> (Windows only). */
   pipeName?: string;
+  /** Directory of profiles/*.yaml; when set, /distill and /zoom are served. */
+  profilesDir?: string;
 }
 
 export interface DaemonHandle {
@@ -25,7 +31,28 @@ export interface DaemonHandle {
   close(): Promise<void>;
 }
 
-function handler(log: Logger): http.RequestListener {
+interface Engines {
+  store: Store;
+  audit: AuditWriter;
+  profiles: Map<string, DistillProfile>;
+}
+
+function readBody(req: http.IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (c: Buffer) => chunks.push(c));
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function handler(log: Logger, engines?: Engines): http.RequestListener {
   const startedAt = Date.now();
   return (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
@@ -34,6 +61,38 @@ function handler(log: Logger): http.RequestListener {
       res.end(JSON.stringify(body));
     };
     log.info('request', { method: req.method, path: url.pathname });
+    if (req.method === 'POST' && (url.pathname === '/distill' || url.pathname === '/zoom')) {
+      if (engines === undefined) {
+        respond(503, { ok: false, error: 'daemon started without a profiles directory' });
+        return;
+      }
+      void readBody(req)
+        .then(async (payload) => {
+          const p = payload as Record<string, unknown>;
+          if (url.pathname === '/zoom') {
+            respond(200, zoom(engines.store, engines.audit, String(p['id']), p['query'] as string | undefined));
+            return;
+          }
+          const profile = engines.profiles.get(String(p['profile']));
+          if (profile === undefined) {
+            respond(400, { ok: false, error: `unknown profile "${String(p['profile'])}"` });
+            return;
+          }
+          const outcome = await distillArtifact(engines.store, engines.audit, {
+            raw: String(p['raw'] ?? ''),
+            profile,
+            sessionId: String(p['sessionId'] ?? 'unknown'),
+            tool: p['tool'] as string | undefined,
+            context: { filePath: p['filePath'] as string | undefined },
+          });
+          respond(200, outcome);
+        })
+        .catch((err: unknown) => {
+          log.error('request failed', { path: url.pathname, error: String(err) });
+          respond(400, { ok: false, error: err instanceof Error ? err.message : String(err) });
+        });
+      return;
+    }
     if (req.method === 'GET' && url.pathname === '/health') {
       respond(200, { ok: true, pid: process.pid, uptimeMs: Date.now() - startedAt });
       return;
@@ -55,7 +114,15 @@ function handler(log: Logger): http.RequestListener {
 
 export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle> {
   const log = createLogger(path.join(options.dcpDir, 'sidecar.log.jsonl'));
-  const listener = handler(log);
+  let engines: Engines | undefined;
+  if (options.profilesDir !== undefined) {
+    engines = {
+      store: openStore(path.join(options.dcpDir, 'state.db')),
+      audit: new AuditWriter(path.join(options.dcpDir, 'audit.jsonl')),
+      profiles: loadProfiles(options.profilesDir),
+    };
+  }
+  const listener = handler(log, engines);
   const httpServer = http.createServer(listener);
   await new Promise<void>((resolve, reject) => {
     httpServer.once('error', reject);
@@ -91,6 +158,7 @@ export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle>
             }),
         ),
     );
+    engines?.store.close();
     if (existsSync(pidfile)) rmSync(pidfile);
     log.info('daemon stopped', { port });
   };

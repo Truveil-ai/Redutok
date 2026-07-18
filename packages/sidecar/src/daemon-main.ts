@@ -10,8 +10,9 @@ import { startDaemon } from './daemon.js';
 const dcpDir = process.env['REDUTOK_DCP_DIR'] ?? path.join(process.cwd(), '.dcp');
 const port = Number(process.env['REDUTOK_PORT'] ?? '48642');
 const pipeName = process.env['REDUTOK_PIPE'];
+const profilesDir = process.env['REDUTOK_PROFILES'];
 
-startDaemon({ port, dcpDir, pipeName })
+startDaemon({ port, dcpDir, pipeName, profilesDir })
   .then((daemon) => {
     // The parent (redutok up or a test) reads this line to learn the port.
     console.log(`redutok sidecar listening on port ${daemon.port}`);
