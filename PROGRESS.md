@@ -1,7 +1,7 @@
 # PROGRESS
 
 Status file for cross-session handoff. Updated at the end of every session.
-Last session: 2026-07-18 (fix session after phases 0 and 1). Suite state: 37 tests green, lint clean, pnpm -r build clean.
+Last session: 2026-07-18 (Phase 2). Suite state: 50 tests green, lint clean, pnpm -r build clean.
 
 ## Complete
 
@@ -20,6 +20,16 @@ Phase 1, all four sub-steps:
 
 Phase 1 acceptance: totals match hand-computed values on small.jsonl to the token (test), generator-expected totals on medium and long-agentic (test), malformed-log test passes, report --last verified on a real log.
 
+Phase 2, all items:
+
+- energy_factors.yaml in packages/shared: three model classes (frontier-large, frontier-mid, small) with whPerMTok base plus low/high uncertainty band, model-to-class mapping, and a context multiplier curve at 10k/100k/500k/1M breakpoints. Every row source: TODO-VERIFY with a citation_hint naming TokenPowerBench (AAAI 2026, arXiv 2512.03024) and ML.ENERGY leaderboard v3. Bands are deliberately one order of magnitude wide; reasoning is in the file header comment.
+- grid_intensity.yaml: world default (conservative, erring high) plus IN, US, EU placeholder rows, all TODO-VERIFY with citation_hint (IEA, Ember, EPA eGRID, CEA).
+- Meter energy module (packages/meter/src/energy.ts): per-turn class lookup, context multiplier from input plus cacheRead, Wh and gCO2e computed as base/low/high bands. Unmapped models excluded and reported, unknown region throws. Report renders energy only with the word "estimated" and the band, plus a sidecar self-consumption line stubbed at 0 Wh for Phase 3. Tests reproduce the figures from the yaml inputs by hand computation.
+- docs/METHODOLOGY.md: full estimation model, assumptions, limitations, founder verification checklist. Marked DRAFT, PENDING FOUNDER VERIFICATION. Restates no numbers; everything traces to the yaml rows.
+- redutok badge: writes an SVG badge (grade placeholder "grade pending" until Phase 6) and prints the one-line share format ending "Redutok by Truveil". CLI: redutok badge [session.jsonl|--last] [--out file].
+
+Phase 2 acceptance: energy figures reproducible from yaml inputs in tests (energy.test.ts hand-computes small.jsonl bands), METHODOLOGY.md exists and references yaml rows for every number.
+
 ## Half done or not started
 
 - Nothing half done. Phases 2 to 7 not started.
@@ -30,13 +40,11 @@ Phase 1 acceptance: totals match hand-computed values on small.jsonl to the toke
 
 - 2026-09-01: flip claude-sonnet-5 in packages/shared/prices.yaml from introductory 2.00/10.00 to standard 3.00/15.00 (see the note field on that row), and update the two shipped-prices tests in packages/meter/test/cost.test.ts.
 
-## Exact next actions (next session, Phase 2)
+## Exact next actions (next session, Phase 3)
 
-1. Read docs/ARCHITECTURE.md, BUILD.md, this file. Build Phase 2 only.
-2. Add `--project` filtering to report (list and aggregate sessions for the cwd project dir) if 30 minutes can be spared, else leave for Phase 6 polish.
-3. Create packages/shared/energy_factors.yaml and grid_intensity.yaml with sourced or TODO-VERIFY rows; loaders and schemas for energy factors already exist in shared/src/yaml.ts (EnergyFactorsFileSchema). Add a grid intensity schema alongside.
-4. Extend the meter report with estimated Wh and gCO2e, always labelled "estimated" with uncertainty bands.
-5. Write docs/METHODOLOGY.md as a draft pending founder verification.
+1. Read docs/ARCHITECTURE.md, BUILD.md, this file. Build Phase 3 only: sidecar daemon, state store, audit.jsonl writer, redaction, rule-engine distillation profiles, quality gates, artifact handles with zoom.
+2. When the sidecar can measure its own consumption, replace the sidecarWh stub (energy.ts, SessionEnergy.sidecarWh, currently constant 0) with the measured value.
+3. Still open from Phase 1: `--project` mode for report; leave for Phase 6 polish unless time allows.
 
 ## Deviations from BUILD.md, with reasons
 
@@ -49,4 +57,6 @@ Phase 1 acceptance: totals match hand-computed values on small.jsonl to the toke
 ## TODO-VERIFY register (guardrail 2)
 
 - prices.yaml: no TODO-VERIFY rows remain. All five rows cite https://platform.claude.com/docs/en/about-claude/pricing (checked 2026-07-18), but founder verification is still pending; the file header marks it provisional and this line is the flag to clear when the founder signs off.
-- energy_factors.yaml and grid_intensity.yaml do not exist yet (Phase 2); every row added there needs a source or TODO-VERIFY.
+- energy_factors.yaml: every row TODO-VERIFY. All whPerMTok bands and context multiplier breakpoints are placeholder magnitudes; verify against TokenPowerBench (AAAI 2026, arXiv 2512.03024) and ML.ENERGY leaderboard v3 per the citation_hint fields.
+- grid_intensity.yaml: every row TODO-VERIFY. world 500, IN 700, US 400, EU 300 gCO2e/kWh are round placeholders; verify against IEA, Ember, EPA eGRID per citation_hint fields.
+- docs/METHODOLOGY.md is DRAFT, PENDING FOUNDER VERIFICATION until the two files above are verified.
