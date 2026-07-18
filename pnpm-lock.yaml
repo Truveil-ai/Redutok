@@ -11,9 +11,6 @@ importers:
       '@eslint/js':
         specifier: ^9.9.0
         version: 9.39.5
-      '@redutok/meter':
-        specifier: workspace:*
-        version: link:packages/meter
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.43
@@ -23,6 +20,9 @@ importers:
       prettier:
         specifier: ^3.3.3
         version: 3.9.5
+      redutok:
+        specifier: workspace:*
+        version: link:packages/meter
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -35,15 +35,15 @@ importers:
 
   packages/hooks:
     dependencies:
-      '@redutok/meter':
-        specifier: workspace:*
-        version: link:../meter
       '@redutok/shared':
         specifier: workspace:*
         version: link:../shared
       '@redutok/sidecar':
         specifier: workspace:*
         version: link:../sidecar
+      redutok:
+        specifier: workspace:*
+        version: link:../meter
 
   packages/mcp:
     dependencies:

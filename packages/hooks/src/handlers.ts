@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { LIMITS } from '@redutok/shared';
-import { buildLedger, grandTotal, parseSessionFile } from '@redutok/meter';
+import { buildLedger, grandTotal, parseSessionFile } from 'redutok';
 import { sidecarRequest, type SidecarTarget } from '@redutok/sidecar/client';
 import { buildCodexInjection, readCodex } from '@redutok/sidecar';
 

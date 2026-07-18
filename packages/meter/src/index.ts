@@ -1,4 +1,4 @@
-export const PACKAGE_NAME = '@redutok/meter';
+export const PACKAGE_NAME = 'redutok';
 export * from './parser.js';
 export * from './ledger.js';
 export * from './cost.js';
@@ -11,3 +11,4 @@ export * from './discipline.js';
 export * from './scoring.js';
 export * from './bench.js';
 export * from './doctor.js';
+export * from './claude-compat.js';

@@ -8,6 +8,7 @@ import {
   type AuditEvent,
 } from '@redutok/shared';
 import { buildAuditReport } from './audit-render.js';
+import { transcriptRoot } from './claude-compat.js';
 import { computeSessionCost, type SessionCost } from './cost.js';
 import { computeSessionEnergy, type SessionEnergy } from './energy.js';
 import { buildLedger, grandTotal, type SessionLedger } from './ledger.js';
@@ -81,9 +82,9 @@ export async function buildReport(
   };
 }
 
-/** Default Claude Code transcript root for the current OS. */
+/** Default Claude Code transcript root, owned by the compat shim. */
 export function defaultLogRoot(): string {
-  return path.join(os.homedir(), '.claude', 'projects');
+  return transcriptRoot();
 }
 
 /** Newest .jsonl transcript under the given root, or undefined when none exist. */

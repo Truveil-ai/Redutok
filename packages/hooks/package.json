@@ -17,6 +17,6 @@
   "dependencies": {
     "@redutok/shared": "workspace:*",
     "@redutok/sidecar": "workspace:*",
-    "@redutok/meter": "workspace:*"
+    "redutok": "workspace:*"
   }
 }

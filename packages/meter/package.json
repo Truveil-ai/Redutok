@@ -1,6 +1,6 @@
 {
-  "name": "@redutok/meter",
-  "version": "0.0.1",
+  "name": "redutok",
+  "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,7 +15,8 @@
     "rtk": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "prepack": "node ../../scripts/prepublish-check.mjs"
   },
   "dependencies": {
     "@redutok/hooks": "workspace:*",
@@ -27,5 +28,23 @@
   },
   "devDependencies": {
     "@types/diff": "^7.0.0"
-  }
+  },
+  "description": "Token and energy reduction layer for Claude Code, implementing the Delta Context Protocol. Redutok by Truveil",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imkaran7/redutok.git"
+  },
+  "keywords": [
+    "claude-code",
+    "tokens",
+    "energy",
+    "context",
+    "mcp",
+    "delta-context-protocol",
+    "truveil"
+  ],
+  "files": [
+    "dist"
+  ]
 }

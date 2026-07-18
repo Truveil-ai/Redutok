@@ -8,7 +8,9 @@ import { type AuditEvent, type TokenTally } from '@redutok/shared';
  * audit event, never thrown. Guardrail 3: no silent transformation.
  */
 
-const KNOWN_TYPES = new Set(['user', 'assistant', 'summary', 'system']);
+import { KNOWN_TRANSCRIPT_RECORD_TYPES } from './claude-compat.js';
+
+const KNOWN_TYPES = new Set<string>(KNOWN_TRANSCRIPT_RECORD_TYPES);
 
 export interface AssistantTurn {
   uuid?: string;

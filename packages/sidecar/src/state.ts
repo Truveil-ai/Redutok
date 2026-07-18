@@ -3,6 +3,7 @@ import path from 'node:path';
 import { LIMITS } from '@redutok/shared';
 import { estimateTokens } from './distill.js';
 import { NoopLlmPass, type LlmPass } from './llm.js';
+import { redact } from './redact.js';
 
 /**
  * Rolling session state, architecture 5.2. Rule fallback is a last-actions
@@ -53,6 +54,9 @@ export async function updateRollingState(
       body = HEADER + lines.join('\n') + '\n';
     }
   }
+  // Security pass: paths or payloads echoed into state go through the same
+  // redaction as stored artifacts before touching disk.
+  body = redact(body).text;
   writeFileSync(file, body, 'utf8');
   return body;
 }
