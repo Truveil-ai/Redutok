@@ -26,8 +26,10 @@ describe('loadEnergyFactors', () => {
     expect(row?.modelClass).toBe('frontier-large');
     expect(row?.models).toEqual(['test-model-a']);
     expect(row?.whPerMTok).toEqual({ base: 300, low: 30, high: 1500 });
-    expect(row?.contextMultipliers[0]?.multiplier).toBe(1);
-    expect(row?.source).toBe('TODO-VERIFY');
+    expect(row?.assumption).toBe(true);
+    expect(row?.contextMultipliers.confidence).toBe('low');
+    expect(row?.contextMultipliers.curve[0]?.multiplier).toBe(1);
+    expect(row?.verified).toBe('2026-07-18');
     expect(row?.citation_hint).toContain('TokenPowerBench');
   });
 
@@ -35,17 +37,25 @@ describe('loadEnergyFactors', () => {
     expect(() => loadEnergyFactors(fixture('energy.bad-band.yaml'))).toThrow();
   });
 
-  it('ships a default file whose rows all carry source and citation_hint', () => {
+  it('ships a default file whose rows are all verified with sources', () => {
     const energy = loadEnergyFactors();
     expect(energy.classes.length).toBeGreaterThanOrEqual(3);
     for (const row of energy.classes) {
-      expect(row.source).toBe('TODO-VERIFY');
+      expect(row.source).not.toBe('TODO-VERIFY');
+      expect(row.source.length).toBeGreaterThan(0);
+      expect(row.verified).toBe('2026-07-18');
       expect(row.citation_hint.length).toBeGreaterThan(0);
       expect(row.whPerMTok.low).toBeLessThanOrEqual(row.whPerMTok.base);
       expect(row.whPerMTok.base).toBeLessThanOrEqual(row.whPerMTok.high);
-      const tops = row.contextMultipliers.map((m) => m.upToTokens);
+      expect(row.contextMultipliers.confidence).toBe('low');
+      expect(row.contextMultipliers.source.length).toBeGreaterThan(0);
+      const tops = row.contextMultipliers.curve.map((m) => m.upToTokens);
       expect([...tops].sort((a, b) => a - b)).toEqual(tops);
     }
+    // The frontier-large row is a class assumption, not a measurement, and
+    // must say so.
+    const large = energy.classes.find((c) => c.modelClass === 'frontier-large');
+    expect(large?.assumption).toBe(true);
   });
 });
 

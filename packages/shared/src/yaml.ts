@@ -39,11 +39,10 @@ export const EnergyBandSchema = z
   });
 export type EnergyBand = z.infer<typeof EnergyBandSchema>;
 
-export const EnergyFactorRowSchema = z.object({
-  modelClass: z.string().min(1),
-  models: z.array(z.string().min(1)).default([]),
-  whPerMTok: EnergyBandSchema,
-  contextMultipliers: z
+export const ContextMultiplierCurveSchema = z.object({
+  confidence: z.string().min(1),
+  source: z.string().min(1),
+  curve: z
     .array(
       z.object({
         upToTokens: z.number().int().positive(),
@@ -51,8 +50,19 @@ export const EnergyFactorRowSchema = z.object({
       }),
     )
     .min(1),
+});
+export type ContextMultiplierCurve = z.infer<typeof ContextMultiplierCurveSchema>;
+
+export const EnergyFactorRowSchema = z.object({
+  modelClass: z.string().min(1),
+  models: z.array(z.string().min(1)).default([]),
+  whPerMTok: EnergyBandSchema,
+  /** True when the row is a class assumption rather than an anchored measurement. */
+  assumption: z.boolean().optional(),
+  contextMultipliers: ContextMultiplierCurveSchema,
   source: z.string().min(1),
   citation_hint: z.string().min(1),
+  verified: z.string().optional(),
 });
 export type EnergyFactorRow = z.infer<typeof EnergyFactorRowSchema>;
 

@@ -7,10 +7,15 @@ classes:
       base: 300
       low: 30
       high: 1500
+    assumption: true
     contextMultipliers:
-      - upToTokens: 10000
-        multiplier: 1
-      - upToTokens: 100000
-        multiplier: 1.3
-    source: TODO-VERIFY
+      confidence: low
+      source: test curve source
+      curve:
+        - upToTokens: 10000
+          multiplier: 1
+        - upToTokens: 100000
+          multiplier: 1.2
+    source: test measurement source
     citation_hint: TokenPowerBench (AAAI 2026, arXiv 2512.03024)
+    verified: "2026-07-18"

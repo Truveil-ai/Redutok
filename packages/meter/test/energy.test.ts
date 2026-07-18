@@ -35,19 +35,19 @@ describe('contextMultiplierFor', () => {
 describe('computeSessionEnergy on small.jsonl', () => {
   // Hand computation from the yaml inputs (guardrail: reproducible from yaml).
   // small.jsonl is all claude-sonnet-5, mapped to frontier-mid with
-  // whPerMTok base 100, low 10, high 500 in energy_factors.yaml.
+  // whPerMTok base 300, low 100, high 1000 in energy_factors.yaml.
   // Every turn's context length (input + cacheRead) is under 10k, so the
   // context multiplier is 1 throughout. Total tokens all classes: 20100.
   // Wh = 20100 / 1e6 * factor; gCO2e = Wh / 1000 * 473 (verified world row).
   it('reproduces hand-computed Wh and gCO2e bands from the yaml inputs', async () => {
     const ledger = buildLedger(await parseSessionFile(fixture('small.jsonl')));
     const energy = computeSessionEnergy(ledger, factors, grid);
-    expect(energy.wh.base).toBeCloseTo(2.01, 9);
-    expect(energy.wh.low).toBeCloseTo(0.201, 9);
-    expect(energy.wh.high).toBeCloseTo(10.05, 9);
-    expect(energy.gCo2e.base).toBeCloseTo((2.01 / 1000) * 473, 9);
-    expect(energy.gCo2e.low).toBeCloseTo((0.201 / 1000) * 473, 9);
-    expect(energy.gCo2e.high).toBeCloseTo((10.05 / 1000) * 473, 9);
+    expect(energy.wh.base).toBeCloseTo(6.03, 9);
+    expect(energy.wh.low).toBeCloseTo(2.01, 9);
+    expect(energy.wh.high).toBeCloseTo(20.1, 9);
+    expect(energy.gCo2e.base).toBeCloseTo((6.03 / 1000) * 473, 9);
+    expect(energy.gCo2e.low).toBeCloseTo((2.01 / 1000) * 473, 9);
+    expect(energy.gCo2e.high).toBeCloseTo((20.1 / 1000) * 473, 9);
     expect(energy.region).toBe('world');
     expect(energy.unestimatedModels).toEqual([]);
     expect(energy.sidecarWh).toBe(0);
@@ -57,7 +57,7 @@ describe('computeSessionEnergy on small.jsonl', () => {
     const ledger = buildLedger(await parseSessionFile(fixture('small.jsonl')));
     const energy = computeSessionEnergy(ledger, factors, grid, 'IN');
     expect(energy.region).toBe('IN');
-    expect(energy.gCo2e.base).toBeCloseTo((2.01 / 1000) * 708, 9);
+    expect(energy.gCo2e.base).toBeCloseTo((6.03 / 1000) * 708, 9);
   });
 
   it('throws on an unknown region instead of guessing', async () => {
@@ -87,7 +87,8 @@ describe('computeSessionEnergy with unmapped models', () => {
     });
     const energy = computeSessionEnergy(ledger, factors, grid);
     expect(energy.unestimatedModels).toEqual(['mystery-model']);
-    // haiku turn: 1e6 tokens, context 500k, multiplier 2, small base 20 Wh/MTok.
-    expect(energy.wh.base).toBeCloseTo(40, 9);
+    // haiku turn: 1e6 tokens, context 500k hits the 500k breakpoint at
+    // multiplier 1.2, small class base 110 Wh/MTok: 1.0 x 110 x 1.2 = 132.
+    expect(energy.wh.base).toBeCloseTo(132, 9);
   });
 });

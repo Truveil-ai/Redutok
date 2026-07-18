@@ -65,7 +65,7 @@ export function computeSessionEnergy(
     const t = entry.tokens;
     const totalTokens = t.input + t.output + t.cacheRead + t.cacheWrite + t.thinking;
     const contextTokens = t.input + t.cacheRead;
-    const multiplier = contextMultiplierFor(row.contextMultipliers, contextTokens);
+    const multiplier = contextMultiplierFor(row.contextMultipliers.curve, contextTokens);
     const mtok = totalTokens / 1_000_000;
     wh.base += mtok * row.whPerMTok.base * multiplier;
     wh.low += mtok * row.whPerMTok.low * multiplier;

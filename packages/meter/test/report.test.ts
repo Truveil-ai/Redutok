@@ -22,7 +22,7 @@ describe('buildReport on small.jsonl', () => {
     // Price rows are cited, so no TODO-VERIFY there, but the energy note must
     // flag the unverified energy and grid rows.
     expect(report.notes.join(' ')).toContain('never measurements');
-    expect(report.energy.wh.base).toBeCloseTo(2.01, 9);
+    expect(report.energy.wh.base).toBeCloseTo(6.03, 9);
     expect(report.energy.region).toBe('world');
     expect(report.energy.sidecarWh).toBe(0);
   });
@@ -42,9 +42,9 @@ describe('renderText', () => {
     expect(text).toContain('Read');
     expect(text).toContain('Skipped records: 1 unknown type, 0 malformed');
     // Energy is always rendered as an estimate with the band, never bare.
-    expect(text).toContain('estimated 2.01 Wh (band 0.20 to 10.05 Wh)');
-    // 2.01 Wh at the verified world intensity of 473 gCO2e/kWh.
-    expect(text).toContain('estimated 0.95 gCO2e (band 0.10 to 4.75 gCO2e), grid region world');
+    expect(text).toContain('estimated 6.03 Wh (band 2.01 to 20.10 Wh)');
+    // 6.03 Wh at the verified world intensity of 473 gCO2e/kWh.
+    expect(text).toContain('estimated 2.85 gCO2e (band 0.95 to 9.51 gCO2e), grid region world');
     expect(text).toContain('sidecar self-consumption: 0 Wh');
     expect(text).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);
   });

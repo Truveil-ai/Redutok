@@ -8,7 +8,10 @@ classes:
       low: 400
       high: 200
     contextMultipliers:
-      - upToTokens: 10000
-        multiplier: 1
-    source: TODO-VERIFY
+      confidence: low
+      source: test curve source
+      curve:
+        - upToTokens: 10000
+          multiplier: 1
+    source: test measurement source
     citation_hint: TokenPowerBench (AAAI 2026, arXiv 2512.03024)

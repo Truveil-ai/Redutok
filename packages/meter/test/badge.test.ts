@@ -24,7 +24,7 @@ describe('renderShareLine', () => {
   it('carries totals, the estimated band, and ends with the required suffix', async () => {
     const line = renderShareLine(await buildReport(fixture('small.jsonl')));
     expect(line).toContain('20,100 tokens');
-    expect(line).toContain('estimated 2.01 Wh (band 0.20 to 10.05)');
+    expect(line).toContain('estimated 6.03 Wh (band 2.01 to 20.10)');
     expect(line).toContain('grade pending');
     expect(line.endsWith('Redutok by Truveil')).toBe(true);
     expect(line).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);

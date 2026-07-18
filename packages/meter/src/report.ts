@@ -53,7 +53,7 @@ export async function buildReport(
     notes.push(`No price row for: ${cost.unpricedModels.join(', ')}. Their turns are not costed.`);
   }
   notes.push(
-    'Energy and carbon figures are estimates from energy_factors.yaml and grid_intensity.yaml, never measurements. All rows there are TODO-VERIFY pending founder verification.',
+    'Energy and carbon figures are estimates from energy_factors.yaml and grid_intensity.yaml, never measurements. Sources are cited on every row; see docs/METHODOLOGY.md for evidence quality.',
   );
   if (energy.unestimatedModels.length > 0) {
     notes.push(
