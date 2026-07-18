@@ -5,3 +5,4 @@ export * from './redact.js';
 export * from './client.js';
 export * from './daemon.js';
 export * from './log.js';
+export * from './gates.js';
