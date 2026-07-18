@@ -32,9 +32,15 @@ importers:
 
   packages/hooks:
     dependencies:
+      '@redutok/meter':
+        specifier: workspace:*
+        version: link:../meter
       '@redutok/shared':
         specifier: workspace:*
         version: link:../shared
+      '@redutok/sidecar':
+        specifier: workspace:*
+        version: link:../sidecar
 
   packages/mcp:
     dependencies:

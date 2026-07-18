@@ -103,6 +103,16 @@ function handler(log: Logger, engines?: Engines): http.RequestListener {
       setTimeout(() => respond(200, { ok: true, sleptMs: ms }), ms);
       return;
     }
+    if (req.method === 'POST' && url.pathname === '/notify') {
+      // Metering pings and file-change notifications from PostToolUse hooks.
+      void readBody(req)
+        .then((payload) => {
+          log.info('notify', { payload });
+          respond(200, { ok: true });
+        })
+        .catch(() => respond(400, { ok: false }));
+      return;
+    }
     if (req.method === 'POST' && url.pathname === '/shutdown') {
       respond(200, { ok: true, shuttingDown: true });
       setImmediate(() => process.emit('redutok:shutdown' as never));
