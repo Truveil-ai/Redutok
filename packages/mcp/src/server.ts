@@ -118,7 +118,18 @@ async function toolRead(deps: McpDeps, args: Record<string, unknown>): Promise<s
   } catch (err) {
     return `dcp__read failed: ${err instanceof Error ? err.message : String(err)}`;
   }
-  return distillViaSidecar(deps, raw, 'file-skeleton', filePath);
+  // Delta path first: unchanged files return a reference, changed files a
+  // unified diff, and only first serves flow through the skeleton profile.
+  const res = await sidecarRequest(
+    deps.target ?? {},
+    'POST',
+    '/serve-file',
+    { raw, path: filePath, sessionId: deps.sessionId ?? 'mcp-session' },
+    { timeoutMs: deps.timeoutMs ?? 2500 },
+  );
+  if (!res.ok || res.status !== 200) return `${raw}\n${NOTICE}`;
+  const body = res.body as { text: string; handle: string };
+  return `${body.text}\n${body.handle}`;
 }
 
 async function toolRun(deps: McpDeps, args: Record<string, unknown>): Promise<string> {

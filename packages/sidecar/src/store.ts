@@ -29,6 +29,7 @@ export interface ServedFileRecord {
   path: string;
   hash: string;
   servedAt: string;
+  content: string;
 }
 
 export interface SessionStateRecord {
@@ -113,13 +114,19 @@ export class Store {
     };
   }
 
-  recordServedFile(sessionId: string, filePath: string, hash: string, servedAt: string): void {
+  recordServedFile(
+    sessionId: string,
+    filePath: string,
+    hash: string,
+    servedAt: string,
+    content = '',
+  ): void {
     this.db
       .prepare(
-        `INSERT INTO served_files (session_id, path, hash, served_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT (session_id, path) DO UPDATE SET hash = excluded.hash, served_at = excluded.served_at`,
+        `INSERT INTO served_files (session_id, path, hash, served_at, content) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (session_id, path) DO UPDATE SET hash = excluded.hash, served_at = excluded.served_at, content = excluded.content`,
       )
-      .run(sessionId, filePath, hash, servedAt);
+      .run(sessionId, filePath, hash, servedAt, content);
   }
 
   getServedFile(sessionId: string, filePath: string): ServedFileRecord | undefined {
@@ -132,6 +139,7 @@ export class Store {
       path: row['path'] as string,
       hash: row['hash'] as string,
       servedAt: row['served_at'] as string,
+      content: (row['content'] as string | null) ?? '',
     };
   }
 

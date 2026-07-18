@@ -5,6 +5,8 @@ import type { DistillProfile } from '@redutok/shared';
 import { AuditWriter } from './audit.js';
 import { refreshFiles } from './codex.js';
 import { distillArtifact, loadProfiles, zoom } from './distill.js';
+import { serveFile } from './serve.js';
+import { updateRollingState } from './state.js';
 import { createLogger, type Logger } from './log.js';
 import { openStore, type Store } from './store.js';
 
@@ -57,6 +59,7 @@ function handler(
   log: Logger,
   engines?: Engines,
   onFileChange?: (filePath: string) => Promise<string[]>,
+  onNotify?: (event: { kind: string; tool?: string; path?: string }) => Promise<void>,
 ): http.RequestListener {
   const startedAt = Date.now();
   return (req, res) => {
@@ -66,6 +69,48 @@ function handler(
       res.end(JSON.stringify(body));
     };
     log.info('request', { method: req.method, path: url.pathname });
+    if (req.method === 'POST' && url.pathname === '/serve-file') {
+      // Delta path for dcp__read: first serve full (then distilled by the
+      // caller's profile), later serves as diff or unchanged reference.
+      if (engines === undefined) {
+        respond(503, { ok: false, error: 'daemon started without a profiles directory' });
+        return;
+      }
+      void readBody(req)
+        .then(async (payload) => {
+          const p = payload as Record<string, unknown>;
+          const sessionId = String(p['sessionId'] ?? 'unknown');
+          const relPath = String(p['path'] ?? '');
+          const raw = String(p['raw'] ?? '');
+          const served = serveFile(engines.store, engines.audit, sessionId, relPath, raw);
+          if (served.mode !== 'full') {
+            respond(200, { ...served, handle: `[dcp:file ${served.ref}]` });
+            return;
+          }
+          const profile = engines.profiles.get('file-skeleton');
+          if (profile === undefined) {
+            respond(200, { ...served, handle: `[dcp:file ${served.ref}]` });
+            return;
+          }
+          const outcome = await distillArtifact(engines.store, engines.audit, {
+            raw,
+            profile,
+            sessionId,
+            tool: 'dcp__read',
+            context: { filePath: relPath },
+          });
+          respond(200, {
+            mode: 'full',
+            ref: served.ref,
+            text: outcome.text,
+            handle: outcome.handle,
+          });
+        })
+        .catch((err: unknown) =>
+          respond(400, { ok: false, error: err instanceof Error ? err.message : String(err) }),
+        );
+      return;
+    }
     if (req.method === 'POST' && (url.pathname === '/distill' || url.pathname === '/zoom')) {
       if (engines === undefined) {
         respond(503, { ok: false, error: 'daemon started without a profiles directory' });
@@ -114,7 +159,10 @@ function handler(
       void readBody(req)
         .then(async (payload) => {
           log.info('notify', { payload });
-          const p = payload as { kind?: string; path?: string };
+          const p = payload as { kind?: string; tool?: string; path?: string };
+          if (onNotify !== undefined) {
+            await onNotify({ kind: p.kind ?? 'tool-use', tool: p.tool, path: p.path });
+          }
           if (p.kind === 'file-change' && typeof p.path === 'string' && onFileChange !== undefined) {
             const reindexed = await onFileChange(p.path);
             respond(200, { ok: true, reindexed });
@@ -153,7 +201,14 @@ export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle>
       return [];
     }
   };
-  const listener = handler(log, engines, onFileChange);
+  const onNotify = async (event: { kind: string; tool?: string; path?: string }): Promise<void> => {
+    try {
+      await updateRollingState(options.dcpDir, event);
+    } catch {
+      // State maintenance must never fail a notify.
+    }
+  };
+  const listener = handler(log, engines, onFileChange, onNotify);
   const httpServer = http.createServer(listener);
   await new Promise<void>((resolve, reject) => {
     httpServer.once('error', reject);
