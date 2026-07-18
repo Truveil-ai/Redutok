@@ -7,6 +7,7 @@ import {
   handlePostToolUse,
   handleSessionStart,
   handleStop,
+  handleUserPromptSubmit,
   type HookDeps,
   type HookOutput,
 } from './handlers.js';
@@ -70,6 +71,9 @@ async function main(): Promise<void> {
       break;
     case 'PreCompact':
       output = handlePreCompact(input, deps);
+      break;
+    case 'UserPromptSubmit':
+      output = handleUserPromptSubmit(input, deps);
       break;
     case 'Stop':
     case 'SessionEnd':

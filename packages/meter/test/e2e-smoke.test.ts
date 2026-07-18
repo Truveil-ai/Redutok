@@ -95,6 +95,53 @@ describe('phase 4 end-to-end smoke', () => {
         hookDeps,
       );
       expect(stop.summaryLine).toContain('Redutok by Truveil');
+
+      // 6a phase: edit the file and re-read; the delta engine serves a diff,
+      // and applying it onto the previous version reconstructs byte-equal.
+      const { applyPatch } = await import('diff');
+      const edited = bigSource + '\n// appended by the scripted session\nexport const EDITED = true;\n';
+      writeFileSync(bigPath, edited);
+      const reRead = await handleMcpRequest(
+        { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'dcp__read', arguments: { file_path: bigPath } } },
+        mcpDeps,
+      );
+      const diffText = (reRead?.result as { content: { text: string }[] }).content[0]?.text ?? '';
+      expect(diffText).toContain('@@');
+      const patchOnly = diffText.slice(0, diffText.lastIndexOf('\n[dcp:file'));
+      expect(applyPatch(bigSource, patchOnly)).toBe(edited);
+
+      // Rolling state: notifies flowed through /notify during the session.
+      const { sidecarRequest } = await import('@redutok/sidecar/client');
+      await sidecarRequest(
+        { port: daemon.port },
+        'POST',
+        '/notify',
+        { kind: 'file-change', tool: 'Edit', path: 'src/big-module.ts' },
+        { timeoutMs: 5000 },
+      );
+      const statePathFull = path.join(dcpDir, 'session-state.md');
+      expect(existsSync(statePathFull)).toBe(true);
+      const { estimateTokens } = await import('@redutok/sidecar');
+      expect(estimateTokens(readFileSync(statePathFull, 'utf8'))).toBeLessThanOrEqual(600);
+
+      // Handoff produces a valid resume.
+      const { writeHandoff } = await import('../src/discipline.js');
+      const handoff = writeHandoff(repo);
+      expect(readFileSync(handoff.file, 'utf8')).toContain('Rolling state');
+      expect(handoff.resumeCommand).toContain('.dcp/handoff.md');
+
+      // Output discipline fires in controlled cases.
+      const rewrite = await handlePreToolUse(
+        { tool_name: 'Write', tool_input: { file_path: bigPath, content: 'y'.repeat(20_000) } },
+        hookDeps,
+      );
+      expect(rewrite.hookSpecificOutput?.permissionDecisionReason).toContain('Emit a patch');
+      const { handleUserPromptSubmit } = await import('@redutok/hooks');
+      const hint = handleUserPromptSubmit(
+        { prompt: 'refactor the whole delta engine across the codebase' },
+        hookDeps,
+      );
+      expect(hint.hookSpecificOutput?.additionalContext).toContain('hard');
     } finally {
       await daemon.close();
     }
@@ -106,7 +153,10 @@ describe('phase 4 end-to-end smoke', () => {
     );
     expect(preDown).toEqual({});
 
-    // 7. Remove reverts the sample repo byte-identical.
+    // 7. Remove reverts the sample repo byte-identical. The scripted edit to
+    // big-module.ts is user work, not managed state, so the script undoes it
+    // first; remove only guarantees the managed files.
+    writeFileSync(bigPath, bigSource);
     removeRepo(repo);
     expect(snapshot(repo)).toEqual(before);
     expect(existsSync(path.join(repo, '.dcp'))).toBe(false);

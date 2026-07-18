@@ -11,6 +11,7 @@ import {
   handlePostToolUse,
   handleSessionStart,
   handleStop,
+  handleUserPromptSubmit,
   type HookDeps,
 } from '../src/handlers.js';
 
@@ -137,6 +138,54 @@ describe('handlePostToolUse and handlePreCompact', () => {
     writeFileSync(path.join(dcpDir, 'session-state.md'), 'task: finish phase 4');
     const out = handlePreCompact({}, { ...DEAD, dcpDir });
     expect(out.hookSpecificOutput?.additionalContext).toContain('task: finish phase 4');
+  });
+});
+
+describe('output discipline', () => {
+  it('denies a full rewrite of a large existing file with emit-a-patch guidance', async () => {
+    const dir = tempDcp();
+    const target = path.join(dir, 'existing.ts');
+    writeFileSync(target, 'original');
+    const result = await handlePreToolUse(
+      { tool_name: 'Write', tool_input: { file_path: target, content: 'x'.repeat(20_000) } },
+      DEAD,
+    );
+    expect(result.hookSpecificOutput?.permissionDecision).toBe('deny');
+    expect(result.hookSpecificOutput?.permissionDecisionReason).toContain('Emit a patch');
+  });
+
+  it('allows new files and small rewrites', async () => {
+    const dir = tempDcp();
+    const fresh = path.join(dir, 'new.ts');
+    expect(
+      await handlePreToolUse(
+        { tool_name: 'Write', tool_input: { file_path: fresh, content: 'x'.repeat(20_000) } },
+        DEAD,
+      ),
+    ).toEqual({});
+    const target = path.join(dir, 'small.ts');
+    writeFileSync(target, 'original');
+    expect(
+      await handlePreToolUse(
+        { tool_name: 'Write', tool_input: { file_path: target, content: 'tiny change' } },
+        DEAD,
+      ),
+    ).toEqual({});
+  });
+
+  it('classifies prompts rules-first with advisory hints only', () => {
+    const trivial = handleUserPromptSubmit({ prompt: 'what does limits.ts contain' }, DEAD);
+    expect(trivial.hookSpecificOutput?.additionalContext).toContain('trivial');
+    const hard = handleUserPromptSubmit(
+      { prompt: 'refactor the sidecar daemon to support streaming responses across the codebase' },
+      DEAD,
+    );
+    expect(hard.hookSpecificOutput?.additionalContext).toContain('hard');
+    const standard = handleUserPromptSubmit(
+      { prompt: 'Please add one more assertion to the ledger test covering the tools default and rerun the suite so we can be sure nothing else regressed in the meantime.' },
+      DEAD,
+    );
+    expect(standard).toEqual({});
   });
 });
 

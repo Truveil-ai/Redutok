@@ -105,6 +105,22 @@ export async function handlePreToolUse(
         },
       };
     }
+    if (tool === 'Write') {
+      // Output discipline, architecture 6.1: full rewrites of large existing
+      // files draw emit-a-patch guidance; new files always pass.
+      const filePath = String(args['file_path'] ?? '');
+      const content = String(args['content'] ?? '');
+      if (
+        filePath !== '' &&
+        existsSync(filePath) &&
+        Buffer.byteLength(content, 'utf8') > LIMITS.FULL_REWRITE_MAX_BYTES
+      ) {
+        return deny(
+          `Rewriting ${Math.round(Buffer.byteLength(content, 'utf8') / 1024)}KB of an existing file wholesale. Emit a patch instead: use Edit with targeted old and new strings, or split the change.`,
+        );
+      }
+      return {};
+    }
     if (tool === 'Bash') {
       const command = String(args['command'] ?? '');
       if (!EXPENSIVE_BASH.test(command)) return {};
@@ -156,6 +172,32 @@ export function handlePreCompact(_input: unknown, deps: HookDeps): HookOutput {
   };
 }
 
+const HARD_PROMPT = /\b(refactor|architect|design|migrate|debug|rewrite|overhaul|end.to.end|across the (?:repo|codebase))\b/i;
+
+/**
+ * Rules-first complexity classifier, architecture 6.3. Advisory only in v1:
+ * it injects a thinking-budget hint, never a constraint.
+ */
+export function handleUserPromptSubmit(input: { prompt?: string }, _deps: HookDeps): HookOutput {
+  const prompt = input.prompt ?? '';
+  if (prompt === '') return {};
+  let tier: 'trivial' | 'standard' | 'hard' = 'standard';
+  if (HARD_PROMPT.test(prompt)) tier = 'hard';
+  else if (prompt.length <= LIMITS.TRIVIAL_PROMPT_MAX_CHARS && !prompt.includes('\n')) tier = 'trivial';
+  const hints = {
+    trivial: 'Advisory: this looks like a trivial request. Minimal thinking should suffice; answer directly.',
+    standard: '',
+    hard: 'Advisory: this looks like a hard, multi-step task. Plan before acting; extended thinking is warranted.',
+  } as const;
+  if (hints[tier] === '') return {};
+  return {
+    hookSpecificOutput: {
+      hookEventName: 'UserPromptSubmit',
+      additionalContext: hints[tier],
+    },
+  };
+}
+
 export async function handleStop(
   input: { transcript_path?: string },
   _deps: HookDeps,
@@ -165,8 +207,18 @@ export async function handleStop(
   try {
     const ledger = buildLedger(await parseSessionFile(transcript));
     const total = grandTotal(ledger.totals).toLocaleString('en-US');
+    // Split advisor inlined (not imported from the meter) to keep the
+    // hooks-before-meter build order acyclic; the meter's discipline module
+    // carries the same threshold from limits.ts for reports.
+    const last = ledger.entries[ledger.entries.length - 1];
+    const split =
+      last !== undefined &&
+      last.tokens.input + last.tokens.cacheRead > LIMITS.SPLIT_ADVISOR_CONTEXT_TOKENS;
+    const advisor = split
+      ? ' Split point detected. redutok handoff will open a fresh session pre-loaded with codex plus state instead of carrying the full transcript.'
+      : '';
     return {
-      summaryLine: `Redutok: ${total} tokens across ${ledger.entries.length} turns this session. Run redutok report --last for detail. Redutok by Truveil`,
+      summaryLine: `Redutok: ${total} tokens across ${ledger.entries.length} turns this session.${advisor} Run redutok report --last for detail. Redutok by Truveil`,
     };
   } catch {
     return {};

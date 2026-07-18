@@ -55,6 +55,13 @@ export async function main(argv: string[]): Promise<number> {
     }
     return 0;
   }
+  if (command === 'handoff') {
+    const { writeHandoff } = await import('./discipline.js');
+    const result = writeHandoff(process.cwd());
+    console.log(`Handoff written to ${result.file}`);
+    console.log(`Resume with: ${result.resumeCommand}`);
+    return 0;
+  }
   if (command === 'init' || command === 'remove') {
     const target = rest.filter((a) => !a.startsWith('--'))[0] ?? process.cwd();
     console.log(command === 'init' ? initRepo(target) : removeRepo(target));

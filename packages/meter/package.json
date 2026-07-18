@@ -18,9 +18,13 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@redutok/hooks": "workspace:*",
+    "@redutok/mcp": "workspace:*",
     "@redutok/shared": "workspace:*",
     "@redutok/sidecar": "workspace:*",
-    "@redutok/hooks": "workspace:*",
-    "@redutok/mcp": "workspace:*"
+    "diff": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/diff": "^7.0.0"
   }
 }

@@ -68,6 +68,13 @@ importers:
       '@redutok/sidecar':
         specifier: workspace:*
         version: link:../sidecar
+      diff:
+        specifier: ^7.0.0
+        version: 7.0.0
+    devDependencies:
+      '@types/diff':
+        specifier: ^7.0.0
+        version: 7.0.2
 
   packages/shared:
     dependencies:

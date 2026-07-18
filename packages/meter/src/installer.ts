@@ -30,8 +30,9 @@ const MANAGED = [
 ];
 const HOOK_EVENTS: { event: string; matcher?: string }[] = [
   { event: 'SessionStart' },
-  { event: 'PreToolUse', matcher: 'Read|Bash|Grep|Glob' },
+  { event: 'PreToolUse', matcher: 'Read|Bash|Grep|Glob|Write' },
   { event: 'PostToolUse', matcher: 'Read|Bash|Edit|Write' },
+  { event: 'UserPromptSubmit' },
   { event: 'PreCompact' },
   { event: 'Stop' },
   { event: 'SessionEnd' },
