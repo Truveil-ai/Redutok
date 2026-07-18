@@ -28,10 +28,21 @@ export const PricesFileSchema = z.object({
 });
 export type PricesFile = z.infer<typeof PricesFileSchema>;
 
+export const EnergyBandSchema = z
+  .object({
+    base: z.number().nonnegative(),
+    low: z.number().nonnegative(),
+    high: z.number().nonnegative(),
+  })
+  .refine((b) => b.low <= b.base && b.base <= b.high, {
+    message: 'uncertainty band must satisfy low <= base <= high',
+  });
+export type EnergyBand = z.infer<typeof EnergyBandSchema>;
+
 export const EnergyFactorRowSchema = z.object({
   modelClass: z.string().min(1),
-  whPerMTokMin: z.number().nonnegative(),
-  whPerMTokMax: z.number().nonnegative(),
+  models: z.array(z.string().min(1)).default([]),
+  whPerMTok: EnergyBandSchema,
   contextMultipliers: z
     .array(
       z.object({
@@ -39,16 +50,36 @@ export const EnergyFactorRowSchema = z.object({
         multiplier: z.number().positive(),
       }),
     )
-    .default([]),
+    .min(1),
   source: z.string().min(1),
+  citation_hint: z.string().min(1),
 });
 export type EnergyFactorRow = z.infer<typeof EnergyFactorRowSchema>;
 
 export const EnergyFactorsFileSchema = z.object({
   version: z.number().int().positive(),
-  factors: z.array(EnergyFactorRowSchema).min(1),
+  classes: z.array(EnergyFactorRowSchema).min(1),
 });
 export type EnergyFactorsFile = z.infer<typeof EnergyFactorsFileSchema>;
+
+export const GridIntensityRowSchema = z.object({
+  region: z.string().min(1),
+  gCo2ePerKwh: z.number().nonnegative(),
+  source: z.string().min(1),
+  citation_hint: z.string().min(1),
+});
+export type GridIntensityRow = z.infer<typeof GridIntensityRowSchema>;
+
+export const GridIntensityFileSchema = z
+  .object({
+    version: z.number().int().positive(),
+    defaultRegion: z.string().min(1),
+    regions: z.array(GridIntensityRowSchema).min(1),
+  })
+  .refine((f) => f.regions.some((r) => r.region === f.defaultRegion), {
+    message: 'defaultRegion must have a matching row in regions',
+  });
+export type GridIntensityFile = z.infer<typeof GridIntensityFileSchema>;
 
 export function loadYamlFile<S extends z.ZodTypeAny>(filePath: string, schema: S): z.infer<S> {
   const raw = readFileSync(filePath, 'utf8');
@@ -64,6 +95,20 @@ export function loadPrices(filePath: string = defaultPricesPath()): PricesFile {
   return loadYamlFile(filePath, PricesFileSchema);
 }
 
-export function loadEnergyFactors(filePath: string): EnergyFactorsFile {
+/** Absolute path of the energy_factors.yaml shipped with this package. */
+export function defaultEnergyFactorsPath(): string {
+  return path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'energy_factors.yaml');
+}
+
+/** Absolute path of the grid_intensity.yaml shipped with this package. */
+export function defaultGridIntensityPath(): string {
+  return path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'grid_intensity.yaml');
+}
+
+export function loadEnergyFactors(filePath: string = defaultEnergyFactorsPath()): EnergyFactorsFile {
   return loadYamlFile(filePath, EnergyFactorsFileSchema);
+}
+
+export function loadGridIntensity(filePath: string = defaultGridIntensityPath()): GridIntensityFile {
+  return loadYamlFile(filePath, GridIntensityFileSchema);
 }

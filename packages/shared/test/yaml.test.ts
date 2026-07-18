@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { loadEnergyFactors, loadPrices } from '../src/index.js';
+import { loadEnergyFactors, loadGridIntensity, loadPrices } from '../src/index.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name: string) => path.join(here, 'fixtures', name);
@@ -22,7 +22,52 @@ describe('loadPrices', () => {
 describe('loadEnergyFactors', () => {
   it('loads and validates a well-formed energy factors file', () => {
     const energy = loadEnergyFactors(fixture('energy.valid.yaml'));
-    expect(energy.factors[0]?.modelClass).toBe('frontier-large');
-    expect(energy.factors[0]?.contextMultipliers[0]?.multiplier).toBe(1);
+    const row = energy.classes[0];
+    expect(row?.modelClass).toBe('frontier-large');
+    expect(row?.models).toEqual(['test-model-a']);
+    expect(row?.whPerMTok).toEqual({ base: 300, low: 30, high: 1500 });
+    expect(row?.contextMultipliers[0]?.multiplier).toBe(1);
+    expect(row?.source).toBe('TODO-VERIFY');
+    expect(row?.citation_hint).toContain('TokenPowerBench');
+  });
+
+  it('rejects a band whose low exceeds base or base exceeds high', () => {
+    expect(() => loadEnergyFactors(fixture('energy.bad-band.yaml'))).toThrow();
+  });
+
+  it('ships a default file whose rows all carry source and citation_hint', () => {
+    const energy = loadEnergyFactors();
+    expect(energy.classes.length).toBeGreaterThanOrEqual(3);
+    for (const row of energy.classes) {
+      expect(row.source).toBe('TODO-VERIFY');
+      expect(row.citation_hint.length).toBeGreaterThan(0);
+      expect(row.whPerMTok.low).toBeLessThanOrEqual(row.whPerMTok.base);
+      expect(row.whPerMTok.base).toBeLessThanOrEqual(row.whPerMTok.high);
+      const tops = row.contextMultipliers.map((m) => m.upToTokens);
+      expect([...tops].sort((a, b) => a - b)).toEqual(tops);
+    }
+  });
+});
+
+describe('loadGridIntensity', () => {
+  it('loads and validates a well-formed grid intensity file', () => {
+    const grid = loadGridIntensity(fixture('grid.valid.yaml'));
+    expect(grid.defaultRegion).toBe('world');
+    expect(grid.regions[0]?.gCo2ePerKwh).toBe(480);
+  });
+
+  it('rejects a region row with no source field', () => {
+    expect(() => loadGridIntensity(fixture('grid.missing-source.yaml'))).toThrow();
+  });
+
+  it('ships a default file with the world default plus IN, US, EU rows', () => {
+    const grid = loadGridIntensity();
+    const regions = grid.regions.map((r) => r.region);
+    expect(regions).toEqual(expect.arrayContaining(['world', 'IN', 'US', 'EU']));
+    expect(grid.regions.find((r) => r.region === grid.defaultRegion)).toBeDefined();
+    for (const row of grid.regions) {
+      expect(row.source).toBe('TODO-VERIFY');
+      expect(row.citation_hint.length).toBeGreaterThan(0);
+    }
   });
 });

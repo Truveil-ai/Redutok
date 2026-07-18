@@ -1,0 +1,70 @@
+# Energy factors, Wh per million tokens processed, by model class.
+# Every figure here is TODO-VERIFY. None of these numbers were measured or
+# cited from a verified source; they are order-of-magnitude placeholders so
+# the estimation pipeline can be built and tested. Reasoning for the bands:
+# public inference-energy literature spans roughly 0.01 to 5 J per token
+# across model sizes, batching regimes, and hardware generations, and
+# 1 J per token equals 278 Wh per million tokens. The bands below are kept
+# deliberately wide (one order of magnitude around the base) rather than
+# falsely precise. The founder must replace base, low, and high for each
+# class from the sources named in citation_hint before any public claim.
+# Context multipliers model superlinear attention cost growth with context
+# length; the breakpoint values are likewise unverified placeholders.
+version: 1
+classes:
+  - modelClass: frontier-large
+    models:
+      - claude-fable-5
+      - claude-opus-4-8
+    whPerMTok:
+      base: 300
+      low: 30
+      high: 1500
+    contextMultipliers:
+      - upToTokens: 10000
+        multiplier: 1
+      - upToTokens: 100000
+        multiplier: 1.3
+      - upToTokens: 500000
+        multiplier: 2
+      - upToTokens: 1000000
+        multiplier: 3
+    source: TODO-VERIFY
+    citation_hint: TokenPowerBench paper (AAAI 2026, arXiv 2512.03024); ML.ENERGY leaderboard v3 (University of Michigan)
+  - modelClass: frontier-mid
+    models:
+      - claude-sonnet-5
+      - claude-sonnet-4-6
+    whPerMTok:
+      base: 100
+      low: 10
+      high: 500
+    contextMultipliers:
+      - upToTokens: 10000
+        multiplier: 1
+      - upToTokens: 100000
+        multiplier: 1.3
+      - upToTokens: 500000
+        multiplier: 2
+      - upToTokens: 1000000
+        multiplier: 3
+    source: TODO-VERIFY
+    citation_hint: TokenPowerBench paper (AAAI 2026, arXiv 2512.03024); ML.ENERGY leaderboard v3 (University of Michigan)
+  - modelClass: small
+    models:
+      - claude-haiku-4-5
+    whPerMTok:
+      base: 20
+      low: 2
+      high: 100
+    contextMultipliers:
+      - upToTokens: 10000
+        multiplier: 1
+      - upToTokens: 100000
+        multiplier: 1.3
+      - upToTokens: 500000
+        multiplier: 2
+      - upToTokens: 1000000
+        multiplier: 3
+    source: TODO-VERIFY
+    citation_hint: TokenPowerBench paper (AAAI 2026, arXiv 2512.03024); ML.ENERGY leaderboard v3 (University of Michigan)

@@ -1,0 +1,25 @@
+# Grid carbon intensity, gCO2e per kWh, by region.
+# Every figure is TODO-VERIFY: round placeholder values in the vicinity of
+# commonly published averages, chosen conservatively (erring high) so savings
+# claims are understated rather than overstated. The founder must replace each
+# value from the sources named in citation_hint before any public claim.
+# The world row is the default when no region is configured.
+version: 1
+defaultRegion: world
+regions:
+  - region: world
+    gCo2ePerKwh: 500
+    source: TODO-VERIFY
+    citation_hint: IEA global electricity CO2 intensity; Ember Global Electricity Review
+  - region: IN
+    gCo2ePerKwh: 700
+    source: TODO-VERIFY
+    citation_hint: Ember country profile for India; CEA India grid emission factor
+  - region: US
+    gCo2ePerKwh: 400
+    source: TODO-VERIFY
+    citation_hint: EPA eGRID national average
+  - region: EU
+    gCo2ePerKwh: 300
+    source: TODO-VERIFY
+    citation_hint: Ember EU average; European Environment Agency

@@ -5,12 +5,10 @@ classes:
       - test-model-a
     whPerMTok:
       base: 300
-      low: 30
-      high: 1500
+      low: 400
+      high: 200
     contextMultipliers:
       - upToTokens: 10000
         multiplier: 1
-      - upToTokens: 100000
-        multiplier: 1.3
     source: TODO-VERIFY
     citation_hint: TokenPowerBench (AAAI 2026, arXiv 2512.03024)

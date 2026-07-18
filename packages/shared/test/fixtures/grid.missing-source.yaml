@@ -1,0 +1,6 @@
+version: 1
+defaultRegion: world
+regions:
+  - region: world
+    gCo2ePerKwh: 480
+    citation_hint: IEA world average
