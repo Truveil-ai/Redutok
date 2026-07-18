@@ -43,7 +43,8 @@ describe('renderText', () => {
     expect(text).toContain('Skipped records: 1 unknown type, 0 malformed');
     // Energy is always rendered as an estimate with the band, never bare.
     expect(text).toContain('estimated 2.01 Wh (band 0.20 to 10.05 Wh)');
-    expect(text).toContain('estimated 1.01 gCO2e (band 0.10 to 5.03 gCO2e), grid region world');
+    // 2.01 Wh at the verified world intensity of 473 gCO2e/kWh.
+    expect(text).toContain('estimated 0.95 gCO2e (band 0.10 to 4.75 gCO2e), grid region world');
     expect(text).toContain('sidecar self-consumption: 0 Wh');
     expect(text).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);
   });

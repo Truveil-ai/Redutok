@@ -67,6 +67,8 @@ export const GridIntensityRowSchema = z.object({
   gCo2ePerKwh: z.number().nonnegative(),
   source: z.string().min(1),
   citation_hint: z.string().min(1),
+  note: z.string().optional(),
+  verified: z.string().optional(),
 });
 export type GridIntensityRow = z.infer<typeof GridIntensityRowSchema>;
 

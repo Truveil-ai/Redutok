@@ -60,14 +60,23 @@ describe('loadGridIntensity', () => {
     expect(() => loadGridIntensity(fixture('grid.missing-source.yaml'))).toThrow();
   });
 
-  it('ships a default file with the world default plus IN, US, EU rows', () => {
+  it('ships a default file with the world default plus IN, US, EU rows, all verified', () => {
     const grid = loadGridIntensity();
     const regions = grid.regions.map((r) => r.region);
     expect(regions).toEqual(expect.arrayContaining(['world', 'IN', 'US', 'EU']));
     expect(grid.regions.find((r) => r.region === grid.defaultRegion)).toBeDefined();
     for (const row of grid.regions) {
-      expect(row.source).toBe('TODO-VERIFY');
+      expect(row.source).not.toBe('TODO-VERIFY');
+      expect(row.source.length).toBeGreaterThan(0);
+      expect(row.verified).toBe('2026-07-18');
       expect(row.citation_hint.length).toBeGreaterThan(0);
     }
+  });
+
+  it('keeps the verified world value and its IEA note through schema validation', () => {
+    const world = loadGridIntensity().regions.find((r) => r.region === 'world');
+    expect(world?.gCo2ePerKwh).toBe(473);
+    expect(world?.source).toContain('Ember');
+    expect(world?.note).toContain('IEA Electricity 2025');
   });
 });

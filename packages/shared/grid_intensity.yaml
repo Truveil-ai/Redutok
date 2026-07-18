@@ -1,25 +1,29 @@
 # Grid carbon intensity, gCO2e per kWh, by region.
-# Every figure is TODO-VERIFY: round placeholder values in the vicinity of
-# commonly published averages, chosen conservatively (erring high) so savings
-# claims are understated rather than overstated. The founder must replace each
-# value from the sources named in citation_hint before any public claim.
-# The world row is the default when no region is configured.
+# Founder-verified 2026-07-18 against the source cited on each row.
+# The world row is the default when no region is configured; where published
+# figures diverge the more conservative (higher) one is retained, so savings
+# claims are understated rather than overstated.
 version: 1
 defaultRegion: world
 regions:
   - region: world
-    gCo2ePerKwh: 500
-    source: TODO-VERIFY
+    gCo2ePerKwh: 473
+    source: Ember, Global Electricity Review 2025 (2024 data), https://ember-energy.org/latest-insights/global-electricity-review-2025/
+    note: IEA Electricity 2025 reports 445 gCO2/kWh for 2024; Ember retained as the conservative figure
     citation_hint: IEA global electricity CO2 intensity; Ember Global Electricity Review
+    verified: "2026-07-18"
   - region: IN
-    gCo2ePerKwh: 700
-    source: TODO-VERIFY
+    gCo2ePerKwh: 708
+    source: Ember, Global Electricity Review 2025 (2024 data), https://ember-energy.org/latest-insights/global-electricity-review-2025/
     citation_hint: Ember country profile for India; CEA India grid emission factor
+    verified: "2026-07-18"
   - region: US
-    gCo2ePerKwh: 400
-    source: TODO-VERIFY
+    gCo2ePerKwh: 350
+    source: EPA eGRID 2023 national average, https://www.epa.gov/egrid
     citation_hint: EPA eGRID national average
+    verified: "2026-07-18"
   - region: EU
-    gCo2ePerKwh: 300
-    source: TODO-VERIFY
+    gCo2ePerKwh: 213
+    source: Ember, Global Electricity Review 2025 (2024 data), https://ember-energy.org/latest-insights/global-electricity-review-2025/
     citation_hint: Ember EU average; European Environment Agency
+    verified: "2026-07-18"
