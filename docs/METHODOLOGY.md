@@ -105,8 +105,8 @@ task sizes are not comparable through it. It was chosen because it is the
 only outcome signal derivable from the transcript alone with no judgment
 call. Task-level success from the bench harness is the better denominator
 where available; the score exists so single sessions outside the bench still
-get an energy signal. The reference value EPO_BASELINE_WH_PER_TURN in
-limits.ts is a product tuning constant, not a measured claim.
+get an energy signal. The reference band EPO_BASELINE_WH_PER_TURN_BY_SHAPE in
+limits.ts holds product tuning constants per session shape, not measured claims; shape derivation is in docs/SCORING.md.
 
 ## Verification record
 

@@ -31,10 +31,16 @@ hit cache). Not scorable with fewer than two turns or zero cacheable tokens.
 
 ## Energy per Outcome (weight 0.15)
 
-100 x min(1, EPO_BASELINE_WH_PER_TURN / whPerTurn), where whPerTurn is the
-session's estimated base Wh divided by completed assistant turns. The outcome
-proxy is defined in docs/METHODOLOGY.md. Not scorable without an energy
-estimate (unmapped model).
+100 x min(1, baseline / whPerTurn), where whPerTurn is the session's
+estimated base Wh divided by completed assistant turns and baseline comes
+from EPO_BASELINE_WH_PER_TURN_BY_SHAPE for the session's shape. Shape is
+derived from tool-cycle density, the share of turns invoking at least one
+tool (ledger tools field): chat below SESSION_SHAPE_TOOL_DENSITY.chatMax,
+agentic at or above mixedMax, mixed between. Rationale: agentic turns carry
+tool payload processing and repeated prefill that chat turns do not, so a
+flat per-turn reference would structurally punish agentic sessions. The
+outcome proxy remains completed turns (docs/METHODOLOGY.md) and the score's
+report line says so inline. Not scorable without an energy estimate.
 
 ## Composite
 

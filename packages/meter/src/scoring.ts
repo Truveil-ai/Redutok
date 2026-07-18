@@ -73,18 +73,33 @@ function cacheUtilization(ledger: SessionLedger): ScoreResult {
   return { scorable: true, score, detail: `${cacheRead} cache-read of ${cacheRead + input} cacheable input tokens` };
 }
 
+export type SessionShape = 'chat' | 'mixed' | 'agentic';
+
+/** Session shape from tool-cycle density: the share of turns invoking tools. */
+export function sessionShape(ledger: SessionLedger): { shape: SessionShape; toolDensity: number } {
+  const turns = ledger.entries.length;
+  const toolTurns = ledger.entries.filter((e) => e.tools.length > 0).length;
+  const toolDensity = turns === 0 ? 0 : toolTurns / turns;
+  const bounds = LIMITS.SESSION_SHAPE_TOOL_DENSITY;
+  const shape: SessionShape =
+    toolDensity < bounds.chatMax ? 'chat' : toolDensity < bounds.mixedMax ? 'mixed' : 'agentic';
+  return { shape, toolDensity };
+}
+
 function energyPerOutcome(ledger: SessionLedger, energy?: SessionEnergy): ScoreResult {
   if (energy === undefined) return { scorable: false, reason: 'no energy estimate available' };
   if (ledger.entries.length === 0) return { scorable: false, reason: 'no assistant turns in the ledger' };
   if (energy.unestimatedModels.length > 0 && energy.wh.base === 0) {
     return { scorable: false, reason: `no energy factor class for: ${energy.unestimatedModels.join(', ')}` };
   }
+  const { shape, toolDensity } = sessionShape(ledger);
+  const baseline = LIMITS.EPO_BASELINE_WH_PER_TURN_BY_SHAPE[shape];
   const whPerTurn = energy.wh.base / ledger.entries.length;
-  const score = round(100 * Math.min(1, LIMITS.EPO_BASELINE_WH_PER_TURN / Math.max(whPerTurn, 1e-6)));
+  const score = round(100 * Math.min(1, baseline / Math.max(whPerTurn, 1e-6)));
   return {
     scorable: true,
     score,
-    detail: `estimated ${whPerTurn.toFixed(2)} Wh per completed turn against the ${LIMITS.EPO_BASELINE_WH_PER_TURN} Wh reference`,
+    detail: `estimated ${whPerTurn.toFixed(2)} Wh per completed turn against the ${baseline} Wh ${shape} reference, tool density ${toolDensity.toFixed(2)} (proxy: turns, see docs/SCORING.md)`,
   };
 }
 

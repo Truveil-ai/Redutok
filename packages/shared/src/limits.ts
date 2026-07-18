@@ -19,8 +19,15 @@ export const LIMITS = {
   TRIVIAL_PROMPT_MAX_CHARS: 120,
   /** Average output tokens per turn above this counts against verbosity adherence. */
   VERBOSE_OUTPUT_TOKENS_PER_TURN: 1500,
-  /** Energy-per-outcome reference: estimated Wh per completed assistant turn at score 100. */
-  EPO_BASELINE_WH_PER_TURN: 2.5,
+  /**
+   * Energy-per-outcome reference band by session shape, docs/SCORING.md.
+   * Agentic turns carry tool payloads and re-prefill cost that chat turns do
+   * not, so a flat per-turn reference would structurally punish agentic work.
+   * Product tuning constants, not measured claims.
+   */
+  EPO_BASELINE_WH_PER_TURN_BY_SHAPE: { chat: 2.5, mixed: 8, agentic: 25 },
+  /** Session shape from tool-cycle density (share of turns invoking tools). */
+  SESSION_SHAPE_TOOL_DENSITY: { chatMax: 0.2, mixedMax: 0.6 },
   /** Composite weights per score, docs/SCORING.md. Renormalized over scorable scores. */
   SCORE_WEIGHTS: {
     contextEfficiency: 0.35,

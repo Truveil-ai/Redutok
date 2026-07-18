@@ -25,7 +25,8 @@ describe('scoreSession on small.jsonl, hand computed', () => {
   // OD: avg (1470+450)/3 = 640 <= 1500, score 100.
   // CU over turns 2..3: cacheRead 5200+5900 = 11100, input 900+60 = 960,
   //   100 * 11100/12060 = 92.04 -> 92.
-  // EPO: wh base 6.03 over 3 turns = 2.01 Wh/turn; 2.5/2.01 caps at 1 -> 100.
+  // EPO: 2 of 3 turns invoke tools, density 0.67 -> agentic shape, baseline
+  //   25 Wh/turn; wh base 6.03 over 3 turns = 2.01 Wh/turn -> caps at 100.
   // CE without audit: not scorable. Composite over OD, CU, EPO weights
   //   .25/.25/.15: (25 + 23 + 15) / 0.65 = 96.9 -> 97 -> A.
   it('matches the hand-computed scores and reweighted composite', async () => {
@@ -39,6 +40,10 @@ describe('scoreSession on small.jsonl, hand computed', () => {
     expect(scores.outputDiscipline).toMatchObject({ scorable: true, score: 100 });
     expect(scores.cacheUtilization).toMatchObject({ scorable: true, score: 92 });
     expect(scores.energyPerOutcome).toMatchObject({ scorable: true, score: 100 });
+    if (scores.energyPerOutcome.scorable) {
+      expect(scores.energyPerOutcome.detail).toContain('agentic reference');
+      expect(scores.energyPerOutcome.detail).toContain('(proxy: turns, see docs/SCORING.md)');
+    }
     expect(scores.composite?.value).toBe(97);
     expect(scores.composite?.grade).toBe('A');
     expect(Object.keys(scores.composite?.weightsUsed ?? {})).not.toContain('contextEfficiency');
