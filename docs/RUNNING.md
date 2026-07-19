@@ -28,6 +28,20 @@ Three ways to invoke it:
    PATH yet, then reopen the terminal. No admin rights are needed; the shims
    live under the user profile, not Program Files.
 
+## One-time MCP server approval in Claude Code
+
+redutok init registers the dcp MCP server in project-scope .mcp.json, and
+Claude Code gates project-scope servers behind a one-time per-user approval:
+the first session in the repo asks whether to use the servers from .mcp.json.
+Until that approval is given (it is recorded in ~/.claude.json under the
+project's enabledMcpjsonServers), the dcp__read/run/search/zoom/state tools
+never appear and sessions run vanilla, even with the sidecar up and hooks
+registered. If the prompt was missed or declined, run
+`claude mcp reset-project-choices` inside the repo to be prompted again, and
+verify with `claude mcp list`. `redutok doctor` surfaces this state as the
+mcp-approval check; the companion mcp-launcher check catches the other
+silent-failure mode, a launcher that cannot resolve the installed packages.
+
 ## Where redutok init writes its entries, and why
 
 Hook entries go to .claude/settings.local.json, not settings.json. Claude

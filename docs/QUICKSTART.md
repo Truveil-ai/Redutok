@@ -26,11 +26,22 @@ most on an ordinary connection; they sum comfortably under the budget.
    Expect passes everywhere, a warn for Ollama if you have not installed it
    (rule-based distillation works without it), and remedies on any warn.
 
-4. Run a Claude Code session in the repo as usual. Large reads, builds, and
+4. Approve the MCP server, once (seconds, easy to miss):
+
+   The first Claude Code session in the repo prompts about the project-scope
+   MCP server found in .mcp.json. Approve it. This is a one-time, per-user,
+   per-repo choice; until it is made the dcp tools are absent and every
+   session silently runs vanilla. If the prompt never appeared or was
+   declined, run `claude mcp reset-project-choices` inside the repo to be
+   asked again, and `claude mcp list` to confirm the redutok server is
+   connected. `npx redutok doctor` warns on this exact condition
+   (mcp-approval) with the same remedy.
+
+5. Run a Claude Code session in the repo as usual. Large reads, builds, and
    searches now flow through the dcp tools; every compression is audited in
    .dcp/audit.jsonl with a zoom handle to recover raw.
 
-5. Grade it (seconds):
+6. Grade it (seconds):
 
        npx redutok report --last
        npx redutok badge --last
