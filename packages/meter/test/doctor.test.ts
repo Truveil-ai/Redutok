@@ -31,6 +31,9 @@ describe('redutok doctor', () => {
     expect(byName.get('tree-sitter')?.status).toBe('pass');
     expect(['pass', 'warn']).toContain(byName.get('codex')?.status);
     expect(byName.get('hooks')?.status).toBe('pass');
-    expect(byName.get('config')?.status).toBe('pass');
+    // .dcp/config.json is gitignored (written by `redutok init`), so a fresh
+    // checkout legitimately reports 'warn'. 'fail' means a config.json exists
+    // but is invalid — that is the regression this guards against.
+    expect(byName.get('config')?.status).not.toBe('fail');
   }, 120_000);
 });
