@@ -6,9 +6,10 @@ repo:
   localPath: fixtures/repos/repo-a
 prompt: 'Why does totalValue skip missing ids.'
 success:
-  - kind: file-contains
-    path: src/service.ts
+  - kind: answer-contains
     needle: 'totalValue'
+  - kind: answer-contains
+    needle: 'undefined'
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/small.jsonl

@@ -6,9 +6,11 @@ repo:
   localPath: fixtures/repos/repo-a
 prompt: 'Write a test for seed with duplicate ids.'
 success:
-  - kind: file-contains
+  - kind: file-changed
     path: test/service.test.ts
-    needle: 'runTests'
+  - kind: file-matches
+    path: test/service.test.ts
+    pattern: 'duplicate'
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/medium.jsonl

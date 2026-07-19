@@ -6,9 +6,12 @@ repo:
   localPath: fixtures/repos/repo-a
 prompt: 'Explain what MemoryStore does and where it is used.'
 success:
-  - kind: file-contains
-    path: src/store.ts
+  - kind: answer-contains
     needle: 'MemoryStore'
+  - kind: answer-contains
+    needle: 'put('
+  - kind: answer-contains
+    needle: 'get('
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/small.jsonl

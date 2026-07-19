@@ -6,9 +6,10 @@ repo:
   localPath: .
 prompt: 'Find where audit events are validated and list callers.'
 success:
-  - kind: file-contains
-    path: packages/shared/src/schemas.ts
+  - kind: answer-contains
     needle: 'AuditEventSchema'
+  - kind: answer-contains
+    needle: 'audit-file'
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/small.jsonl

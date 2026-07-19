@@ -42,11 +42,14 @@ const meter = await import(
 );
 const {
   buildLedger,
+  buildLivePrompt,
+  captureBaselines,
   computeSessionCost,
   computeSessionEnergy,
   grandTotal,
   loadBenchTasks,
   parseSessionFile,
+  runLiveChecks,
   scoreSession,
   spawnSafely,
   transcriptRoot,
@@ -263,35 +266,10 @@ function findTranscript(sessionId) {
   return undefined;
 }
 
-// ------------------------------------------------------------ success checks
-function runChecksLive(task, variant, workDir) {
-  const detail = [];
-  let passed = true;
-  for (const check of task.success) {
-    if (check.variant !== undefined && check.variant !== 'both' && check.variant !== variant) continue;
-    let ok = false;
-    const target = check.path === undefined ? '' : path.join(workDir, check.path);
-    if (check.kind === 'file-exists') ok = existsSync(target);
-    else if (check.kind === 'file-contains') {
-      ok = existsSync(target) && readFileSync(target, 'utf8').includes(check.needle ?? '');
-    } else if (check.kind === 'command-succeeds') {
-      try {
-        // check.command is one whole shell command string from a committed
-        // task yaml (may use pipes, &&, etc.), passed with no args array, so
-        // this is the intentional single-string shell:true form: it has none
-        // of the word-splitting hazard that shell:true plus an args array has
-        // (verified: this shape never emits DEP0190).
-        execFileSync(check.command ?? 'false', { cwd: workDir, shell: true, stdio: 'pipe' });
-        ok = true;
-      } catch {
-        ok = false;
-      }
-    }
-    passed = passed && ok;
-    detail.push(`${check.kind} ${check.path ?? check.command ?? ''}: ${ok ? 'pass' : 'FAIL'}`);
-  }
-  return { passed, detail };
-}
+// Success-check evaluation (captureBaselines, runLiveChecks) now lives in
+// packages/meter/src/bench.ts, tested there; this script only orchestrates
+// process spawning and filesystem isolation, which needs a real live claude
+// CLI and a real filesystem to exercise meaningfully.
 
 // ----------------------------------------------------------------- reporting
 const median = (xs) => {
@@ -403,7 +381,7 @@ if (PREP_CHECK) {
       const downAgain = !(await health(port));
       console.log(`prep ${task.id} ${variant}: init ok, sidecar up on ${port}: ${up}, down again: ${downAgain}`);
     }
-    const checks = runChecksLive(task, variant, workDir);
+    const checks = runLiveChecks(task, variant, workDir, captureBaselines(task, workDir));
     console.log(`prep ${task.id} ${variant}: pre-run success checks (baseline): ${checks.detail.join('; ')}`);
     removeDir(workDir);
   }
@@ -445,9 +423,13 @@ for (const task of tasks) {
         copyRepo(task, workDir);
         if (variant === 'vanilla') stripRedutok(workDir);
         else port = initRedutok(workDir);
+        // Baselines are captured after the repo is copied (and, for redutok,
+        // after init) but strictly before claude can touch anything, so
+        // file-changed checks compare against the true pre-run state.
+        const baselines = captureBaselines(task, workDir);
         const streamPath = path.join(runsDir, `${id}.stream.jsonl`);
         console.log(`run ${id} (cwd ${workDir}${port === undefined ? '' : `, sidecar :${port}`})`);
-        const run = await runClaude(task.prompt, workDir, streamPath);
+        const run = await runClaude(buildLivePrompt(task), workDir, streamPath);
         if (run.timedOut) throw new Error(`timed out after ${TIMEOUT_MS / 60000} minutes`);
         if (run.result === undefined) {
           throw new Error(`no result event (exit ${run.code}); stderr: ${run.stderr.slice(0, 300)}`);
@@ -456,7 +438,7 @@ for (const task of tasks) {
         const transcript = findTranscript(run.result.session_id);
         if (transcript === undefined) throw new Error(`transcript for session ${run.result.session_id} not found`);
         cpSync(transcript, transcriptOut);
-        const checks = runChecksLive(task, variant, workDir);
+        const checks = runLiveChecks(task, variant, workDir, baselines);
         const parsed = await parseSessionFile(transcriptOut);
         const ledger = buildLedger(parsed, id);
         const energy = computeSessionEnergy(ledger, factors, grid);

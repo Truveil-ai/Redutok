@@ -6,9 +6,14 @@ repo:
   localPath: fixtures/repos/repo-b
 prompt: 'Sort formatCounts ties alphabetically.'
 success:
-  - kind: file-contains
+  - kind: file-changed
     path: pkg/report.js
-    needle: 'formatCounts'
+  - kind: file-matches
+    path: pkg/report.js
+    pattern: 'a\[0\]'
+  - kind: file-matches
+    path: pkg/report.js
+    pattern: 'b\[0\]'
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/medium.jsonl

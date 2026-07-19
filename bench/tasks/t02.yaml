@@ -6,9 +6,11 @@ repo:
   localPath: fixtures/repos/repo-a
 prompt: 'Add a delete method to MemoryStore.'
 success:
-  - kind: file-contains
+  - kind: file-changed
     path: src/store.ts
-    needle: 'rows'
+  - kind: file-matches
+    path: src/store.ts
+    pattern: 'delete\s*\('
 fixtureLogs:
   vanilla: fixtures/sessions/medium.jsonl
   redutok: fixtures/sessions/small.jsonl

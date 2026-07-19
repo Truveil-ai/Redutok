@@ -6,9 +6,11 @@ repo:
   localPath: fixtures/repos/repo-b
 prompt: 'Make tokenize lowercase its tokens.'
 success:
-  - kind: file-contains
+  - kind: file-changed
     path: pkg/parser.py
-    needle: 'tokenize'
+  - kind: file-matches
+    path: pkg/parser.py
+    pattern: '\.lower\('
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/medium.jsonl

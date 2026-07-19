@@ -6,9 +6,10 @@ repo:
   localPath: .
 prompt: 'Explain the fail-open rule and where it is enforced.'
 success:
-  - kind: file-contains
-    path: packages/sidecar/src/client.ts
-    needle: 'fail'
+  - kind: answer-contains
+    needle: 'fail-open'
+  - kind: answer-contains
+    needle: 'HOOK_FAIL_OPEN_MS'
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/medium.jsonl

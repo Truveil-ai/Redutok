@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -20,9 +21,11 @@ import { scoreSession, type SessionScores } from './scoring.js';
 export type Variant = 'vanilla' | 'redutok';
 
 export interface SuccessCheck {
-  kind: 'file-contains' | 'file-exists' | 'command-succeeds';
+  kind: 'file-contains' | 'file-exists' | 'command-succeeds' | 'file-matches' | 'file-changed' | 'answer-contains';
   path?: string;
   needle?: string;
+  /** file-matches: regex source, matched case-insensitively. */
+  pattern?: string;
   command?: string;
   variant?: Variant | 'both';
 }
@@ -51,23 +54,111 @@ export function loadBenchTasks(dir: string): BenchTask[] {
   return tasks;
 }
 
+/** Bench task prompts that require a written answer append this instruction
+ * so an explain-style task has a graded artifact instead of only chat text. */
+export const ANSWER_FILE_NAME = 'ANSWER.md';
+
+export function needsAnswerFile(task: BenchTask): boolean {
+  return task.success.some((c) => c.kind === 'answer-contains');
+}
+
+export function buildLivePrompt(task: BenchTask): string {
+  if (!needsAnswerFile(task)) return task.prompt;
+  return `${task.prompt}\n\nWrite your complete answer to a new file named ${ANSWER_FILE_NAME} in the current directory. The file is what gets graded, not the chat reply.`;
+}
+
 function runChecks(task: BenchTask, variant: Variant, repoRoot: string): { passed: boolean; detail: string[] } {
   const detail: string[] = [];
   let passed = true;
   for (const check of task.success) {
     if (check.variant !== undefined && check.variant !== 'both' && check.variant !== variant) continue;
+    // Live-only kinds need a real claude run against a mutable working copy
+    // (an edited file diffed against its pre-run baseline, or a written
+    // ANSWER.md); replay only parses committed fixture logs, so these are
+    // not evaluated there, matching the command-succeeds precedent.
+    if (check.kind === 'command-succeeds' || check.kind === 'file-changed' || check.kind === 'answer-contains') {
+      detail.push(`${check.kind} skipped in replay: ${check.command ?? check.needle ?? check.path ?? ''}`);
+      continue;
+    }
     let ok = false;
     const target = check.path === undefined ? '' : path.join(repoRoot, task.repo.localPath, check.path);
     if (check.kind === 'file-exists') ok = existsSync(target);
     else if (check.kind === 'file-contains') {
       ok = existsSync(target) && readFileSync(target, 'utf8').includes(check.needle ?? '');
-    } else if (check.kind === 'command-succeeds') {
-      // Executed only in live mode; replay treats it as not-run.
-      detail.push(`${check.kind} skipped in replay: ${check.command ?? ''}`);
-      continue;
+    } else if (check.kind === 'file-matches') {
+      ok = existsSync(target) && new RegExp(check.pattern ?? '', 'i').test(readFileSync(target, 'utf8'));
     }
     passed = passed && ok;
     detail.push(`${check.kind} ${check.path ?? ''}: ${ok ? 'pass' : 'FAIL'}`);
+  }
+  return { passed, detail };
+}
+
+/** Captures pre-run file content for every file-changed check in the task,
+ * so runLiveChecks can later prove a genuine edit happened rather than
+ * trusting that expected-looking text merely appears somewhere in the file. */
+export function captureBaselines(task: BenchTask, workDir: string): Map<string, string | undefined> {
+  const baselines = new Map<string, string | undefined>();
+  for (const check of task.success) {
+    if (check.kind !== 'file-changed' || check.path === undefined) continue;
+    const target = path.join(workDir, check.path);
+    baselines.set(check.path, existsSync(target) ? readFileSync(target, 'utf8') : undefined);
+  }
+  return baselines;
+}
+
+/**
+ * Live-mode success checks against a real, claude-edited working copy.
+ * Complements runChecks (replay, static-content only): file-changed and
+ * answer-contains need an actual pre/post run comparison or a written
+ * ANSWER_FILE_NAME, neither of which exists in replay's fixture-log-only
+ * world (see runChecks's skip branch for the replay side of this split).
+ */
+export function runLiveChecks(
+  task: BenchTask,
+  variant: Variant,
+  workDir: string,
+  baselines: Map<string, string | undefined> = new Map(),
+): { passed: boolean; detail: string[] } {
+  const detail: string[] = [];
+  let passed = true;
+  for (const check of task.success) {
+    if (check.variant !== undefined && check.variant !== 'both' && check.variant !== variant) continue;
+    let ok = false;
+    const target = check.path === undefined ? '' : path.join(workDir, check.path);
+    if (check.kind === 'file-exists') ok = existsSync(target);
+    else if (check.kind === 'file-contains') {
+      ok = existsSync(target) && readFileSync(target, 'utf8').includes(check.needle ?? '');
+    } else if (check.kind === 'file-matches') {
+      ok = existsSync(target) && new RegExp(check.pattern ?? '', 'i').test(readFileSync(target, 'utf8'));
+    } else if (check.kind === 'file-changed') {
+      // Proves a genuine edit happened: current content differs from the
+      // pre-run baseline, rather than a needle that could already be
+      // present in the unedited file.
+      const current = existsSync(target) ? readFileSync(target, 'utf8') : undefined;
+      ok = check.path !== undefined && baselines.has(check.path) && current !== baselines.get(check.path);
+    } else if (check.kind === 'answer-contains') {
+      // buildLivePrompt instructs the model to write its explanation to
+      // ANSWER_FILE_NAME; grading the file (not the chat transcript) checks
+      // a real deliverable, not prose that mentions the right words in passing.
+      const answerPath = path.join(workDir, ANSWER_FILE_NAME);
+      ok =
+        existsSync(answerPath) &&
+        readFileSync(answerPath, 'utf8').toLowerCase().includes((check.needle ?? '').toLowerCase());
+    } else if (check.kind === 'command-succeeds') {
+      try {
+        // check.command is one whole shell command string (may use pipes,
+        // &&, etc.), passed with no args array: the intentional
+        // single-string shell:true form, which has none of the
+        // word-splitting hazard that shell:true plus an args array has.
+        execFileSync(check.command ?? 'false', { cwd: workDir, shell: true, stdio: 'pipe' });
+        ok = true;
+      } catch {
+        ok = false;
+      }
+    }
+    passed = passed && ok;
+    detail.push(`${check.kind} ${check.path ?? check.command ?? check.needle ?? ''}: ${ok ? 'pass' : 'FAIL'}`);
   }
   return { passed, detail };
 }
@@ -127,7 +218,7 @@ export function dryRunMatrix(tasks: BenchTask[], n: number, model: string): stri
         const logFile = `bench/runs/${task.id}-${variant}-${rep}.jsonl`;
         lines.push(
           `# ${task.id} rep ${rep} ${variant} (cwd ${task.repo.localPath}, pin ${task.repo.url}@${task.repo.commit})`,
-          `claude -p ${JSON.stringify(task.prompt)} --model ${model} --output-format stream-json${variant === 'redutok' ? ' # after: redutok init . and redutok up' : ''} > ${logFile}`,
+          `claude -p ${JSON.stringify(buildLivePrompt(task))} --model ${model} --output-format stream-json${variant === 'redutok' ? ' # after: redutok init . and redutok up' : ''} > ${logFile}`,
         );
       }
     }

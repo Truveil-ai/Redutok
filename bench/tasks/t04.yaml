@@ -6,9 +6,10 @@ repo:
   localPath: fixtures/repos/repo-b
 prompt: 'Describe the Counter class contract.'
 success:
-  - kind: file-contains
-    path: pkg/parser.py
+  - kind: answer-contains
     needle: 'Counter'
+  - kind: answer-contains
+    needle: 'feed('
 fixtureLogs:
   vanilla: fixtures/sessions/medium.jsonl
   redutok: fixtures/sessions/small.jsonl
