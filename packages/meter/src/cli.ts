@@ -115,7 +115,8 @@ export async function main(argv: string[]): Promise<number> {
   if (command === 'audit') {
     const fileIndex = rest.indexOf('--file');
     const filePath = fileIndex >= 0 ? rest[fileIndex + 1] : undefined;
-    const sessionId = rest.filter((a, i) => !a.startsWith('--') && i !== fileIndex + 1)[0];
+    // fileIndex is -1 without --file; guard so index 0 is not dropped then.
+    const sessionId = rest.filter((a, i) => !a.startsWith('--') && (fileIndex < 0 || i !== fileIndex + 1))[0];
     if (sessionId === undefined) {
       console.error(USAGE);
       return 1;
@@ -135,7 +136,7 @@ export async function main(argv: string[]): Promise<number> {
   const last = rest.includes('--last');
   const outIndex = rest.indexOf('--out');
   const outPath = outIndex >= 0 ? rest[outIndex + 1] : undefined;
-  const positional = rest.filter((a, i) => !a.startsWith('--') && i !== outIndex + 1);
+  const positional = rest.filter((a, i) => !a.startsWith('--') && (outIndex < 0 || i !== outIndex + 1));
 
   let target = positional[0];
   if (last) {
