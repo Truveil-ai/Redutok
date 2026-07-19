@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "repoFingerprint": "64735ba993f38d53",
+  "repoFingerprint": "8e287ce183901f3a",
   "files": {
     "eslint.config.js": "4b9c39e50d3c1b74",
     "fixtures/artifacts/large-source.ts": "2afa34ee065cd028",
@@ -10,10 +10,10 @@
     "fixtures/repos/repo-a/test/service.test.ts": "d183026b5db64091",
     "fixtures/repos/repo-b/pkg/parser.py": "c3d2f04d308afb9e",
     "fixtures/repos/repo-b/pkg/report.js": "9ef17dd209d93deb",
-    "packages/hooks/src/handlers.ts": "ecea14d54a6c28db",
-    "packages/hooks/src/hook-main.ts": "56b520d3f1980cad",
+    "packages/hooks/src/handlers.ts": "70cd6beef926b74c",
+    "packages/hooks/src/hook-main.ts": "6a279e00bff42580",
     "packages/hooks/src/index.ts": "232377ed88807c47",
-    "packages/hooks/test/handlers.test.ts": "7ee4ef539bfc7e09",
+    "packages/hooks/test/handlers.test.ts": "1c633421bde3840a",
     "packages/hooks/test/index.test.ts": "258fb0dedd59857e",
     "packages/mcp/src/index.ts": "b4a2b1356425a1b3",
     "packages/mcp/src/main.ts": "3a7d66647ac9427f",
@@ -29,7 +29,7 @@
     "packages/meter/src/discipline.ts": "7fa68a459239f57f",
     "packages/meter/src/doctor.ts": "05da16aa16f6722d",
     "packages/meter/src/energy.ts": "9c7ae872c20fce6c",
-    "packages/meter/src/index.ts": "b2e28c488f625f73",
+    "packages/meter/src/index.ts": "111adcee5e81f05d",
     "packages/meter/src/installer.ts": "c87d7db47ce0e2ad",
     "packages/meter/src/ledger.ts": "cfb870cec5663f95",
     "packages/meter/src/parser.ts": "b8817f40da20f2db",
@@ -96,6 +96,8 @@
     "scripts/sbom.mjs": "3fd660811b659aad",
     "vitest.workspace.ts": "e7bfa39b80ce734c",
     "packages/sidecar/test/session-attribution.test.ts": "b657e1897d907de8",
-    "packages/meter/test/cli-args.test.ts": "ef0f60fc6bdea2c7"
+    "packages/meter/test/cli-args.test.ts": "ef0f60fc6bdea2c7",
+    "packages/meter/src/receipt.ts": "f8ebc64eb75f7a24",
+    "packages/meter/test/receipt.test.ts": "70f48d6c18c98362"
   }
 }

@@ -1,6 +1,6 @@
 version: "1"
 project: Redutok - Token Optimisation
-generatedAt: 2026-07-19T12:12:26.000Z
+generatedAt: 2026-07-19T12:33:31.216Z
 architecture: []
 map:
   - path: .
@@ -360,6 +360,18 @@ interfaces:
     signature: "export function parseSessionJsonl(content: string, sourceRef?:
       string): ParsedSession"
     file: packages/meter/src/parser.ts
+  - name: buildSessionReceipt
+    signature: export function buildSessionReceipt(
+    file: packages/meter/src/receipt.ts
+  - name: ReceiptDistillation
+    signature: export interface ReceiptDistillation
+    file: packages/meter/src/receipt.ts
+  - name: SessionReceipt
+    signature: export interface SessionReceipt
+    file: packages/meter/src/receipt.ts
+  - name: SessionReceiptOptions
+    signature: export interface SessionReceiptOptions
+    file: packages/meter/src/receipt.ts
   - name: buildReport
     signature: export async function buildReport(
     file: packages/meter/src/report.ts
@@ -737,6 +749,15 @@ importGraph:
     - ../src/daemon.js
   packages/meter/test/cli-args.test.ts:
     - ../src/cli.js
+  packages/meter/src/receipt.ts:
+    - ./cost.js
+    - ./energy.js
+    - ./ledger.js
+    - ./scoring.js
+  packages/meter/test/receipt.test.ts:
+    - ../src/ledger.js
+    - ../src/parser.js
+    - ../src/receipt.js
 files:
   - path: eslint.config.js
     hash: 4b9c39e50d3c1b74
@@ -755,13 +776,13 @@ files:
   - path: fixtures/repos/repo-b/pkg/report.js
     hash: 9ef17dd209d93deb
   - path: packages/hooks/src/handlers.ts
-    hash: ecea14d54a6c28db
+    hash: 70cd6beef926b74c
   - path: packages/hooks/src/hook-main.ts
-    hash: 56b520d3f1980cad
+    hash: 6a279e00bff42580
   - path: packages/hooks/src/index.ts
     hash: 232377ed88807c47
   - path: packages/hooks/test/handlers.test.ts
-    hash: 7ee4ef539bfc7e09
+    hash: 1c633421bde3840a
   - path: packages/hooks/test/index.test.ts
     hash: 258fb0dedd59857e
   - path: packages/mcp/src/index.ts
@@ -793,7 +814,7 @@ files:
   - path: packages/meter/src/energy.ts
     hash: 9c7ae872c20fce6c
   - path: packages/meter/src/index.ts
-    hash: b2e28c488f625f73
+    hash: 111adcee5e81f05d
   - path: packages/meter/src/installer.ts
     hash: c87d7db47ce0e2ad
   - path: packages/meter/src/ledger.ts
@@ -928,4 +949,8 @@ files:
     hash: b657e1897d907de8
   - path: packages/meter/test/cli-args.test.ts
     hash: ef0f60fc6bdea2c7
+  - path: packages/meter/src/receipt.ts
+    hash: f8ebc64eb75f7a24
+  - path: packages/meter/test/receipt.test.ts
+    hash: 70f48d6c18c98362
 locked: []
