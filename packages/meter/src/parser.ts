@@ -70,7 +70,17 @@ function extractTools(content: unknown): string[] {
 
 export function parseSessionJsonl(content: string, sourceRef?: string): ParsedSession {
   const counts: ParseCounts = { lines: 0, known: 0, unknownType: 0, malformed: 0 };
-  const assistantTurns: AssistantTurn[] = [];
+  // Claude Code streams one API response as several JSONL records sharing the
+  // same message.id (one per content block: thinking, text, each tool_use),
+  // every one stamped with the identical running usage total for that
+  // response. Fold a group into a single turn (tokens counted once, tool_use
+  // blocks unioned) or every duplicate re-bills its usage as if it were a
+  // separate turn. Older or synthetic transcripts without message.id fall
+  // back to uuid, which is already one-record-per-turn, so this is a no-op
+  // there.
+  const turnsByKey = new Map<string, AssistantTurn>();
+  const turnOrder: string[] = [];
+  let fallbackCounter = 0;
   let sessionId: string | undefined;
 
   for (const rawLine of content.split(/\r?\n/)) {
@@ -105,15 +115,32 @@ export function parseSessionJsonl(content: string, sourceRef?: string): ParsedSe
     if (rec['type'] !== 'assistant') continue;
 
     const message = (rec['message'] ?? {}) as Record<string, unknown>;
-    assistantTurns.push({
-      uuid: typeof rec['uuid'] === 'string' ? rec['uuid'] : undefined,
-      timestamp: typeof rec['timestamp'] === 'string' ? rec['timestamp'] : undefined,
-      sessionId: typeof rec['sessionId'] === 'string' ? rec['sessionId'] : undefined,
-      model: typeof message['model'] === 'string' ? message['model'] : 'unknown-model',
-      tools: extractTools(message['content']),
-      tokens: usageToTally(message['usage']),
-    });
+    const messageId = typeof message['id'] === 'string' ? message['id'] : undefined;
+    const uuid = typeof rec['uuid'] === 'string' ? rec['uuid'] : undefined;
+    const key = messageId ?? uuid ?? `line-${fallbackCounter++}`;
+    const tools = extractTools(message['content']);
+
+    const existing = turnsByKey.get(key);
+    if (existing === undefined) {
+      turnsByKey.set(key, {
+        uuid,
+        timestamp: typeof rec['timestamp'] === 'string' ? rec['timestamp'] : undefined,
+        sessionId: typeof rec['sessionId'] === 'string' ? rec['sessionId'] : undefined,
+        model: typeof message['model'] === 'string' ? message['model'] : 'unknown-model',
+        tools,
+        tokens: usageToTally(message['usage']),
+      });
+      turnOrder.push(key);
+    } else {
+      existing.tools.push(...tools);
+    }
   }
+
+  const assistantTurns = turnOrder.map((key) => {
+    const turn = turnsByKey.get(key);
+    if (turn === undefined) throw new Error(`unreachable: missing turn for key ${key}`);
+    return turn;
+  });
 
   const audit: AuditEvent[] = [];
   const skipped = counts.unknownType + counts.malformed;
