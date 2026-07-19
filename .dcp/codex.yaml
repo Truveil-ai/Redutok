@@ -1,6 +1,6 @@
 version: "1"
 project: Redutok - Token Optimisation
-generatedAt: 2026-07-19T11:44:15.909Z
+generatedAt: 2026-07-19T12:12:26.000Z
 architecture: []
 map:
   - path: .
@@ -732,6 +732,11 @@ importGraph:
     - ../src/store.js
   scripts/canary.mjs:
     - ../packages/meter/dist/claude-compat.js
+  packages/sidecar/test/session-attribution.test.ts:
+    - ../src/client.js
+    - ../src/daemon.js
+  packages/meter/test/cli-args.test.ts:
+    - ../src/cli.js
 files:
   - path: eslint.config.js
     hash: 4b9c39e50d3c1b74
@@ -750,13 +755,13 @@ files:
   - path: fixtures/repos/repo-b/pkg/report.js
     hash: 9ef17dd209d93deb
   - path: packages/hooks/src/handlers.ts
-    hash: c6068250b1cab028
+    hash: ecea14d54a6c28db
   - path: packages/hooks/src/hook-main.ts
-    hash: fc6c60d183381c2c
+    hash: 56b520d3f1980cad
   - path: packages/hooks/src/index.ts
     hash: 232377ed88807c47
   - path: packages/hooks/test/handlers.test.ts
-    hash: a9870c36bb1369cb
+    hash: 7ee4ef539bfc7e09
   - path: packages/hooks/test/index.test.ts
     hash: 258fb0dedd59857e
   - path: packages/mcp/src/index.ts
@@ -778,13 +783,13 @@ files:
   - path: packages/meter/src/claude-compat.ts
     hash: d26fc4ed04fe7849
   - path: packages/meter/src/cli.ts
-    hash: 3fb3571e5164b56d
+    hash: da65e28e185663c1
   - path: packages/meter/src/cost.ts
     hash: 44b677a23512d310
   - path: packages/meter/src/discipline.ts
     hash: 7fa68a459239f57f
   - path: packages/meter/src/doctor.ts
-    hash: 7a0741c3b7d03c2f
+    hash: 05da16aa16f6722d
   - path: packages/meter/src/energy.ts
     hash: 9c7ae872c20fce6c
   - path: packages/meter/src/index.ts
@@ -796,9 +801,9 @@ files:
   - path: packages/meter/src/parser.ts
     hash: b8817f40da20f2db
   - path: packages/meter/src/report.ts
-    hash: 78e35c8f6f70e003
+    hash: bbc9082d3a1c77eb
   - path: packages/meter/src/scoring.ts
-    hash: dfbb1ccb54d261ce
+    hash: 5c6a5d6a125cc78c
   - path: packages/meter/src/sidecar-cli.ts
     hash: 3c812c43b1509a68
   - path: packages/meter/test/audit-render.test.ts
@@ -814,9 +819,9 @@ files:
   - path: packages/meter/test/discipline.test.ts
     hash: aa4f484012d2225a
   - path: packages/meter/test/doctor.test.ts
-    hash: 8566cd497c588d9f
+    hash: 2740ecd6337fd50d
   - path: packages/meter/test/e2e-smoke.test.ts
-    hash: 62ee36e8dd0efdde
+    hash: e6d5667132f3f15e
   - path: packages/meter/test/energy.test.ts
     hash: defce14488bad12a
   - path: packages/meter/test/index.test.ts
@@ -832,9 +837,9 @@ files:
   - path: packages/meter/test/readme.test.ts
     hash: 8caff42eb6f834c5
   - path: packages/meter/test/report.test.ts
-    hash: dfe8f206115dd43f
+    hash: 7e9ee5ad4099f402
   - path: packages/meter/test/scoring.test.ts
-    hash: d803380c3f9759f1
+    hash: 51a78b96de1aad3e
   - path: packages/meter/test/security.test.ts
     hash: 312633166a7d28f5
   - path: packages/meter/test/sidecar-cli.test.ts
@@ -864,7 +869,7 @@ files:
   - path: packages/sidecar/src/daemon-main.ts
     hash: 9059e2c1ed170d85
   - path: packages/sidecar/src/daemon.ts
-    hash: cd5e78cb48125715
+    hash: 98d7f1a188b7a85e
   - path: packages/sidecar/src/distill.ts
     hash: 3dd44f0185b5258e
   - path: packages/sidecar/src/gates.ts
@@ -919,4 +924,8 @@ files:
     hash: 3fd660811b659aad
   - path: vitest.workspace.ts
     hash: e7bfa39b80ce734c
+  - path: packages/sidecar/test/session-attribution.test.ts
+    hash: b657e1897d907de8
+  - path: packages/meter/test/cli-args.test.ts
+    hash: ef0f60fc6bdea2c7
 locked: []
