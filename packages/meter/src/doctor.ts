@@ -1,6 +1,9 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { sidecarRequest } from '@redutok/sidecar/client';
 import { readDcpConfig, readPidfile } from './sidecar-cli.js';
 
@@ -17,6 +20,8 @@ export interface DoctorOptions {
   ollamaBaseUrl?: string;
   ollamaModel?: string;
   skipPnpm?: boolean;
+  /** Override for Claude Code's per-user state file, default ~/.claude.json. */
+  claudeJsonPath?: string;
 }
 
 export async function doctor(repoRoot: string, options: DoctorOptions = {}): Promise<DoctorCheck[]> {
@@ -120,6 +125,46 @@ export async function doctor(repoRoot: string, options: DoctorOptions = {}): Pro
     remedy: hooksRegistered ? 'none needed' : 'redutok init .',
   });
 
+  const mcpJsonPath = path.join(repoRoot, '.mcp.json');
+  const launcherPath = path.join(repoRoot, '.claude', 'redutok', 'mcp.mjs');
+  const registered =
+    existsSync(mcpJsonPath) &&
+    readFileSync(mcpJsonPath, 'utf8').includes('redutok/mcp.mjs') &&
+    existsSync(launcherPath);
+  if (!registered) {
+    checks.push({
+      name: 'mcp-launcher',
+      status: 'warn',
+      detail: 'redutok MCP server not registered in .mcp.json (dcp tools absent)',
+      remedy: 'redutok init .',
+    });
+  } else {
+    // The exact chain the generated launchers run; a resolution error here is
+    // why the MCP server dies at startup and the hook silently no-ops.
+    try {
+      const repoRequire = createRequire(pathToFileURL(path.join(repoRoot, 'package.json')));
+      const meterPkg = repoRequire.resolve('redutok/package.json');
+      createRequire(meterPkg).resolve('@redutok/mcp/main');
+      checks.push({
+        name: 'mcp-launcher',
+        status: 'pass',
+        detail: 'launcher resolves the installed redutok packages',
+        remedy: 'none needed',
+      });
+    } catch (err) {
+      checks.push({
+        name: 'mcp-launcher',
+        status: 'fail',
+        detail: `launcher cannot resolve the installed package, so the MCP server dies at startup and hooks no-op: ${err instanceof Error ? err.message : String(err)}`,
+        remedy:
+          'pnpm install to restore node_modules; if the error mentions "exports", the named package must export "./package.json"',
+      });
+    }
+  }
+
+  const claudeJsonPath = options.claudeJsonPath ?? path.join(os.homedir(), '.claude.json');
+  checks.push(mcpApprovalCheck(repoRoot, claudeJsonPath));
+
   const lockPath = path.join(dcpDir, 'codex.lock');
   if (!existsSync(lockPath)) {
     checks.push({
@@ -160,6 +205,75 @@ export async function doctor(repoRoot: string, options: DoctorOptions = {}): Pro
   });
 
   return checks;
+}
+
+const APPROVAL_REMEDY =
+  'start Claude Code in this repo and approve the project MCP server prompt (choose to use the .mcp.json servers); to re-prompt run: claude mcp reset-project-choices; verify with: claude mcp list';
+
+/**
+ * Project-scope .mcp.json servers need a one-time per-user approval, recorded
+ * in ~/.claude.json under projects.<repo>.enabledMcpjsonServers. Without it the
+ * dcp tools are absent even when the launcher is healthy.
+ */
+function mcpApprovalCheck(repoRoot: string, claudeJsonPath: string): DoctorCheck {
+  if (!existsSync(claudeJsonPath)) {
+    return {
+      name: 'mcp-approval',
+      status: 'warn',
+      detail: `no Claude Code user state at ${claudeJsonPath}; cannot verify project MCP approval`,
+      remedy: APPROVAL_REMEDY,
+    };
+  }
+  let projects: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(readFileSync(claudeJsonPath, 'utf8')) as Record<string, unknown>;
+    projects = (parsed['projects'] ?? {}) as Record<string, unknown>;
+  } catch {
+    return {
+      name: 'mcp-approval',
+      status: 'warn',
+      detail: `${claudeJsonPath} is not readable JSON; cannot verify project MCP approval`,
+      remedy: APPROVAL_REMEDY,
+    };
+  }
+  const wanted = normalizeProjectPath(repoRoot);
+  let enabled = false;
+  let disabled = false;
+  let seen = false;
+  for (const [key, value] of Object.entries(projects)) {
+    if (normalizeProjectPath(key) !== wanted) continue;
+    seen = true;
+    const entry = (value ?? {}) as Record<string, unknown>;
+    const list = Array.isArray(entry['enabledMcpjsonServers']) ? entry['enabledMcpjsonServers'] : [];
+    const denyList = Array.isArray(entry['disabledMcpjsonServers'])
+      ? entry['disabledMcpjsonServers']
+      : [];
+    if (list.includes('redutok') || entry['enableAllProjectMcpServers'] === true) enabled = true;
+    if (denyList.includes('redutok')) disabled = true;
+  }
+  if (enabled) {
+    return {
+      name: 'mcp-approval',
+      status: 'pass',
+      detail: 'project MCP server approved in Claude Code',
+      remedy: 'none needed',
+    };
+  }
+  return {
+    name: 'mcp-approval',
+    status: disabled ? 'fail' : 'warn',
+    detail: disabled
+      ? 'project MCP server was declined in Claude Code; dcp tools stay absent'
+      : seen
+        ? 'project MCP server not yet approved in Claude Code; dcp tools stay absent until the one-time approval'
+        : 'this repo has no Claude Code project entry yet; approval happens on first session',
+    remedy: APPROVAL_REMEDY,
+  };
+}
+
+function normalizeProjectPath(p: string): string {
+  const resolved = path.resolve(p).replace(/[\\/]+$/, '').replace(/\\/g, '/');
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
 export function renderDoctor(checks: DoctorCheck[]): string {
