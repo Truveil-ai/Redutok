@@ -29,8 +29,20 @@ export interface SessionScores {
 
 const round = (x: number): number => Math.round(x);
 
-function contextEfficiency(audit: AuditEvent[]): ScoreResult {
+function contextEfficiency(audit: AuditEvent[], ledger: SessionLedger): ScoreResult {
   if (audit.length === 0) {
+    // Guardrail: never claim non-use when dcp calls are visible in the tool
+    // table. Zero matching events plus visible use means the recorded events
+    // are not attributed to this transcript session id, not that the sidecar
+    // was absent.
+    const dcpVisible = Object.keys(ledger.byTool).some((tool) => /(^|__)dcp__/.test(tool));
+    if (dcpVisible) {
+      return {
+        scorable: false,
+        reason:
+          'audit events not attributable to this session (dcp tools appear in the tool table but no audit events carry this session id; restart the sidecar so the hooks can register the session)',
+      };
+    }
     return { scorable: false, reason: 'no audit events recorded for this session (sidecar not installed or not used)' };
   }
   const served = audit.filter(
@@ -116,7 +128,7 @@ export function scoreSession(
   audit: AuditEvent[],
 ): SessionScores {
   const scores: SessionScores = {
-    contextEfficiency: contextEfficiency(audit),
+    contextEfficiency: contextEfficiency(audit, ledger),
     outputDiscipline: outputDiscipline(ledger),
     cacheUtilization: cacheUtilization(ledger),
     energyPerOutcome: energyPerOutcome(ledger, energy),

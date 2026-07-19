@@ -27,6 +27,32 @@ describe('buildReport on small.jsonl', () => {
     expect(report.energy.sidecarWh).toBe(0);
   });
 
+  it('scores context efficiency only from audit events attributed to the transcript session', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'redutok-report-audit-'));
+    const auditPath = path.join(dir, 'audit.jsonl');
+    const event = (sessionId: string, action: string, bytesOut: number, id: string) =>
+      JSON.stringify({
+        id,
+        timestamp: '2026-07-19T10:00:00.000Z',
+        sessionId,
+        module: 'sidecar.distill',
+        action,
+        reason: 'x',
+        bytesOut,
+      });
+    writeFileSync(
+      auditPath,
+      [
+        event('s-small', 'distill', 900, 'e1'),
+        event('s-small', 'serve-raw', 100, 'e2'),
+        // A foreign session's raw serve must not drag the score down.
+        event('s-other', 'serve-raw', 90_000, 'e3'),
+      ].join('\n') + '\n',
+    );
+    const report = await buildReport(fixture('small.jsonl'), { auditPath });
+    expect(report.scores.contextEfficiency).toMatchObject({ scorable: true, score: 90 });
+  });
+
   it('round-trips through JSON for --json output', async () => {
     const report = await buildReport(fixture('small.jsonl'));
     const back = JSON.parse(JSON.stringify(report));

@@ -29,6 +29,8 @@ export interface Report {
 export interface BuildReportOptions {
   pricesPath?: string;
   region?: string;
+  /** Override for the sidecar audit trail, default <cwd>/.dcp/audit.jsonl. */
+  auditPath?: string;
 }
 
 export async function buildReport(
@@ -65,7 +67,9 @@ export async function buildReport(
   }
 
   // Session audit trail (sidecar side), distinct from the parse audit above.
-  const sessionAudit = buildAuditReport(ledger.sessionId).events;
+  // Only events attributed to this transcript's session id count toward the
+  // context-efficiency score.
+  const sessionAudit = buildAuditReport(ledger.sessionId, options.auditPath).events;
   const scores = scoreSession(ledger, energy, sessionAudit);
 
   return {

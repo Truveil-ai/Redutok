@@ -12,9 +12,13 @@ constants, not measured claims.
 ## Context Efficiency (weight 0.35)
 
 100 x distilledBytes / (distilledBytes + rawServedBytes), over audit events
-with action distill or serve-raw carrying bytesOut. Raw serves where a
-distillation path existed are the redundancy signal. Not scorable without an
-audit trail (sidecar absent) or without serve events.
+with action distill or serve-raw carrying bytesOut. Only events attributed to
+the transcript's session id count (see ARCHITECTURE.md 7.3). Raw serves where
+a distillation path existed are the redundancy signal. Not scorable without an
+audit trail or without serve events; when dcp tools are visible in the
+session's tool table but no audit events carry its session id, the reason
+reads "audit events not attributable to this session" — never a claim of
+non-use that the ledger contradicts.
 
 ## Output Discipline (weight 0.25)
 

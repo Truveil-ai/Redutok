@@ -60,6 +60,45 @@ describe('scoreSession on small.jsonl, hand computed', () => {
 });
 
 describe('not-scorable paths', () => {
+  const ledgerWithTools = (byTool: Record<string, { calls: number; outputTokenShare: number }>) => ({
+    sessionId: 's',
+    entries: [],
+    totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, thinking: 0 },
+    byTool,
+  });
+
+  it('reports attribution, not non-use, when dcp tools are visible but no audit events match', () => {
+    const mcpNamed = scoreSession(
+      ledgerWithTools({ mcp__redutok__dcp__read: { calls: 1, outputTokenShare: 0 } }),
+      undefined,
+      [],
+    );
+    expect(mcpNamed.contextEfficiency).toMatchObject({ scorable: false });
+    if (!mcpNamed.contextEfficiency.scorable) {
+      expect(mcpNamed.contextEfficiency.reason).toContain('audit events not attributable to this session');
+      expect(mcpNamed.contextEfficiency.reason).not.toContain('not installed or not used');
+    }
+    const bareNamed = scoreSession(
+      ledgerWithTools({ dcp__run: { calls: 2, outputTokenShare: 10 } }),
+      undefined,
+      [],
+    );
+    if (!bareNamed.contextEfficiency.scorable) {
+      expect(bareNamed.contextEfficiency.reason).toContain('audit events not attributable to this session');
+    }
+  });
+
+  it('keeps the non-use reason when no dcp tools appear in the tool table', () => {
+    const scores = scoreSession(
+      ledgerWithTools({ Read: { calls: 3, outputTokenShare: 100 } }),
+      undefined,
+      [],
+    );
+    if (!scores.contextEfficiency.scorable) {
+      expect(scores.contextEfficiency.reason).toContain('sidecar not installed or not used');
+    }
+  });
+
   it('refuses to score an empty session with reasons on every score', () => {
     const empty = {
       sessionId: 's',
