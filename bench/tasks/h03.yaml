@@ -1,0 +1,37 @@
+id: h03
+tier: heavy
+# repo pin: chalk vendored at aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef, the
+# same pristine, unmodified snapshot t05-t07 already use
+# (fixtures/repos/chalk, see its PROVENANCE.md) — no seeded defect here,
+# this task is pure multi-file exploration.
+#
+# redutok-variant note (architecture-v2 validation, docs/ARCHITECTURE-V2.md
+# section 7): this is the task the v2 prototype targets. Its prompt spans six
+# files (source/index.js, source/vendor/ansi-styles/index.js,
+# source/vendor/supports-color/index.js, source/utilities.js, test/chalk.js),
+# exactly the multi-file-exploration shape that produced h03-redutok's
+# 32-turn, 10-zoom-back pattern (0.5x token reduction) in the prior live run.
+# No task-yaml or harness change routes it differently: the redutok variant
+# now has dcp__explore and the scout subagent available and CLAUDE.md rule 6
+# (docs/PROTOCOL.md) instructs the agent to prefer them for exactly this
+# prompt shape, so the same prompt exercises the new path without the task
+# definition itself needing a variant-specific field.
+repo:
+  url: https://github.com/chalk/chalk
+  commit: aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef
+  localPath: fixtures/repos/chalk
+prompt: 'Trace exactly how `new Chalk({level: 3}).red("foo")` produces ANSI escape codes and how `new Chalk({level: 0}).red("foo")` instead returns the plain string "foo". Your answer must cover, with evidence from the source: (1) where in source/index.js the level value gates whether escape codes are emitted at all; (2) how source/index.js''s levelMapping array picks between the ansi, ansi256, and ansi16m color models based on level; (3) where those per-level ANSI code generators actually live in source/vendor/ansi-styles/index.js; (4) how source/vendor/supports-color/index.js computes the default level when no options are passed at all; (5) how source/utilities.js prevents a styled string containing an embedded newline from leaking its ANSI codes across the line break; and (6) name the existing test in test/chalk.js that pins the level-0 plain-string behavior.'
+success:
+  - kind: answer-contains
+    needle: 'levelMapping'
+  - kind: answer-contains
+    needle: 'stringEncaseCRLFWithFirstIndex'
+  - kind: answer-contains
+    needle: 'wrapAnsi16m'
+  - kind: answer-contains
+    needle: 'translateLevel'
+  - kind: answer-contains
+    needle: 'emit RGB codes if level is 0'
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/small.jsonl

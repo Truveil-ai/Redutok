@@ -17,4 +17,9 @@ This repository runs Redutok by Truveil. Rules for this session:
 4. If a dcp tool reports the sidecar is unavailable, fall back to the raw
    tools; the session continues at full fidelity.
 5. Do not re-explore repository structure that the injected codex covers.
+6. For multi-file exploration questions (trace how X produces Y, find where
+   Z is handled across the codebase), prefer dcp__explore for one bounded
+   answer; for open-ended investigation dcp__explore's bounded internal loop
+   is not suited for, dispatch the scout subagent instead of reading files
+   directly in this session.
 <!-- dcp:end -->

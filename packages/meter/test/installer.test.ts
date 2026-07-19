@@ -1,5 +1,14 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
@@ -72,6 +81,17 @@ describe('initRepo', () => {
     const after1 = snapshot(repo);
     initRepo(repo);
     expect(snapshot(repo)).toEqual(after1);
+  });
+
+  it('re-init recreates .claude/agents/scout.md on a repo installed before the scout subagent existed', () => {
+    const repo = makeRepo(true);
+    initRepo(repo);
+    // Simulate an install that predates the scout subagent: the manifest
+    // (and so the "already installed" fast path) stays, but the directory
+    // scout.md lives in is gone, same as a repo that never had it.
+    rmSync(path.join(repo, '.claude', 'agents'), { recursive: true, force: true });
+    expect(() => initRepo(repo)).not.toThrow();
+    expect(existsSync(path.join(repo, '.claude', 'agents', 'scout.md'))).toBe(true);
   });
 });
 

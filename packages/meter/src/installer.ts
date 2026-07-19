@@ -161,6 +161,10 @@ export function initRepo(targetDir: string): string {
     launcherSource('@redutok/mcp/main', false),
     'utf8',
   );
+  // mkdirSync here too, not just in the first-init createdDirs block above:
+  // a repo initialized before the scout subagent existed has no
+  // .claude/agents directory yet, and a plain re-init must still create it.
+  mkdirSync(path.join(targetDir, '.claude', 'agents'), { recursive: true });
   writeFileSync(path.join(targetDir, '.claude', 'agents', 'scout.md'), scoutAgentBlock(), 'utf8');
 
   const settingsPath = path.join(targetDir, '.claude', 'settings.local.json');
