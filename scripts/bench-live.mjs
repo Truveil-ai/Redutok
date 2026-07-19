@@ -20,7 +20,7 @@
  * RESULTS.md. Requires a prior pnpm build; runs claude with
  * --dangerously-skip-permissions inside the throwaway copies only.
  */
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import {
   cpSync,
   existsSync,
@@ -48,6 +48,7 @@ const {
   loadBenchTasks,
   parseSessionFile,
   scoreSession,
+  spawnSafely,
   transcriptRoot,
 } = meter;
 const shared = await import(
@@ -193,10 +194,12 @@ function runClaude(prompt, workDir, streamPath) {
       '--verbose',
       '--dangerously-skip-permissions',
     ];
-    const child = spawn('claude', args, {
+    // spawnSafely resolves 'claude' to a directly-executable target and never
+    // uses shell:true, so a multi-word prompt arrives at the child intact
+    // instead of being word-split by cmd.exe (see packages/meter/src/safe-spawn.ts).
+    const child = spawnSafely('claude', args, {
       cwd: workDir,
       env: { ...process.env, REDUTOK_HOME: root },
-      shell: process.platform === 'win32',
       windowsHide: true,
     });
     const chunks = [];
@@ -273,6 +276,11 @@ function runChecksLive(task, variant, workDir) {
       ok = existsSync(target) && readFileSync(target, 'utf8').includes(check.needle ?? '');
     } else if (check.kind === 'command-succeeds') {
       try {
+        // check.command is one whole shell command string from a committed
+        // task yaml (may use pipes, &&, etc.), passed with no args array, so
+        // this is the intentional single-string shell:true form: it has none
+        // of the word-splitting hazard that shell:true plus an args array has
+        // (verified: this shape never emits DEP0190).
         execFileSync(check.command ?? 'false', { cwd: workDir, shell: true, stdio: 'pipe' });
         ok = true;
       } catch {

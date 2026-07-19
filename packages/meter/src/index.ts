@@ -7,6 +7,7 @@ export * from './report.js';
 export * from './badge.js';
 export * from './audit-render.js';
 export * from './receipt.js';
+export * from './safe-spawn.js';
 export * from './installer.js';
 export * from './discipline.js';
 export * from './scoring.js';
