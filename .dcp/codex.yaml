@@ -1,6 +1,6 @@
 version: "1"
 project: Redutok - Token Optimisation
-generatedAt: 2026-07-19T11:30:39.974Z
+generatedAt: 2026-07-19T11:44:15.909Z
 architecture: []
 map:
   - path: .
@@ -814,7 +814,7 @@ files:
   - path: packages/meter/test/discipline.test.ts
     hash: aa4f484012d2225a
   - path: packages/meter/test/doctor.test.ts
-    hash: 7686a2e8c809335d
+    hash: 8566cd497c588d9f
   - path: packages/meter/test/e2e-smoke.test.ts
     hash: 62ee36e8dd0efdde
   - path: packages/meter/test/energy.test.ts
@@ -892,7 +892,7 @@ files:
   - path: packages/sidecar/test/daemon-distill.test.ts
     hash: "490366e794763188"
   - path: packages/sidecar/test/daemon.test.ts
-    hash: f43c084a9aa946bd
+    hash: 0eed3ead6f28fc46
   - path: packages/sidecar/test/distill.test.ts
     hash: fad0576d6b45cd42
   - path: packages/sidecar/test/gates.test.ts

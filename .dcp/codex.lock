@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "repoFingerprint": "6a42d0c20e8819c0",
+  "repoFingerprint": "20d53db24c54fb46",
   "files": {
     "eslint.config.js": "4b9c39e50d3c1b74",
     "fixtures/artifacts/large-source.ts": "2afa34ee065cd028",
@@ -42,7 +42,7 @@
     "packages/meter/test/bin.test.ts": "65bc4a5a3044f073",
     "packages/meter/test/cost.test.ts": "7e63c69f65fee16c",
     "packages/meter/test/discipline.test.ts": "aa4f484012d2225a",
-    "packages/meter/test/doctor.test.ts": "7686a2e8c809335d",
+    "packages/meter/test/doctor.test.ts": "8566cd497c588d9f",
     "packages/meter/test/e2e-smoke.test.ts": "62ee36e8dd0efdde",
     "packages/meter/test/energy.test.ts": "defce14488bad12a",
     "packages/meter/test/index.test.ts": "2978912d3fb5fc60",
@@ -81,7 +81,7 @@
     "packages/sidecar/test/audit.test.ts": "31848081bf3b4ac9",
     "packages/sidecar/test/codex.test.ts": "4a5c1e36c8a1549f",
     "packages/sidecar/test/daemon-distill.test.ts": "490366e794763188",
-    "packages/sidecar/test/daemon.test.ts": "f43c084a9aa946bd",
+    "packages/sidecar/test/daemon.test.ts": "0eed3ead6f28fc46",
     "packages/sidecar/test/distill.test.ts": "fad0576d6b45cd42",
     "packages/sidecar/test/gates.test.ts": "cd2218a7afff6f2d",
     "packages/sidecar/test/index.test.ts": "1fcb1e5abdfcba14",
