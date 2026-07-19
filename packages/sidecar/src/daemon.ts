@@ -62,6 +62,16 @@ function handler(
   onNotify?: (event: { kind: string; tool?: string; path?: string }) => Promise<void>,
 ): http.RequestListener {
   const startedAt = Date.now();
+  // Active Claude Code transcript session, registered by the SessionStart and
+  // PostToolUse hooks via /notify. The MCP server cannot know the transcript
+  // id (Claude Code does not pass it to MCP servers), so when a session is
+  // registered it overrides the caller-provided placeholder on every artifact
+  // and audit event. Fallback when nothing is registered: the caller-provided
+  // sessionId, then "unknown". Last registration wins; in-memory only, hooks
+  // re-register on every matched tool use.
+  const session: { activeId?: string } = {};
+  const attributedSessionId = (provided: unknown): string =>
+    session.activeId ?? String(provided ?? 'unknown');
   return (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     const respond = (status: number, body: unknown): void => {
@@ -79,7 +89,7 @@ function handler(
       void readBody(req)
         .then(async (payload) => {
           const p = payload as Record<string, unknown>;
-          const sessionId = String(p['sessionId'] ?? 'unknown');
+          const sessionId = attributedSessionId(p['sessionId']);
           const relPath = String(p['path'] ?? '');
           const raw = String(p['raw'] ?? '');
           const served = serveFile(engines.store, engines.audit, sessionId, relPath, raw);
@@ -131,7 +141,7 @@ function handler(
           const outcome = await distillArtifact(engines.store, engines.audit, {
             raw: String(p['raw'] ?? ''),
             profile,
-            sessionId: String(p['sessionId'] ?? 'unknown'),
+            sessionId: attributedSessionId(p['sessionId']),
             tool: p['tool'] as string | undefined,
             context: { filePath: p['filePath'] as string | undefined },
           });
@@ -144,7 +154,12 @@ function handler(
       return;
     }
     if (req.method === 'GET' && url.pathname === '/health') {
-      respond(200, { ok: true, pid: process.pid, uptimeMs: Date.now() - startedAt });
+      respond(200, {
+        ok: true,
+        pid: process.pid,
+        uptimeMs: Date.now() - startedAt,
+        activeSessionId: session.activeId ?? null,
+      });
       return;
     }
     if (req.method === 'GET' && url.pathname === '/debug/slow') {
@@ -159,7 +174,10 @@ function handler(
       void readBody(req)
         .then(async (payload) => {
           log.info('notify', { payload });
-          const p = payload as { kind?: string; tool?: string; path?: string };
+          const p = payload as { kind?: string; tool?: string; path?: string; sessionId?: string };
+          if (typeof p.sessionId === 'string' && p.sessionId !== '') {
+            session.activeId = p.sessionId;
+          }
           if (onNotify !== undefined) {
             await onNotify({ kind: p.kind ?? 'tool-use', tool: p.tool, path: p.path });
           }

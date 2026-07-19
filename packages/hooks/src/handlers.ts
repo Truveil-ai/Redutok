@@ -43,10 +43,27 @@ async function sidecarUp(deps: HookDeps): Promise<boolean> {
   return res.ok && res.status === 200;
 }
 
-export function handleSessionStart(
-  input: { source?: string },
+/**
+ * Registers the transcript session id with the sidecar so artifacts and audit
+ * events are attributed to it (the MCP server never learns the transcript id).
+ * Fail-open like every hook path; a dead sidecar costs one timed-out probe.
+ */
+async function registerSession(sessionId: string | undefined, deps: HookDeps): Promise<void> {
+  if (sessionId === undefined || sessionId === '') return;
+  await sidecarRequest(
+    deps.target,
+    'POST',
+    '/notify',
+    { kind: 'session-start', sessionId },
+    { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
+  );
+}
+
+export async function handleSessionStart(
+  input: { source?: string; session_id?: string },
   deps: HookDeps,
-): HookOutput {
+): Promise<HookOutput> {
+  await registerSession(input.session_id, deps);
   const protocolPath = path.join(deps.dcpDir, 'protocol.md');
   if (!existsSync(protocolPath)) return {};
   const block = readFileSync(protocolPath, 'utf8');
@@ -144,16 +161,18 @@ export async function handlePreToolUse(
 }
 
 export async function handlePostToolUse(
-  input: { tool_name?: string; tool_input?: Record<string, unknown> },
+  input: { tool_name?: string; tool_input?: Record<string, unknown>; session_id?: string },
   deps: HookDeps,
 ): Promise<HookOutput> {
   const tool = input.tool_name ?? '';
   const kind = tool === 'Edit' || tool === 'Write' ? 'file-change' : 'tool-use';
+  // sessionId re-registers the transcript session on every notify, so a
+  // sidecar restarted mid-session regains attribution on the next tool use.
   await sidecarRequest(
     deps.target,
     'POST',
     '/notify',
-    { kind, tool, path: input.tool_input?.['file_path'] },
+    { kind, tool, path: input.tool_input?.['file_path'], sessionId: input.session_id },
     { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
   );
   return {};

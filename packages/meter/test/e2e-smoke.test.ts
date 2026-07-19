@@ -56,7 +56,7 @@ describe('phase 4 end-to-end smoke', () => {
       const hookDeps = { target: { port: pidfile?.port ?? 0 }, dcpDir, timeoutMs: 1000 };
 
       // 1. SessionStart injects the protocol block.
-      const start = handleSessionStart({ source: 'startup' }, hookDeps);
+      const start = await handleSessionStart({ source: 'startup' }, hookDeps);
       expect(start.hookSpecificOutput?.additionalContext).toContain('Delta Context Protocol');
 
       // 2. The raw Read of the large file is redirected to the dcp tool.

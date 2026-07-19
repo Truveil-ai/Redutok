@@ -61,7 +61,7 @@ async function main(): Promise<void> {
   let output: HookOutput = {};
   switch (event) {
     case 'SessionStart':
-      output = handleSessionStart(input, deps);
+      output = await handleSessionStart(input, deps);
       break;
     case 'PreToolUse':
       output = await handlePreToolUse(input, deps);

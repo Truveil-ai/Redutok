@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '@redutok/shared';
 import { startDaemon } from '@redutok/sidecar';
+import { sidecarRequest } from '@redutok/sidecar/client';
 import {
   handlePreCompact,
   handlePreToolUse,
@@ -34,12 +35,12 @@ function tempDcp(): string {
 const DEAD: HookDeps = { target: { port: 1 }, dcpDir: tempDcp() };
 
 describe('handleSessionStart', () => {
-  it('injects the protocol block on startup and a re-injection note on compact', () => {
+  it('injects the protocol block on startup and a re-injection note on compact', async () => {
     const dcpDir = tempDcp();
-    const startup = handleSessionStart({ source: 'startup' }, { ...DEAD, dcpDir });
+    const startup = await handleSessionStart({ source: 'startup' }, { ...DEAD, dcpDir });
     const ctx = startup.hookSpecificOutput?.additionalContext ?? '';
     expect(ctx).toContain('Delta Context Protocol');
-    const compact = handleSessionStart({ source: 'compact' }, { ...DEAD, dcpDir });
+    const compact = await handleSessionStart({ source: 'compact' }, { ...DEAD, dcpDir });
     expect(compact.hookSpecificOutput?.additionalContext).toContain('re-injected after compact');
   });
 
@@ -52,16 +53,55 @@ describe('handleSessionStart', () => {
     mkdirSync(dcpDir);
     writeFileSync(path.join(dcpDir, 'protocol.md'), '## Delta Context Protocol (Redutok)\nrules');
     await writeCodex(root);
-    const out = handleSessionStart({ source: 'startup' }, { ...DEAD, dcpDir });
+    const out = await handleSessionStart({ source: 'startup' }, { ...DEAD, dcpDir });
     const ctx = out.hookSpecificOutput?.additionalContext ?? '';
     expect(ctx).toContain('Delta Context Protocol');
     expect(ctx).toContain('You have a verified codex of this repository. Trust it.');
     expect(ctx).not.toContain('files:');
   });
 
-  it('returns empty output when no protocol file exists, never throwing', () => {
-    const empty = handleSessionStart({ source: 'startup' }, { ...DEAD, dcpDir: mkdtempSync(path.join(os.tmpdir(), 'redutok-none-')) });
+  it('returns empty output when no protocol file exists, never throwing', async () => {
+    const empty = await handleSessionStart({ source: 'startup', session_id: 's-dead' }, { ...DEAD, dcpDir: mkdtempSync(path.join(os.tmpdir(), 'redutok-none-')) });
     expect(empty).toEqual({});
+  });
+});
+
+describe('session registration with a live sidecar', () => {
+  async function activeSessionId(port: number): Promise<string | null> {
+    const res = await sidecarRequest({ port }, 'GET', '/health', undefined, { timeoutMs: 2000 });
+    if (!res.ok) throw new Error('health probe failed');
+    return (res.body as { activeSessionId: string | null }).activeSessionId;
+  }
+
+  it('SessionStart registers the transcript session id with the sidecar', async () => {
+    const dcpDir = tempDcp();
+    const daemon = await startDaemon({ port: 0, dcpDir });
+    try {
+      const deps: HookDeps = { target: { port: daemon.port }, dcpDir, timeoutMs: 1000 };
+      const out = await handleSessionStart({ source: 'startup', session_id: 's-transcript' }, deps);
+      expect(out.hookSpecificOutput?.additionalContext).toContain('Delta Context Protocol');
+      expect(await activeSessionId(daemon.port)).toBe('s-transcript');
+    } finally {
+      await daemon.close();
+    }
+  });
+
+  it('PostToolUse re-registers the session id on every notify', async () => {
+    const dcpDir = tempDcp();
+    const daemon = await startDaemon({ port: 0, dcpDir });
+    try {
+      const deps: HookDeps = { target: { port: daemon.port }, dcpDir, timeoutMs: 1000 };
+      await handlePostToolUse(
+        { tool_name: 'Bash', tool_input: { command: 'git status' }, session_id: 's-again' },
+        deps,
+      );
+      expect(await activeSessionId(daemon.port)).toBe('s-again');
+      // Without a session_id the registration is left untouched.
+      await handlePostToolUse({ tool_name: 'Bash', tool_input: { command: 'git status' } }, deps);
+      expect(await activeSessionId(daemon.port)).toBe('s-again');
+    } finally {
+      await daemon.close();
+    }
   });
 });
 
