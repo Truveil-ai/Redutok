@@ -1,6 +1,9 @@
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { initRepo, removeRepo } from '../src/installer.js';
 
@@ -84,6 +87,69 @@ describe('portability', () => {
       expect(content, `${rel} leaks this machine's temp dir`).not.toContain(os.tmpdir());
     }
   });
+});
+
+describe('launcher resolution', () => {
+  const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+
+  // Regression for ERR_PACKAGE_PATH_NOT_EXPORTED: the launchers resolve
+  // 'redutok/package.json' (and init resolves '@redutok/sidecar/package.json'),
+  // which requires each package's exports map to expose "./package.json".
+  it('resolves the exact chain the generated launchers use', () => {
+    const repoRequire = createRequire(pathToFileURL(path.join(repoRoot, 'package.json')));
+    const meterPkg = repoRequire.resolve('redutok/package.json');
+    const fromMeter = createRequire(meterPkg);
+    expect(existsSync(fromMeter.resolve('@redutok/mcp/main'))).toBe(true);
+    expect(existsSync(fromMeter.resolve('@redutok/hooks/hook-main'))).toBe(true);
+    expect(existsSync(fromMeter.resolve('@redutok/sidecar/package.json'))).toBe(true);
+  });
+
+  it('generated mcp.mjs starts and answers an initialize handshake', async () => {
+    const repo = makeRepo(false);
+    initRepo(repo);
+    const child = spawn(
+      process.execPath,
+      [path.join(repo, '.claude', 'redutok', 'mcp.mjs')],
+      {
+        cwd: repo,
+        env: { ...process.env, REDUTOK_HOME: repoRoot, REDUTOK_PORT: '48642', REDUTOK_DCP_DIR: '.dcp' },
+      },
+    );
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
+    child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+    child.stdin.write(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '0' } },
+      }) + '\n',
+    );
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error(`no initialize response; stderr: ${stderr}`)),
+          10000,
+        );
+        child.stdout.on('data', () => {
+          if (stdout.includes('"serverInfo"')) {
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+        child.on('exit', (code) => {
+          clearTimeout(timer);
+          reject(new Error(`launcher exited with ${code} before responding; stderr: ${stderr}`));
+        });
+      });
+    } finally {
+      child.kill();
+    }
+    const response = JSON.parse(stdout.split('\n')[0] ?? '');
+    expect(response.result.serverInfo.name).toBe('redutok-dcp');
+  }, 15000);
 });
 
 describe('removeRepo reverts byte-identical', () => {
