@@ -106,11 +106,43 @@ describe('mcp-approval check', () => {
     expect(check.detail).toContain('declined');
   });
 
-  it('warns when the project entry exists without an approval', async () => {
-    const state = { projects: { [repoRoot]: {} } };
-    const check = await approval(repoRoot, state, 'pending.json');
+  it('warns when the project entry exists without an approval and no dcp activity is recorded', async () => {
+    // Hermetic repo: the working copy's own .dcp/audit.jsonl must not leak in.
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'redutok-doctor-pending-'));
+    const state = { projects: { [repo]: {} } };
+    const check = await approval(repo, state, 'pending.json');
     expect(check.status).toBe('warn');
     expect(check.detail).toContain('not yet approved');
+  });
+
+  it('softens to likely-connected when approval lists are empty but dcp activity exists (desktop app)', async () => {
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'redutok-doctor-desktop-'));
+    mkdirSync(path.join(repo, '.dcp'));
+    writeFileSync(
+      path.join(repo, '.dcp', 'audit.jsonl'),
+      JSON.stringify({
+        id: 'e1',
+        timestamp: '2026-07-19T10:00:00.000Z',
+        sessionId: 's1',
+        module: 'sidecar.distill',
+        action: 'distill',
+        reason: 'x',
+      }) + '\n',
+    );
+    const state = { projects: { [repo]: { enabledMcpjsonServers: [], disabledMcpjsonServers: [] } } };
+    const check = await approval(repo, state, 'desktop.json');
+    expect(check.status).toBe('warn');
+    expect(check.detail).toContain('dcp tools are likely connected');
+    expect(check.detail).not.toContain('dcp tools stay absent');
+  });
+
+  it('still fails on an explicit decline even when dcp activity exists', async () => {
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'redutok-doctor-declined2-'));
+    mkdirSync(path.join(repo, '.dcp'));
+    writeFileSync(path.join(repo, '.dcp', 'audit.jsonl'), '{"not":"empty"}\n');
+    const state = { projects: { [repo]: { disabledMcpjsonServers: ['redutok'] } } };
+    const check = await approval(repo, state, 'declined-active.json');
+    expect(check.status).toBe('fail');
   });
 
   it('warns when Claude Code user state is missing', async () => {

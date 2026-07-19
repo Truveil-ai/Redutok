@@ -163,7 +163,7 @@ export async function doctor(repoRoot: string, options: DoctorOptions = {}): Pro
   }
 
   const claudeJsonPath = options.claudeJsonPath ?? path.join(os.homedir(), '.claude.json');
-  checks.push(mcpApprovalCheck(repoRoot, claudeJsonPath));
+  checks.push(mcpApprovalCheck(repoRoot, claudeJsonPath, dcpDir));
 
   const lockPath = path.join(dcpDir, 'codex.lock');
   if (!existsSync(lockPath)) {
@@ -213,9 +213,20 @@ const APPROVAL_REMEDY =
 /**
  * Project-scope .mcp.json servers need a one-time per-user approval, recorded
  * in ~/.claude.json under projects.<repo>.enabledMcpjsonServers. Without it the
- * dcp tools are absent even when the launcher is healthy.
+ * dcp tools are usually absent even when the launcher is healthy. The desktop
+ * app is the exception: it can connect the server while both lists stay empty,
+ * so an empty list is never asserted as proof of a missing approval — recorded
+ * dcp activity in .dcp/audit.jsonl downgrades the verdict to an informational
+ * warn.
  */
-function mcpApprovalCheck(repoRoot: string, claudeJsonPath: string): DoctorCheck {
+function mcpApprovalCheck(repoRoot: string, claudeJsonPath: string, dcpDir: string): DoctorCheck {
+  let dcpActivitySeen = false;
+  try {
+    const auditPath = path.join(dcpDir, 'audit.jsonl');
+    dcpActivitySeen = existsSync(auditPath) && readFileSync(auditPath, 'utf8').trim() !== '';
+  } catch {
+    dcpActivitySeen = false;
+  }
   if (!existsSync(claudeJsonPath)) {
     return {
       name: 'mcp-approval',
@@ -259,14 +270,31 @@ function mcpApprovalCheck(repoRoot: string, claudeJsonPath: string): DoctorCheck
       remedy: 'none needed',
     };
   }
+  if (disabled) {
+    return {
+      name: 'mcp-approval',
+      status: 'fail',
+      detail: 'project MCP server was declined in Claude Code; dcp tools stay absent',
+      remedy: APPROVAL_REMEDY,
+    };
+  }
+  if (dcpActivitySeen) {
+    // Desktop-app sessions can connect the server without recording a choice
+    // in ~/.claude.json; the audit trail proves the tools have run here.
+    return {
+      name: 'mcp-approval',
+      status: 'warn',
+      detail:
+        'no approval recorded in Claude Code user state, but dcp activity exists in .dcp/audit.jsonl (desktop-app sessions may not record project MCP choices); dcp tools are likely connected',
+      remedy: 'confirm in-session with dcp__state; none needed if the dcp tools are present',
+    };
+  }
   return {
     name: 'mcp-approval',
-    status: disabled ? 'fail' : 'warn',
-    detail: disabled
-      ? 'project MCP server was declined in Claude Code; dcp tools stay absent'
-      : seen
-        ? 'project MCP server not yet approved in Claude Code; dcp tools stay absent until the one-time approval'
-        : 'this repo has no Claude Code project entry yet; approval happens on first session',
+    status: 'warn',
+    detail: seen
+      ? 'project MCP server not yet approved in Claude Code; dcp tools stay absent until the one-time approval'
+      : 'this repo has no Claude Code project entry yet; approval happens on first session',
     remedy: APPROVAL_REMEDY,
   };
 }
