@@ -70,6 +70,7 @@ Fixture measurements from real captured artifacts in fixtures/artifacts/, produc
 ## Dated follow-ups
 
 - 2026-09-01: flip claude-sonnet-5 in packages/shared/prices.yaml from introductory 2.00/10.00 to standard 3.00/15.00 (see the note field on that row), and update the two shipped-prices tests in packages/meter/test/cost.test.ts.
+- No date set: cost.ts/PriceRowSchema only price one cache-write multiplier (5-minute, 1.25x); add a second 1-hour rate (2x) and thread the ephemeral_5m/ephemeral_1h split from parser.ts through the ledger and cost computation, so the meter's cumulative-spend figure can match claude CLI-reported cost for sessions that cache at 1-hour TTL (see the 2026-07-19 verification record above; this is the confirmed cause of the 1.81x meter-vs-CLI gap in bench/RESULTS.md, not the prices.yaml sonnet-5 row).
 
 ## Phase 4: complete 2026-07-19, acceptance gate green
 
@@ -119,11 +120,14 @@ One commit per component (4a to 4f):
 
 ## TODO-VERIFY register (guardrail 2)
 
-- prices.yaml: no TODO-VERIFY rows, but the rows remain under the separate provisional flag (file header) until the founder's pricing-page check; this line is the flag to clear when that sign-off lands.
+- prices.yaml: cleared 2026-07-19. No TODO-VERIFY rows; the provisional file-header flag is removed, see the verification record below.
 - energy_factors.yaml and grid_intensity.yaml: cleared. No TODO-VERIFY rows remain; see the verification record below.
 
 ## Verification record
 
+- 2026-07-19: founder verification completed for packages/shared/prices.yaml against https://platform.claude.com/docs/en/about-claude/pricing (live fetch). All five rows (claude-fable-5, claude-opus-4-8, claude-sonnet-4-6, claude-sonnet-5, claude-haiku-4-5) match the page exactly, including the claude-sonnet-5 introductory rate (2.00/10.00, in effect through 2026-08-31 per the page's own note) — not superseded as of today, so no row values changed. Provisional header flag removed.
+  - Investigated the 3.9838 USD (meter) vs 7.1966 USD (claude CLI reported) gap noted in the 2026-07-19 live-bench entry above, previously left unexplained. Root cause is NOT the prices.yaml introductory rate (that row is correct per the page). Reverse-computed exact per-run `total_cost_usd` values from bench/runs/*.stream.jsonl (e.g. t01-vanilla: 12 in / 1,670 out / 264,230 cache-read / 17,022 cache-write -> reported cost 0.206487 USD) and found they match claude-sonnet-5 billed at the STANDARD rate (3.00/15.00, not the introductory 2.00/10.00) with the cache-write multiplier at 2x base input (the 1-hour cache TTL rate), not the 1.25x (5-minute TTL) rate that cost.ts always applies. All twenty runs' `cache_creation` blocks are entirely `ephemeral_1h_input_tokens` with `ephemeral_5m_input_tokens: 0`, confirming every run cached at 1-hour TTL. Recomputing the meter total with prices.yaml unchanged still gives 3.9838 USD, so the gap does not close and the residual is unchanged at 1.81x (7.1966 / 3.9838). The remainder (~0.006 USD of the 7.1966) is small `claude-haiku-4-5` statusline-helper calls that land in the CLI's `total_cost_usd` but are outside the ledger's tracked session usage.
+  - This is a meter/cost.ts methodology gap, not a prices.yaml sourcing error: `cost.ts` and the `PriceRowSchema` have only one `cacheWritePerMTokUsd` field (the 5-minute multiplier) and `parser.ts` reads `cache_creation_input_tokens` without distinguishing `ephemeral_5m_input_tokens` from `ephemeral_1h_input_tokens`, so 1-hour cache writes are always undercosted by the meter. Fixing this would mean adding a second cache-write rate to the price schema and threading the 5m/1h split through the parser and ledger — not attempted this session; logged as a follow-up below rather than guessed at.
 - 2026-07-18: founder verification completed for energy and grid data. grid_intensity.yaml verified to Ember Global Electricity Review 2025 (2024 data) for world 473, IN 708, EU 213 and EPA eGRID 2023 for US 350, each row carrying source and verified fields. energy_factors.yaml verified to banded anchors: frontier-mid 300 (100 to 1000) per the Oviedo et al. methodology as applied in arXiv 2510.24509, small 110 (30 to 300) per the John Snow Labs Tokens-per-Joule Llama3-70B measurement, frontier-large 450 (150 to 1500) as an explicit class assumption (assumption: true), context multiplier curve flattened to 1.0/1.0/1.2/1.4 and flagged confidence: low. docs/METHODOLOGY.md DRAFT marker replaced with the verification statement and an Evidence quality section.
 
 ## Phase 6B: complete 2026-07-19, acceptance green
@@ -152,7 +156,7 @@ One commit per component (4a to 4f):
 ## Toward v1.0 public (definition of done)
 
 1. Execute the live bench from the dry-run matrix on pinned real repos; RESULTS.md medians must show at least 10x with at least 95 percent success parity from committed raw logs before any public claim.
-2. Founder sign-off on prices.yaml provisional flag; live Ollama semantic pass; sidecarWh stub; --project report mode; npm name and trademark checks; fresh-machine five-minute test measured for real.
+2. Founder sign-off on prices.yaml provisional flag: done 2026-07-19, see the verification record below. Still open: live Ollama semantic pass; sidecarWh stub; --project report mode; npm name and trademark checks; fresh-machine five-minute test measured for real.
 
 ## 2026-07-19: first live bench attempt, diagnosed, four bugs fixed
 
