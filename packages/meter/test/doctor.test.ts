@@ -27,13 +27,35 @@ describe('redutok doctor', () => {
     expect(text).toMatch(/\d+ checks: \d+ pass, \d+ warn, \d+ fail\./);
   }, 60_000);
 
+  it('reports registered hooks as pass', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'redutok-doctor-'));
+    mkdirSync(path.join(dir, '.claude'));
+    writeFileSync(
+      path.join(dir, '.claude', 'settings.local.json'),
+      JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: 'node .dcp/redutok/hook.mjs' }] }] } }),
+    );
+    const checks = await doctor(dir, { ollamaBaseUrl: 'http://127.0.0.1:1', skipPnpm: true });
+    const byName = new Map(checks.map((c) => [c.name, c]));
+    expect(byName.get('hooks')?.status).toBe('pass');
+  }, 60_000);
+
   it('passes tree-sitter and codex freshness on this repository', async () => {
     const checks = await doctor(repoRoot, { ollamaBaseUrl: 'http://127.0.0.1:1', skipPnpm: true });
     const byName = new Map(checks.map((c) => [c.name, c]));
     expect(byName.get('tree-sitter')?.status).toBe('pass');
     expect(['pass', 'warn']).toContain(byName.get('codex')?.status);
-    expect(byName.get('hooks')?.status).toBe('pass');
-    expect(byName.get('config')?.status).toBe('pass');
+    // Hook registration lives in .claude/settings.local.json, which is
+    // machine-local and untracked: 'pass' on an initialized working copy,
+    // 'warn' on a fresh checkout (CI). The detection logic itself is covered
+    // hermetically by the tests above.
+    expect(['pass', 'warn']).toContain(byName.get('hooks')?.status);
+    // .dcp/config.json is gitignored (written by `redutok init`), so a fresh
+    // checkout legitimately reports 'warn'. 'fail' means a config.json exists
+    // but is invalid — that is the regression this guards against.
+    expect(byName.get('config')?.status).not.toBe('fail');
+    // .mcp.json and the launcher are tracked, and resolution only needs an
+    // installed and built workspace, which CI guarantees before tests: a
+    // fresh-checkout invariant, and the regression that motivated the check.
     expect(byName.get('mcp-launcher')?.status).toBe('pass');
   }, 120_000);
 });

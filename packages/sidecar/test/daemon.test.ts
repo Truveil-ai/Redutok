@@ -53,6 +53,9 @@ describe('daemon over localhost http', () => {
   });
 });
 
+// The named-pipe transport only exists on Windows (\\.\pipe\ namespace), so
+// this suite is platform-gated rather than skipped silently; on other
+// platforms the daemon is exercised over localhost HTTP above.
 describe.runIf(process.platform === 'win32')('daemon over windows named pipe', () => {
   it('serves /health over the pipe transport', async () => {
     const daemon = await startDaemon({ port: 0, dcpDir: tmpDir(), pipeName: `redutok-test-${process.pid}` });
