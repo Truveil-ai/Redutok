@@ -3,17 +3,25 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { loadEnergyFactors, loadGridIntensity, loadPrices } from '@redutok/shared';
 import {
   ANSWER_FILE_NAME,
   buildLivePrompt,
   captureBaselines,
   dryRunMatrix,
+  generateLiveResults,
   loadBenchTasks,
   needsAnswerFile,
   runLiveChecks,
   runReplay,
   type BenchTask,
+  type LiveRunMeasurement,
 } from '../src/bench.js';
+import { computeSessionCost } from '../src/cost.js';
+import { computeSessionEnergy } from '../src/energy.js';
+import { buildLedger, grandTotal } from '../src/ledger.js';
+import { parseSessionFile } from '../src/parser.js';
+import { scoreSession } from '../src/scoring.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(here, '..', '..', '..');
@@ -219,5 +227,93 @@ describe('replay mode treats live-only checks as skipped, not failed, and evalua
     const results = await runReplay(dir, path.join(dir, 'bench', 'tasks'), out);
     expect(results).toContain('| t01 | small | vanilla |');
     expect(results).toMatch(/\| t01 \| small \| vanilla \|.*\| pass \|/);
+  });
+});
+
+async function liveMeasurement(
+  fixture: string,
+  taskId: string,
+  variant: 'vanilla' | 'redutok',
+  rep: number,
+  overrides: Partial<LiveRunMeasurement> = {},
+): Promise<LiveRunMeasurement> {
+  const prices = loadPrices();
+  const factors = loadEnergyFactors();
+  const grid = loadGridIntensity();
+  const parsed = await parseSessionFile(path.join(repoRoot, 'fixtures', 'sessions', fixture));
+  const ledger = buildLedger(parsed, `${taskId}-${variant}-${rep}`);
+  const energy = computeSessionEnergy(ledger, factors, grid);
+  return {
+    taskId,
+    tier: 'small',
+    variant,
+    rep,
+    ledger,
+    totalTokens: grandTotal(ledger.totals),
+    costUsd: computeSessionCost(ledger, prices).totalUsd,
+    energy,
+    scores: scoreSession(ledger, energy, []),
+    wallMs: 1000,
+    success: true,
+    successDetail: [],
+    model: ledger.entries[0]?.model ?? 'unknown',
+    ...overrides,
+  };
+}
+
+describe('generateLiveResults', () => {
+  it('reports token, USD, and non-cache-read reduction as three distinct columns, and gates only on token reduction', async () => {
+    // small.jsonl: 20,100 tokens (2,160 input, 1,470 output, 15,100 cache
+    // read, 920 cache write, 450 thinking). long-agentic.jsonl: 8,772,809
+    // tokens, cache read 8,348,542 (hand-verified in the replay test above).
+    const vanilla = await liveMeasurement('long-agentic.jsonl', 't01', 'vanilla', 1);
+    const redutok = await liveMeasurement('small.jsonl', 't01', 'redutok', 1);
+    const summary = generateLiveResults([vanilla, redutok], [], { model: 'claude-sonnet-5', n: 1, done: true });
+
+    // Token reduction: 8,772,809 / 20,100.
+    expect(summary.medianTokenRatio).toBeCloseTo(8_772_809 / 20_100, 1);
+    // USD reduction: vanilla is far more expensive (dominated by cache read
+    // and raw input volume), so the ratio must be greater than 1.
+    expect(summary.medianUsdRatio).toBeGreaterThan(1);
+    // Non-cache-read reduction: (8,772,809 - 8,348,542) / (20,100 - 15,100).
+    expect(summary.medianNonCacheReadRatio).toBeCloseTo((8_772_809 - 8_348_542) / (20_100 - 15_100), 1);
+    // The three ratios must not collapse to the same number: cache-read
+    // dominance is exactly the effect these columns exist to surface.
+    expect(summary.medianTokenRatio).not.toBeCloseTo(summary.medianNonCacheReadRatio, 0);
+
+    expect(summary.markdown).toContain(
+      '| task | vanilla tokens | redutok tokens | token reduction | vanilla USD | redutok USD | USD reduction | vanilla non-cache-read tokens | redutok non-cache-read tokens | non-cache-read reduction | vanilla success | redutok success |',
+    );
+    expect(summary.markdown).toMatch(/median token reduction across tasks: [\d.]+x \(threshold: at least 10x, applies to this metric/);
+    expect(summary.markdown).toMatch(/median USD reduction across tasks: [\d.]+x \(context only, no threshold\)/);
+    expect(summary.markdown).toMatch(/median non-cache-read token reduction across tasks: [\d.]+x \(context only, no threshold/);
+    // Only one line states a threshold verdict tied to the 10x number.
+    const thresholdLines = summary.markdown.split('\n').filter((l) => l.includes('MET') || l.includes('NOT MET'));
+    expect(thresholdLines.filter((l) => l.includes('reduction'))).toHaveLength(1);
+  });
+
+  it('marks an in-progress checkpoint distinctly from a done report', async () => {
+    const vanilla = await liveMeasurement('long-agentic.jsonl', 't01', 'vanilla', 1);
+    const checkpoint = generateLiveResults([vanilla], [], { model: 'claude-sonnet-5', n: 1, done: false });
+    expect(checkpoint.markdown).toContain('CHECKPOINT: matrix in progress');
+    const final = generateLiveResults([vanilla], [], { model: 'claude-sonnet-5', n: 1, done: true });
+    expect(final.markdown).not.toContain('CHECKPOINT');
+  });
+
+  it('lists not-run records under their own section', async () => {
+    const vanilla = await liveMeasurement('long-agentic.jsonl', 't02', 'vanilla', 1);
+    const summary = generateLiveResults(
+      [vanilla],
+      [{ taskId: 't02', variant: 'redutok', rep: 1, reason: 'claude CLI not authenticated' }],
+      { model: 'claude-sonnet-5', n: 1, done: true },
+    );
+    expect(summary.markdown).toContain('## Not run');
+    expect(summary.markdown).toContain('t02 redutok rep 1: claude CLI not authenticated');
+  });
+
+  it('prefers the claude CLI reported cost in cumulative spend when present', async () => {
+    const withReported = await liveMeasurement('small.jsonl', 't01', 'redutok', 1, { reportedCostUsd: 0.5 });
+    const summary = generateLiveResults([withReported], [], { model: 'claude-sonnet-5', n: 1, done: true });
+    expect(summary.markdown).toContain('0.5000 USD (claude CLI reported)');
   });
 });

@@ -46,6 +46,7 @@ const {
   captureBaselines,
   computeSessionCost,
   computeSessionEnergy,
+  generateLiveResults,
   grandTotal,
   loadBenchTasks,
   parseSessionFile,
@@ -272,92 +273,15 @@ function findTranscript(sessionId) {
 // CLI and a real filesystem to exercise meaningfully.
 
 // ----------------------------------------------------------------- reporting
-const median = (xs) => {
-  const s = [...xs].sort((a, b) => a - b);
-  return s.length === 0 ? 0 : s.length % 2 === 1 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
-};
+// The report itself (medians, USD and non-cache-read reduction columns, the
+// definition-of-done verdict) is generateLiveResults in
+// packages/meter/src/bench.ts, tested there; this wrapper just writes it out.
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 
 function writeResults(measurements, notRun, done) {
-  const lines = [
-    '# Bench results (live)',
-    '',
-    `model: ${MODEL}`,
-    `date: ${new Date().toISOString().slice(0, 10)}`,
-    `repetitions: ${N}`,
-    `machine: ${os.platform()}-${os.arch()}, node ${process.version}`,
-    '',
-    done
-      ? 'Live-mode figures measure fresh headless claude CLI runs in isolated copies of the pinned repos. Energy and carbon are estimates with bands, never measurements.'
-      : `CHECKPOINT: matrix in progress, ${measurements.length} runs measured so far. Live-mode figures measure fresh headless claude CLI runs in isolated copies of the pinned repos. Energy and carbon are estimates with bands, never measurements.`,
-    '',
-    '| task | tier | variant | rep | input | output | cache read | cache write | thinking | total | USD | Wh (band) | gCO2e (band) | wall ms | grade | success |',
-    '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | ---: | --- | --- |',
-  ];
-  for (const m of measurements) {
-    const t = m.ledger.totals;
-    const e = m.energy;
-    lines.push(
-      `| ${m.taskId} | ${m.tier} | ${m.variant} | ${m.rep} | ${fmt(t.input)} | ${fmt(t.output)} | ${fmt(t.cacheRead)} | ${fmt(t.cacheWrite)} | ${fmt(t.thinking)} | ${fmt(m.totalTokens)} | ${m.costUsd.toFixed(4)} | ${e.wh.base.toFixed(2)} (${e.wh.low.toFixed(2)} to ${e.wh.high.toFixed(2)}) | ${e.gCo2e.base.toFixed(2)} (${e.gCo2e.low.toFixed(2)} to ${e.gCo2e.high.toFixed(2)}) | ${m.wallMs} | ${m.scores.composite?.grade ?? 'n/a'} | ${m.success ? 'pass' : 'FAIL'} |`,
-    );
-  }
-  lines.push('', '## Medians per task (across repetitions)', '');
-  lines.push('| task | vanilla median total | redutok median total | reduction | vanilla success | redutok success |');
-  lines.push('| --- | ---: | ---: | ---: | --- | --- |');
-  const byTask = new Map();
-  for (const m of measurements) byTask.set(m.taskId, [...(byTask.get(m.taskId) ?? []), m]);
-  const ratios = [];
-  const failures = [];
-  let vanillaPass = 0;
-  let vanillaTotal = 0;
-  let redutokPass = 0;
-  let redutokTotal = 0;
-  for (const [taskId, runs] of byTask) {
-    const vans = runs.filter((r) => r.variant === 'vanilla');
-    const reds = runs.filter((r) => r.variant === 'redutok');
-    vanillaTotal += vans.length;
-    redutokTotal += reds.length;
-    vanillaPass += vans.filter((r) => r.success).length;
-    redutokPass += reds.filter((r) => r.success).length;
-    if (vans.length === 0 || reds.length === 0) continue;
-    const mv = median(vans.map((r) => r.totalTokens));
-    const mr = median(reds.map((r) => r.totalTokens));
-    const ratio = mr === 0 ? 0 : mv / mr;
-    ratios.push(ratio);
-    lines.push(
-      `| ${taskId} | ${fmt(mv)} | ${fmt(mr)} | ${ratio.toFixed(1)}x | ${vans.filter((r) => r.success).length}/${vans.length} | ${reds.filter((r) => r.success).length}/${reds.length} |`,
-    );
-    for (const r of reds) {
-      if (!r.success && ratio > 1 && vans.some((v) => v.rep === r.rep && v.success)) {
-        failures.push(
-          `- ${taskId} rep ${r.rep}: ${ratio.toFixed(1)}x savings but the redutok run failed its success checks (${r.successDetail.join('; ')}). Savings without success are failures.`,
-        );
-      }
-    }
-  }
-  const medianRatio = median(ratios);
-  const vanillaRate = vanillaTotal === 0 ? 0 : vanillaPass / vanillaTotal;
-  const redutokRate = redutokTotal === 0 ? 0 : redutokPass / redutokTotal;
-  const parity = vanillaRate === 0 ? 1 : redutokRate / vanillaRate;
-  const spend = measurements.reduce((n, m) => n + m.costUsd, 0);
-  const reported = measurements.reduce((n, m) => n + (m.reportedCostUsd ?? 0), 0);
-  lines.push(
-    '',
-    '## Definition of done',
-    '',
-    `- median token reduction across tasks: ${medianRatio.toFixed(1)}x (threshold: at least 10x) ${medianRatio >= 10 ? 'MET' : 'NOT MET'}`,
-    `- success parity: redutok ${(redutokRate * 100).toFixed(0)}% vs vanilla ${(vanillaRate * 100).toFixed(0)}%, parity ${(parity * 100).toFixed(0)}% (threshold: at least 95%) ${parity >= 0.95 ? 'MET' : 'NOT MET'}`,
-    `- cumulative spend: ${spend.toFixed(4)} USD (meter, prices.yaml)${reported > 0 ? `, ${reported.toFixed(4)} USD (claude CLI reported)` : ''}`,
-  );
-  lines.push('', '## Failures (savings with success degradation)', '');
-  lines.push(...(failures.length > 0 ? failures : ['None in this run set.']));
-  if (notRun.length > 0) {
-    lines.push('', '## Not run', '');
-    for (const nr of notRun) lines.push(`- ${nr.taskId} ${nr.variant} rep ${nr.rep}: ${nr.reason}`);
-  }
-  lines.push('');
-  writeFileSync(resultsPath, lines.join('\n'));
-  return { medianRatio, parity, spend };
+  const summary = generateLiveResults(measurements, notRun, { model: MODEL, n: N, done });
+  writeFileSync(resultsPath, summary.markdown);
+  return summary;
 }
 
 // -------------------------------------------------------------------- matrix
@@ -469,9 +393,13 @@ for (const task of tasks) {
       }
     }
   }
-  const { medianRatio, parity, spend } = writeResults(measurements, notRun, false);
+  const { medianTokenRatio, medianUsdRatio, medianNonCacheReadRatio, parity, spend } = writeResults(
+    measurements,
+    notRun,
+    false,
+  );
   console.log(
-    `checkpoint after ${task.id}: ${measurements.length} runs, median reduction ${medianRatio.toFixed(1)}x, parity ${(parity * 100).toFixed(0)}%, cumulative spend ${spend.toFixed(4)} USD`,
+    `checkpoint after ${task.id}: ${measurements.length} runs, median token reduction ${medianTokenRatio.toFixed(1)}x (USD ${medianUsdRatio.toFixed(1)}x, non-cache-read ${medianNonCacheReadRatio.toFixed(1)}x), parity ${(parity * 100).toFixed(0)}%, cumulative spend ${spend.toFixed(4)} USD`,
   );
 }
 if (measurements.length > 0 || notRun.length > 0) {
