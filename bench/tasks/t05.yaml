@@ -1,16 +1,16 @@
 id: t05
 tier: medium
 repo:
-  url: local:fixtures/repos/repo-b
-  commit: pinned-by-content-in-git
-  localPath: fixtures/repos/repo-b
-prompt: 'Make tokenize lowercase its tokens.'
+  url: https://github.com/chalk/chalk
+  commit: aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef
+  localPath: fixtures/repos/chalk
+prompt: 'Add and export a function named hasAnsi from source/utilities.js that returns true if the given string contains an ANSI escape character, false otherwise.'
 success:
   - kind: file-changed
-    path: pkg/parser.py
+    path: source/utilities.js
   - kind: file-matches
-    path: pkg/parser.py
-    pattern: '\.lower\('
+    path: source/utilities.js
+    pattern: 'hasAnsi'
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/medium.jsonl

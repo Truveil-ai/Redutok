@@ -3,7 +3,12 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**'],
+    // fixtures/repos holds bench fixture repos (synthetic and vendored real
+    // third-party code, e.g. chalk); they are test data measured by the
+    // bench harness, not our own source, and vendored files carry their
+    // upstream project's own lint conventions (eslint-disable comments for
+    // plugin rules we do not install).
+    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', 'fixtures/repos/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

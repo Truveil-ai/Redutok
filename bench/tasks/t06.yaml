@@ -1,19 +1,16 @@
 id: t06
 tier: medium
 repo:
-  url: local:fixtures/repos/repo-b
-  commit: pinned-by-content-in-git
-  localPath: fixtures/repos/repo-b
-prompt: 'Sort formatCounts ties alphabetically.'
+  url: https://github.com/chalk/chalk
+  commit: aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef
+  localPath: fixtures/repos/chalk
+prompt: 'Make createStyler in source/index.js throw a TypeError when open or close is not a string.'
 success:
   - kind: file-changed
-    path: pkg/report.js
+    path: source/index.js
   - kind: file-matches
-    path: pkg/report.js
-    pattern: 'a\[0\]'
-  - kind: file-matches
-    path: pkg/report.js
-    pattern: 'b\[0\]'
+    path: source/index.js
+    pattern: 'TypeError'
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/medium.jsonl
