@@ -1,6 +1,6 @@
 version: "1"
 project: Redutok - Token Optimisation
-generatedAt: 2026-07-18T23:27:03.533Z
+generatedAt: 2026-07-19T11:30:39.974Z
 architecture: []
 map:
   - path: .
@@ -776,7 +776,7 @@ files:
   - path: packages/meter/src/bench.ts
     hash: 39c8804d2edcb47a
   - path: packages/meter/src/claude-compat.ts
-    hash: 8abdb6222e85fb35
+    hash: d26fc4ed04fe7849
   - path: packages/meter/src/cli.ts
     hash: 3fb3571e5164b56d
   - path: packages/meter/src/cost.ts
@@ -784,7 +784,7 @@ files:
   - path: packages/meter/src/discipline.ts
     hash: 7fa68a459239f57f
   - path: packages/meter/src/doctor.ts
-    hash: 5db4708a53ce2daa
+    hash: 7a0741c3b7d03c2f
   - path: packages/meter/src/energy.ts
     hash: 9c7ae872c20fce6c
   - path: packages/meter/src/index.ts
@@ -814,7 +814,7 @@ files:
   - path: packages/meter/test/discipline.test.ts
     hash: aa4f484012d2225a
   - path: packages/meter/test/doctor.test.ts
-    hash: 878354493f56fef1
+    hash: 7686a2e8c809335d
   - path: packages/meter/test/e2e-smoke.test.ts
     hash: 62ee36e8dd0efdde
   - path: packages/meter/test/energy.test.ts
@@ -822,11 +822,11 @@ files:
   - path: packages/meter/test/index.test.ts
     hash: 2978912d3fb5fc60
   - path: packages/meter/test/installer.test.ts
-    hash: aa8c0bfb53350d6e
+    hash: f3c32c22566a0f95
   - path: packages/meter/test/ledger.test.ts
     hash: 524c4dfe9be58038
   - path: packages/meter/test/pack.test.ts
-    hash: 827f80ff8ffba3e8
+    hash: ac0aa6a7e970a585
   - path: packages/meter/test/parser.test.ts
     hash: d0c7b5d50c3f2384
   - path: packages/meter/test/readme.test.ts
