@@ -24,7 +24,20 @@ function generate({ name, sessionId, turns, seed, models, toolPool, unknownEvery
   const int = (min, max) => min + Math.floor(rand() * (max - min + 1));
 
   const lines = [];
-  const totals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, thinking: 0 };
+  const totals = {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    // These fixtures carry no cache_creation tier breakdown (see the usage
+    // object below), so the meter conservatively assumes the whole
+    // cache-write amount at the 1-hour tier; cacheWrite1h/cacheWriteAssumedTokens
+    // track cacheWrite exactly and are finalized after the loop.
+    cacheWrite5m: 0,
+    cacheWrite1h: 0,
+    cacheWriteAssumedTokens: 0,
+    thinking: 0,
+  };
   let cacheBase = int(2000, 6000);
   const start = Date.parse('2026-07-18T12:00:00.000Z');
 
@@ -72,6 +85,12 @@ function generate({ name, sessionId, turns, seed, models, toolPool, unknownEvery
       }),
     );
   }
+
+  // No turn in this generator emits a cache_creation tier breakdown, so the
+  // parser conservatively assumes the entire cacheWrite amount at the
+  // 1-hour tier (see packages/meter/src/parser.ts splitCacheWriteTier).
+  totals.cacheWrite1h = totals.cacheWrite;
+  totals.cacheWriteAssumedTokens = totals.cacheWrite;
 
   writeFileSync(path.join(outDir, `${name}.jsonl`), lines.join('\n') + '\n');
   writeFileSync(

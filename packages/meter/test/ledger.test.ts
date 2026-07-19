@@ -18,6 +18,11 @@ describe('buildLedger on small.jsonl', () => {
       output: 1470,
       cacheRead: 15100,
       cacheWrite: 920,
+      // small.jsonl has no cache_creation breakdown, so the whole amount is
+      // conservatively assumed at the 1-hour tier.
+      cacheWrite5m: 0,
+      cacheWrite1h: 920,
+      cacheWriteAssumedTokens: 920,
       thinking: 450,
     });
     expect(grandTotal(ledger.totals)).toBe(20100);

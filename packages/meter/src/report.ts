@@ -49,6 +49,12 @@ export async function buildReport(
   );
 
   const notes: string[] = ['Thinking tokens are priced at the output rate.'];
+  const assumedCacheWrite = ledger.totals.cacheWriteAssumedTokens ?? 0;
+  if (assumedCacheWrite > 0) {
+    notes.push(
+      `${fmt(assumedCacheWrite)} of ${fmt(ledger.totals.cacheWrite)} cache-write tokens had no 5-minute/1-hour tier breakdown in the transcript; costed at the higher-cost 1-hour tier by policy (conservative against ourselves), not silently at the cheaper rate.`,
+    );
+  }
   if (cost.unverifiedSources.length > 0) {
     notes.push(
       `Price rows pending verification (TODO-VERIFY): ${cost.unverifiedSources.join(', ')}. Treat cost as indicative.`,
@@ -133,7 +139,9 @@ export function renderText(report: Report): string {
   lines.push(`  input        ${fmt(ledger.totals.input)}`);
   lines.push(`  output       ${fmt(ledger.totals.output)}`);
   lines.push(`  cache read   ${fmt(ledger.totals.cacheRead)}`);
-  lines.push(`  cache write  ${fmt(ledger.totals.cacheWrite)}`);
+  lines.push(
+    `  cache write  ${fmt(ledger.totals.cacheWrite)}  (5m: ${fmt(ledger.totals.cacheWrite5m ?? 0)}, 1h: ${fmt(ledger.totals.cacheWrite1h ?? 0)})`,
+  );
   lines.push(`  thinking     ${fmt(ledger.totals.thinking)}`);
   lines.push(`  total        ${fmt(report.grandTotal)}`);
   lines.push('');

@@ -17,6 +17,11 @@ describe('parseSessionFile on small.jsonl', () => {
       output: 300,
       cacheRead: 4000,
       cacheWrite: 800,
+      // small.jsonl has no cache_creation tier breakdown, so the whole
+      // amount is conservatively assumed at the higher-cost 1-hour tier.
+      cacheWrite5m: 0,
+      cacheWrite1h: 800,
+      cacheWriteAssumedTokens: 800,
       thinking: 150,
     });
     expect(parsed.assistantTurns[1]?.tokens.thinking).toBe(0);
@@ -46,6 +51,9 @@ describe('parseSessionFile on malformed.jsonl', () => {
       output: 0,
       cacheRead: 0,
       cacheWrite: 0,
+      cacheWrite5m: 0,
+      cacheWrite1h: 0,
+      cacheWriteAssumedTokens: 0,
       thinking: 0,
     });
   });
@@ -90,6 +98,11 @@ describe('parseSessionJsonl dedup by message.id', () => {
       output: 418,
       cacheRead: 45561,
       cacheWrite: 275,
+      // This usage fixture has no cache_creation breakdown either, so the
+      // same conservative 1-hour assumption applies.
+      cacheWrite5m: 0,
+      cacheWrite1h: 275,
+      cacheWriteAssumedTokens: 275,
       thinking: 0,
     });
   });
@@ -129,5 +142,81 @@ describe('parseSessionJsonl dedup by message.id', () => {
     ];
     const parsed = parseSessionJsonl(noMessageId.map((r) => JSON.stringify(r)).join('\n'));
     expect(parsed.assistantTurns).toHaveLength(2);
+  });
+});
+
+describe('parseSessionJsonl cache-write tier detection', () => {
+  const turn = (usage: Record<string, unknown>) =>
+    JSON.stringify({
+      type: 'assistant',
+      uuid: 'u1',
+      message: { id: 'msg_1', model: 'claude-sonnet-5', usage, content: [] },
+    });
+
+  it('splits cacheWrite by the transcript cache_creation breakdown when it reconciles to the total', () => {
+    // Reproduced shape from a live bench capture (bench/runs/t01-redutok-1.jsonl):
+    // real transcripts carry the split even though only the 1h tier was
+    // observed in that run; this fixture also exercises a non-zero 5m share.
+    const usage = {
+      input_tokens: 10,
+      output_tokens: 100,
+      cache_read_input_tokens: 500,
+      cache_creation_input_tokens: 300,
+      cache_creation: { ephemeral_5m_input_tokens: 120, ephemeral_1h_input_tokens: 180 },
+    };
+    const parsed = parseSessionJsonl(turn(usage));
+    expect(parsed.assistantTurns[0]?.tokens).toEqual({
+      input: 10,
+      output: 100,
+      cacheRead: 500,
+      cacheWrite: 300,
+      cacheWrite5m: 120,
+      cacheWrite1h: 180,
+      cacheWriteAssumedTokens: 0,
+      thinking: 0,
+    });
+  });
+
+  it('assumes the whole amount at the 1-hour tier when cache_creation is absent, disclosed via cacheWriteAssumedTokens', () => {
+    const usage = {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 500,
+    };
+    const parsed = parseSessionJsonl(turn(usage));
+    expect(parsed.assistantTurns[0]?.tokens.cacheWrite5m).toBe(0);
+    expect(parsed.assistantTurns[0]?.tokens.cacheWrite1h).toBe(500);
+    expect(parsed.assistantTurns[0]?.tokens.cacheWriteAssumedTokens).toBe(500);
+  });
+
+  it('does not trust a cache_creation breakdown that fails to reconcile to the reported total, falling back to the conservative assumption', () => {
+    const usage = {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 500,
+      // Deliberately inconsistent: 120 + 180 = 300, not 500. A partial or
+      // corrupted breakdown must not be silently trusted (guardrail 3).
+      cache_creation: { ephemeral_5m_input_tokens: 120, ephemeral_1h_input_tokens: 180 },
+    };
+    const parsed = parseSessionJsonl(turn(usage));
+    expect(parsed.assistantTurns[0]?.tokens.cacheWrite5m).toBe(0);
+    expect(parsed.assistantTurns[0]?.tokens.cacheWrite1h).toBe(500);
+    expect(parsed.assistantTurns[0]?.tokens.cacheWriteAssumedTokens).toBe(500);
+  });
+
+  it('never marks tokens assumed when cacheWrite is zero, breakdown present or not', () => {
+    const withBreakdown = {
+      input_tokens: 5,
+      output_tokens: 5,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+      cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 0 },
+    };
+    const parsed = parseSessionJsonl(turn(withBreakdown));
+    expect(parsed.assistantTurns[0]?.tokens.cacheWrite5m).toBe(0);
+    expect(parsed.assistantTurns[0]?.tokens.cacheWrite1h).toBe(0);
+    expect(parsed.assistantTurns[0]?.tokens.cacheWriteAssumedTokens).toBe(0);
   });
 });

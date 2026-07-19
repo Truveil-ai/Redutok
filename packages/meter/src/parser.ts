@@ -41,13 +41,48 @@ function toInt(value: unknown): number {
     : 0;
 }
 
+/**
+ * Cache-write tokens bill at one of two rates depending on TTL: 1.25x input
+ * for a 5-minute write, 2x input for a 1-hour write (see prices.yaml). Real
+ * transcripts carry the split in usage.cache_creation.{ephemeral_5m,
+ * ephemeral_1h}_input_tokens; older or synthetic transcripts don't. Trust the
+ * breakdown only when it reconciles exactly to the reported total — a
+ * partial or inconsistent breakdown is not trustworthy data, so it's treated
+ * the same as no breakdown at all. Per policy, tokens whose tier can't be
+ * determined are billed conservatively (against ourselves) at the
+ * higher-cost 1-hour tier, and the assumption is counted so callers can
+ * disclose it rather than silently costing at a rate that isn't known to be
+ * correct. Guardrail 3: no silent transformation.
+ */
+function splitCacheWriteTier(
+  cacheWrite: number,
+  usage: Record<string, unknown>,
+): { cacheWrite5m: number; cacheWrite1h: number; cacheWriteAssumedTokens: number } {
+  if (cacheWrite === 0) return { cacheWrite5m: 0, cacheWrite1h: 0, cacheWriteAssumedTokens: 0 };
+  const cc = usage['cache_creation'];
+  if (cc !== null && typeof cc === 'object') {
+    const ccRec = cc as Record<string, unknown>;
+    const raw5m = toInt(ccRec['ephemeral_5m_input_tokens']);
+    const raw1h = toInt(ccRec['ephemeral_1h_input_tokens']);
+    if (raw5m + raw1h === cacheWrite) {
+      return { cacheWrite5m: raw5m, cacheWrite1h: raw1h, cacheWriteAssumedTokens: 0 };
+    }
+  }
+  return { cacheWrite5m: 0, cacheWrite1h: cacheWrite, cacheWriteAssumedTokens: cacheWrite };
+}
+
 function usageToTally(usage: unknown): TokenTally {
   const u = (usage ?? {}) as Record<string, unknown>;
+  const cacheWrite = toInt(u['cache_creation_input_tokens']);
+  const tier = splitCacheWriteTier(cacheWrite, u);
   return {
     input: toInt(u['input_tokens']),
     output: toInt(u['output_tokens']),
     cacheRead: toInt(u['cache_read_input_tokens']),
-    cacheWrite: toInt(u['cache_creation_input_tokens']),
+    cacheWrite,
+    cacheWrite5m: tier.cacheWrite5m,
+    cacheWrite1h: tier.cacheWrite1h,
+    cacheWriteAssumedTokens: tier.cacheWriteAssumedTokens,
     thinking: toInt(u['thinking_tokens']),
   };
 }

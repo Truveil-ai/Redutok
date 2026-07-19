@@ -267,6 +267,31 @@ function findTranscript(sessionId) {
   return undefined;
 }
 
+/** Reads the claude CLI's own total_cost_usd from a committed .stream.jsonl
+ * capture, the same field the live-run path reads off run.result. Lets a
+ * recompute-from-existing-logs pass (the skip branch below) keep the
+ * meter-vs-CLI comparison instead of silently dropping it. */
+function reportedCostFromStream(streamPath) {
+  if (!existsSync(streamPath)) return undefined;
+  let content;
+  try {
+    content = readFileSync(streamPath, 'utf8');
+  } catch {
+    return undefined;
+  }
+  for (const line of content.split('\n')) {
+    if (line.trim() === '') continue;
+    let rec;
+    try {
+      rec = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (rec.type === 'result' && typeof rec.total_cost_usd === 'number') return rec.total_cost_usd;
+  }
+  return undefined;
+}
+
 // Success-check evaluation (captureBaselines, runLiveChecks) now lives in
 // packages/meter/src/bench.ts, tested there; this script only orchestrates
 // process spawning and filesystem isolation, which needs a real live claude
@@ -332,6 +357,7 @@ for (const task of tasks) {
           ledger,
           totalTokens: grandTotal(ledger.totals),
           costUsd: computeSessionCost(ledger, prices).totalUsd,
+          reportedCostUsd: reportedCostFromStream(path.join(runsDir, `${id}.stream.jsonl`)),
           energy,
           scores: scoreSession(ledger, energy, []),
           wallMs: 0,

@@ -6,6 +6,9 @@
     "output": 18717,
     "cacheRead": 190299,
     "cacheWrite": 9524,
+    "cacheWrite5m": 0,
+    "cacheWrite1h": 9524,
+    "cacheWriteAssumedTokens": 9524,
     "thinking": 5975
   }
 }

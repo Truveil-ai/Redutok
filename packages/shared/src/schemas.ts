@@ -5,13 +5,41 @@ import { z } from 'zod';
  * Every value that crosses a package boundary is validated with one of these.
  */
 
-export const TokenTallySchema = z.object({
-  input: z.number().int().nonnegative(),
-  output: z.number().int().nonnegative(),
-  cacheRead: z.number().int().nonnegative(),
-  cacheWrite: z.number().int().nonnegative(),
-  thinking: z.number().int().nonnegative(),
-});
+export const TokenTallySchema = z
+  .object({
+    input: z.number().int().nonnegative(),
+    output: z.number().int().nonnegative(),
+    cacheRead: z.number().int().nonnegative(),
+    cacheWrite: z.number().int().nonnegative(),
+    /**
+     * Split of cacheWrite by cache TTL tier: 5-minute writes bill at 1.25x
+     * input, 1-hour writes at 2x (see prices.yaml). Optional so existing
+     * TokenTally values built without a transcript's cache_creation
+     * breakdown (older fixtures, hand-built tallies) stay valid; a reader
+     * that needs a number treats a missing field as 0. When either is
+     * present they must sum to cacheWrite exactly (enforced below) —
+     * parser.ts is the sole production writer and only ever sets them
+     * together.
+     */
+    cacheWrite5m: z.number().int().nonnegative().optional(),
+    cacheWrite1h: z.number().int().nonnegative().optional(),
+    /**
+     * Subset of cacheWrite1h whose tier could not be read from the
+     * transcript's cache_creation breakdown and was conservatively assumed
+     * at the higher-cost 1-hour tier (policy: never silently bill an
+     * unknown-tier token at the cheaper rate). 0 when the split is fully
+     * known or cacheWrite is 0.
+     */
+    cacheWriteAssumedTokens: z.number().int().nonnegative().optional(),
+    thinking: z.number().int().nonnegative(),
+  })
+  .refine(
+    (t) =>
+      t.cacheWrite5m === undefined && t.cacheWrite1h === undefined
+        ? true
+        : (t.cacheWrite5m ?? 0) + (t.cacheWrite1h ?? 0) === t.cacheWrite,
+    { message: 'cacheWrite5m + cacheWrite1h must equal cacheWrite when the tier split is present' },
+  );
 export type TokenTally = z.infer<typeof TokenTallySchema>;
 
 export const LedgerEntrySchema = z.object({
@@ -173,7 +201,16 @@ export const CodexLockSchema = z.object({
 export type CodexLock = z.infer<typeof CodexLockSchema>;
 
 export function emptyTally(): TokenTally {
-  return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, thinking: 0 };
+  return {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    cacheWrite5m: 0,
+    cacheWrite1h: 0,
+    cacheWriteAssumedTokens: 0,
+    thinking: 0,
+  };
 }
 
 export function addTally(a: TokenTally, b: TokenTally): TokenTally {
@@ -182,6 +219,9 @@ export function addTally(a: TokenTally, b: TokenTally): TokenTally {
     output: a.output + b.output,
     cacheRead: a.cacheRead + b.cacheRead,
     cacheWrite: a.cacheWrite + b.cacheWrite,
+    cacheWrite5m: (a.cacheWrite5m ?? 0) + (b.cacheWrite5m ?? 0),
+    cacheWrite1h: (a.cacheWrite1h ?? 0) + (b.cacheWrite1h ?? 0),
+    cacheWriteAssumedTokens: (a.cacheWriteAssumedTokens ?? 0) + (b.cacheWriteAssumedTokens ?? 0),
     thinking: a.thinking + b.thinking,
   };
 }

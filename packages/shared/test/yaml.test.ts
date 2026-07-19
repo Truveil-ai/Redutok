@@ -14,8 +14,18 @@ describe('loadPrices', () => {
     expect(prices.models[0]?.source).toBe('TODO-VERIFY');
   });
 
+  it('loads the 1-hour cache-write rate alongside the 5-minute rate', () => {
+    const prices = loadPrices(fixture('prices.valid.yaml'));
+    expect(prices.models[0]?.cacheWritePerMTokUsd).toBe(3.75);
+    expect(prices.models[0]?.cacheWrite1hPerMTokUsd).toBe(6);
+  });
+
   it('rejects a row with no source field', () => {
     expect(() => loadPrices(fixture('prices.missing-source.yaml'))).toThrow();
+  });
+
+  it('rejects a row missing the 1-hour cache-write rate', () => {
+    expect(() => loadPrices(fixture('prices.missing-1h-rate.yaml'))).toThrow();
   });
 });
 

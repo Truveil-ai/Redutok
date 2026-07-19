@@ -22,6 +22,11 @@ describe('buildReport on small.jsonl', () => {
     // Price rows are cited, so no TODO-VERIFY there, but the energy note must
     // flag the unverified energy and grid rows.
     expect(report.notes.join(' ')).toContain('never measurements');
+    // small.jsonl has no cache_creation tier breakdown, so every cache-write
+    // token was conservatively assumed at the 1-hour tier; disclosed, not silent.
+    expect(report.notes.join(' ')).toContain(
+      '920 of 920 cache-write tokens had no 5-minute/1-hour tier breakdown',
+    );
     expect(report.energy.wh.base).toBeCloseTo(6.03, 9);
     expect(report.energy.region).toBe('world');
     expect(report.energy.sidecarWh).toBe(0);
@@ -65,6 +70,8 @@ describe('renderText', () => {
     const text = renderText(await buildReport(fixture('small.jsonl')));
     expect(text).toContain('Redutok report');
     expect(text).toContain('total        20,100');
+    expect(text).toContain('cache write  920  (5m: 0, 1h: 920)');
+    expect(text).toMatch(/Note: 920 of 920 cache-write tokens had no 5-minute\/1-hour tier breakdown/);
     expect(text).toContain('Read');
     expect(text).toContain('Skipped records: 1 unknown type, 0 malformed');
     // Energy is always rendered as an estimate with the band, never bare.

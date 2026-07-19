@@ -1,9 +1,21 @@
-# Founder-verified against the official pricing page on 2026-07-19; all five rows matched exactly, no corrections needed.
+# Founder-verified against the official pricing page on 2026-07-19; all five rows matched exactly.
 # Model pricing, USD per million tokens, standard API rates.
 # Rates checked 2026-07-19 against the source URL on each row.
-# Cache read is 0.10 of the input price, cache write is 1.25 of the input price.
+# Cache read is 0.10 of the input price. Cache writes have two TTL tiers,
+# priced differently and billed separately in the meter's cost computation:
+# 5-minute writes (cacheWritePerMTokUsd) are 1.25 of the input price,
+# 1-hour writes (cacheWrite1hPerMTokUsd) are 2.00 of the input price.
 # Thinking tokens bill at the output rate (applied in the meter's cost computation).
 # Guardrail 2: every row carries a source field. Do not add a row without one.
+#
+# claude-sonnet-5 deviation from the documented price (2026-07-19): the
+# official page promises introductory pricing (2.00/10.00) through
+# 2026-08-31, but every claude-sonnet-5 request observed in
+# bench/runs/*.stream.jsonl on 2026-07-19 (20/20 runs, reverse-computed
+# exactly against each run's own total_cost_usd) was billed at the standard
+# rate (3.00/15.00) with the 1-hour cache-write tier. This row follows
+# observed billing rather than the documented promise; see PROGRESS.md's
+# 2026-07-19 verification record for the reconciliation and evidence.
 version: 1
 currency: USD
 models:
@@ -12,29 +24,41 @@ models:
     outputPerMTokUsd: 50
     cacheReadPerMTokUsd: 1
     cacheWritePerMTokUsd: 12.5
+    cacheWrite1hPerMTokUsd: 20
     source: https://platform.claude.com/docs/en/about-claude/pricing
   - id: claude-opus-4-8
     inputPerMTokUsd: 5
     outputPerMTokUsd: 25
     cacheReadPerMTokUsd: 0.5
     cacheWritePerMTokUsd: 6.25
+    cacheWrite1hPerMTokUsd: 10
     source: https://platform.claude.com/docs/en/about-claude/pricing
   - id: claude-sonnet-4-6
     inputPerMTokUsd: 3
     outputPerMTokUsd: 15
     cacheReadPerMTokUsd: 0.3
     cacheWritePerMTokUsd: 3.75
+    cacheWrite1hPerMTokUsd: 6
     source: https://platform.claude.com/docs/en/about-claude/pricing
   - id: claude-sonnet-5
-    inputPerMTokUsd: 2
-    outputPerMTokUsd: 10
-    cacheReadPerMTokUsd: 0.2
-    cacheWritePerMTokUsd: 2.5
-    note: introductory through 2026-08-31, standard 3.00/15.00 from 2026-09-01
+    inputPerMTokUsd: 3
+    outputPerMTokUsd: 15
+    cacheReadPerMTokUsd: 0.3
+    cacheWritePerMTokUsd: 3.75
+    cacheWrite1hPerMTokUsd: 6
+    note: >-
+      Official page lists introductory pricing (2.00/10.00, cache write
+      2.50/4.00) through 2026-08-31, but every claude-sonnet-5 request
+      observed in bench/runs/*.stream.jsonl on 2026-07-19 (20/20 runs) was
+      billed at the standard rate shown here. The meter follows observed
+      billing over the documented promise; see PROGRESS.md verification
+      record 2026-07-19. Revisit if a future observation shows introductory
+      billing actually applied.
     source: https://platform.claude.com/docs/en/about-claude/pricing
   - id: claude-haiku-4-5
     inputPerMTokUsd: 1
     outputPerMTokUsd: 5
     cacheReadPerMTokUsd: 0.1
     cacheWritePerMTokUsd: 1.25
+    cacheWrite1hPerMTokUsd: 2
     source: https://platform.claude.com/docs/en/about-claude/pricing

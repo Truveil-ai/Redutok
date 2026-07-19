@@ -83,9 +83,101 @@ describe('CodexFileSchema', () => {
 });
 
 describe('tally helpers', () => {
-  it('adds tallies field by field', () => {
+  it('adds tallies field by field, treating an absent cache-write tier split as zero', () => {
     const a = { input: 1, output: 2, cacheRead: 3, cacheWrite: 4, thinking: 5 };
-    expect(addTally(emptyTally(), a)).toEqual(a);
-    expect(addTally(a, a)).toEqual({ input: 2, output: 4, cacheRead: 6, cacheWrite: 8, thinking: 10 });
+    expect(addTally(emptyTally(), a)).toEqual({
+      ...a,
+      cacheWrite5m: 0,
+      cacheWrite1h: 0,
+      cacheWriteAssumedTokens: 0,
+    });
+    expect(addTally(a, a)).toEqual({
+      input: 2,
+      output: 4,
+      cacheRead: 6,
+      cacheWrite: 8,
+      cacheWrite5m: 0,
+      cacheWrite1h: 0,
+      cacheWriteAssumedTokens: 0,
+      thinking: 10,
+    });
+  });
+
+  it('emptyTally starts every field, including the cache-write tier split, at zero', () => {
+    expect(emptyTally()).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      cacheWrite5m: 0,
+      cacheWrite1h: 0,
+      cacheWriteAssumedTokens: 0,
+      thinking: 0,
+    });
+  });
+
+  it('sums the cache-write tier split across tallies that carry it', () => {
+    const a = {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 100,
+      cacheWrite5m: 40,
+      cacheWrite1h: 60,
+      cacheWriteAssumedTokens: 0,
+      thinking: 0,
+    };
+    const b = {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 50,
+      cacheWrite5m: 0,
+      cacheWrite1h: 50,
+      cacheWriteAssumedTokens: 50,
+      thinking: 0,
+    };
+    const sum = addTally(a, b);
+    expect(sum.cacheWrite5m).toBe(40);
+    expect(sum.cacheWrite1h).toBe(110);
+    expect(sum.cacheWriteAssumedTokens).toBe(50);
+    expect(sum.cacheWrite).toBe(150);
+  });
+});
+
+describe('TokenTallySchema cache-write tier split', () => {
+  const base = {
+    sessionId: 's-1',
+    turn: 1,
+    timestamp: '2026-07-18T10:00:00.000Z',
+    model: 'm',
+    tools: [],
+  };
+
+  it('accepts a tally with no tier split (backward compatible with older fixtures)', () => {
+    expect(() =>
+      LedgerEntrySchema.parse({
+        ...base,
+        tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 10, thinking: 0 },
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts a tally whose split sums exactly to cacheWrite', () => {
+    expect(() =>
+      LedgerEntrySchema.parse({
+        ...base,
+        tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 10, cacheWrite5m: 4, cacheWrite1h: 6, thinking: 0 },
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects a tally whose split does not sum to cacheWrite, rather than silently trusting a partial breakdown', () => {
+    expect(() =>
+      LedgerEntrySchema.parse({
+        ...base,
+        tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 10, cacheWrite5m: 4, cacheWrite1h: 4, thinking: 0 },
+      }),
+    ).toThrow();
   });
 });

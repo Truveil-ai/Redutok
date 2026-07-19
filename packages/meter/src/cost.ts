@@ -8,12 +8,26 @@ import type { SessionLedger } from './ledger.js';
  * silently costed at zero.
  */
 
+/**
+ * Cache-write tokens bill at one of two rates depending on TTL tier (see
+ * prices.yaml's cacheWritePerMTokUsd / cacheWrite1hPerMTokUsd). When a
+ * TokenTally carries the tier split (both cacheWrite5m and cacheWrite1h
+ * present, the normal case from parser.ts), each portion is billed at its
+ * own rate. When a tally has no split at all (older/hand-built TokenTally
+ * values that predate this field), the same conservative-against-ourselves
+ * policy applies here as in the parser: bill the whole amount at the
+ * higher-cost 1-hour rate rather than assuming the cheaper 5-minute rate.
+ */
 export function computeTallyCostUsd(tokens: TokenTally, row: PriceRow): number {
+  const hasSplit = tokens.cacheWrite5m !== undefined && tokens.cacheWrite1h !== undefined;
+  const cacheWrite5m = hasSplit ? (tokens.cacheWrite5m as number) : 0;
+  const cacheWrite1h = hasSplit ? (tokens.cacheWrite1h as number) : tokens.cacheWrite;
   return (
     (tokens.input * row.inputPerMTokUsd +
       (tokens.output + tokens.thinking) * row.outputPerMTokUsd +
       tokens.cacheRead * row.cacheReadPerMTokUsd +
-      tokens.cacheWrite * row.cacheWritePerMTokUsd) /
+      cacheWrite5m * row.cacheWritePerMTokUsd +
+      cacheWrite1h * row.cacheWrite1hPerMTokUsd) /
     1_000_000
   );
 }

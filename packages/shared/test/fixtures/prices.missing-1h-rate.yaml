@@ -6,5 +6,4 @@ models:
     outputPerMTokUsd: 15
     cacheReadPerMTokUsd: 0.3
     cacheWritePerMTokUsd: 3.75
-    cacheWrite1hPerMTokUsd: 6
     source: TODO-VERIFY

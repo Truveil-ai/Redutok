@@ -15,7 +15,10 @@ export const PriceRowSchema = z.object({
   inputPerMTokUsd: z.number().nonnegative(),
   outputPerMTokUsd: z.number().nonnegative(),
   cacheReadPerMTokUsd: z.number().nonnegative(),
+  /** 5-minute cache-write TTL rate (1.25x input on the official pricing page). */
   cacheWritePerMTokUsd: z.number().nonnegative(),
+  /** 1-hour cache-write TTL rate (2x input on the official pricing page). */
+  cacheWrite1hPerMTokUsd: z.number().nonnegative(),
   note: z.string().optional(),
   source: z.string().min(1),
 });
