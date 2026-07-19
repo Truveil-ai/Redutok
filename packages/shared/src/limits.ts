@@ -57,6 +57,16 @@ export const LIMITS = {
     [70, 'C'],
     [60, 'D'],
   ],
+  /**
+   * dcp__explore internal step ceiling per budget tier (architecture-v2
+   * pillar 1). One search sweep counts as a step; each file skeleton-read
+   * counts as another. Exceeding the cap before a verdict is reached
+   * produces `incomplete` with whatever evidence was gathered, per spec.
+   * Product tuning constants, not measured claims.
+   */
+  EXPLORE_STEP_CAP: { quick: 3, standard: 6, thorough: 12 },
+  /** dcp__explore wall-clock ceiling per budget tier, paired with EXPLORE_STEP_CAP. */
+  EXPLORE_WALL_CLOCK_MS: { quick: 5_000, standard: 15_000, thorough: 30_000 },
 } as const;
 
 export type Limits = typeof LIMITS;

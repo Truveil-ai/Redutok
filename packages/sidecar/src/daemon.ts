@@ -5,6 +5,8 @@ import type { DistillProfile } from '@redutok/shared';
 import { AuditWriter } from './audit.js';
 import { refreshFiles } from './codex.js';
 import { distillArtifact, loadProfiles, zoom } from './distill.js';
+import { exploreGoal } from './explore.js';
+import { NoopLlmPass, type LlmPass } from './llm.js';
 import { serveFile } from './serve.js';
 import { updateRollingState } from './state.js';
 import { createLogger, type Logger } from './log.js';
@@ -25,6 +27,8 @@ export interface DaemonOptions {
   pipeName?: string;
   /** Directory of profiles/*.yaml; when set, /distill and /zoom are served. */
   profilesDir?: string;
+  /** Local-model seam for dcp__explore's verdict synthesis; NoopLlmPass (rule-based fallback only) by default. */
+  llm?: LlmPass;
 }
 
 export interface DaemonHandle {
@@ -38,6 +42,7 @@ interface Engines {
   store: Store;
   audit: AuditWriter;
   profiles: Map<string, DistillProfile>;
+  llm: LlmPass;
 }
 
 function readBody(req: http.IncomingMessage): Promise<unknown> {
@@ -57,6 +62,7 @@ function readBody(req: http.IncomingMessage): Promise<unknown> {
 
 function handler(
   log: Logger,
+  repoRoot: string,
   engines?: Engines,
   onFileChange?: (filePath: string) => Promise<string[]>,
   onNotify?: (event: { kind: string; tool?: string; path?: string }) => Promise<void>,
@@ -153,6 +159,31 @@ function handler(
         });
       return;
     }
+    if (req.method === 'POST' && url.pathname === '/explore') {
+      // Pillar 1: one bounded internal hunt instead of the model's own
+      // turn-by-turn read/evaluate/zoom loop. See explore.ts for the bounds.
+      if (engines === undefined) {
+        respond(503, { ok: false, error: 'daemon started without a profiles directory' });
+        return;
+      }
+      void readBody(req)
+        .then(async (payload) => {
+          const p = payload as Record<string, unknown>;
+          const dossier = await exploreGoal(engines.store, engines.audit, engines.profiles, engines.llm, {
+            goal: String(p['goal'] ?? ''),
+            scope: Array.isArray(p['scope']) ? (p['scope'] as unknown[]).map(String) : undefined,
+            budget: p['budget'] as 'quick' | 'standard' | 'thorough' | undefined,
+            sessionId: attributedSessionId(p['sessionId']),
+            repoRoot,
+          });
+          respond(200, dossier);
+        })
+        .catch((err: unknown) => {
+          log.error('request failed', { path: url.pathname, error: String(err) });
+          respond(400, { ok: false, error: err instanceof Error ? err.message : String(err) });
+        });
+      return;
+    }
     if (req.method === 'GET' && url.pathname === '/health') {
       respond(200, {
         ok: true,
@@ -202,15 +233,16 @@ function handler(
 
 export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle> {
   const log = createLogger(path.join(options.dcpDir, 'sidecar.log.jsonl'));
+  const repoRoot = path.dirname(path.resolve(options.dcpDir));
   let engines: Engines | undefined;
   if (options.profilesDir !== undefined) {
     engines = {
       store: openStore(path.join(options.dcpDir, 'state.db')),
       audit: new AuditWriter(path.join(options.dcpDir, 'audit.jsonl')),
       profiles: loadProfiles(options.profilesDir),
+      llm: options.llm ?? new NoopLlmPass(),
     };
   }
-  const repoRoot = path.dirname(path.resolve(options.dcpDir));
   const onFileChange = async (filePath: string): Promise<string[]> => {
     try {
       const rel = path.isAbsolute(filePath) ? path.relative(repoRoot, filePath) : filePath;
@@ -226,7 +258,7 @@ export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle>
       // State maintenance must never fail a notify.
     }
   };
-  const listener = handler(log, engines, onFileChange, onNotify);
+  const listener = handler(log, repoRoot, engines, onFileChange, onNotify);
   const httpServer = http.createServer(listener);
   await new Promise<void>((resolve, reject) => {
     httpServer.once('error', reject);
