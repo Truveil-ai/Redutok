@@ -22,7 +22,13 @@ function readStdin(): Promise<string> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = [];
     process.stdin.on('data', (c) => chunks.push(c));
-    process.stdin.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    // Windows shells piping the payload can prepend a UTF-8 BOM, which
+    // JSON.parse rejects; strip it so scripted invocations behave like real
+    // Claude Code ones.
+    process.stdin.on('end', () => {
+      const text = Buffer.concat(chunks).toString('utf8');
+      resolve(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
+    });
   });
 }
 
@@ -91,6 +97,7 @@ async function main(): Promise<void> {
   }
   if (output.summaryLine !== undefined) {
     process.stdout.write(output.summaryLine + '\n');
+    if (output.receiptBlock !== undefined) process.stdout.write(output.receiptBlock + '\n');
   } else if (output.hookSpecificOutput !== undefined) {
     process.stdout.write(JSON.stringify(output) + '\n');
   }

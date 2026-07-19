@@ -1,8 +1,11 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import childProcess from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { LIMITS } from '@redutok/shared';
 import { startDaemon } from '@redutok/sidecar';
 import { sidecarRequest } from '@redutok/sidecar/client';
@@ -230,11 +233,80 @@ describe('output discipline', () => {
 });
 
 describe('handleStop', () => {
+  const distillEvent = (id: string, bytesIn: number, bytesOut: number, profile: string) =>
+    JSON.stringify({
+      id,
+      timestamp: '2026-07-19T10:00:00.000Z',
+      sessionId: 's-small',
+      module: 'sidecar.distill',
+      action: 'distill',
+      reason: 'x',
+      inputRef: id,
+      bytesIn,
+      bytesOut,
+      details: { profile },
+    });
+
   it('produces a one-line summary from the transcript ledger', async () => {
     const result = await handleStop({ transcript_path: fixtureSession }, DEAD);
     expect(result.summaryLine).toContain('20,100 tokens');
     expect(result.summaryLine).toContain('3 turns');
     expect(result.summaryLine?.includes('\n')).toBe(false);
+  });
+
+  it('appends a receipt block and writes .dcp/last-receipt.txt with the same content', async () => {
+    const dcpDir = tempDcp();
+    writeFileSync(
+      path.join(dcpDir, 'audit.jsonl'),
+      [
+        distillEvent('a1', 9216, 1096, 'build-log'),
+        distillEvent('a2', 4000, 400, 'file-skeleton'),
+      ].join('\n') + '\n',
+    );
+    const result = await handleStop({ transcript_path: fixtureSession }, { ...DEAD, dcpDir });
+    expect(result.summaryLine).toContain('20,100 tokens');
+    expect(result.receiptBlock).toContain('Redutok receipt for session s-small');
+    expect(result.receiptBlock).toContain('avoided  2,930 tokens across 2 audit events');
+    expect(result.receiptBlock).toContain('1. build-log (a1)');
+    expect(result.receiptBlock).toContain('2. file-skeleton (a2)');
+    const written = readFileSync(path.join(dcpDir, 'last-receipt.txt'), 'utf8');
+    expect(written).toBe(`${result.summaryLine}\n${result.receiptBlock}\n`);
+  });
+
+  it('prints no distillations this session when no audit events are attributable', async () => {
+    const dcpDir = tempDcp();
+    const result = await handleStop({ transcript_path: fixtureSession }, { ...DEAD, dcpDir });
+    expect(result.receiptBlock).toContain('no distillations this session');
+    expect(result.receiptBlock).not.toContain('avoided  0 tokens');
+    expect(readFileSync(path.join(dcpDir, 'last-receipt.txt'), 'utf8')).toContain(
+      'no distillations this session',
+    );
+  });
+
+  it('builds the receipt with no model call and no network at all', async () => {
+    const dcpDir = tempDcp();
+    writeFileSync(
+      path.join(dcpDir, 'audit.jsonl'),
+      distillEvent('a1', 9216, 1096, 'build-log') + '\n',
+    );
+    // The receipt must be free: no LLM invocation by any transport. localhost
+    // would be tolerable by the contract; the implementation needs none.
+    const httpSpy = vi.spyOn(http, 'request');
+    const httpsSpy = vi.spyOn(https, 'request');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const spawnSpy = vi.spyOn(childProcess, 'spawn');
+    const execSpy = vi.spyOn(childProcess, 'exec');
+    try {
+      const result = await handleStop({ transcript_path: fixtureSession }, { ...DEAD, dcpDir });
+      expect(result.receiptBlock).toContain('Redutok receipt for session s-small');
+      expect(httpSpy).not.toHaveBeenCalled();
+      expect(httpsSpy).not.toHaveBeenCalled();
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(spawnSpy).not.toHaveBeenCalled();
+      expect(execSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 
   it('degrades to empty output when the transcript is missing', async () => {

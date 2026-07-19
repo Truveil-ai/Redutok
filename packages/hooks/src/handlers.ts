@@ -1,7 +1,13 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { LIMITS } from '@redutok/shared';
-import { buildLedger, grandTotal, parseSessionFile } from 'redutok';
+import {
+  buildLedger,
+  buildSessionReceipt,
+  grandTotal,
+  parseSessionFile,
+  renderReceiptBlock,
+} from 'redutok';
 import { sidecarRequest, type SidecarTarget } from '@redutok/sidecar/client';
 import { buildCodexInjection, readCodex } from '@redutok/sidecar';
 
@@ -27,6 +33,8 @@ export interface HookOutput {
     updatedInput?: Record<string, unknown>;
   };
   summaryLine?: string;
+  /** Multi-line session receipt printed under the summary line on Stop. */
+  receiptBlock?: string;
 }
 
 /** Reads below this pass untouched without even probing the sidecar. */
@@ -219,7 +227,7 @@ export function handleUserPromptSubmit(input: { prompt?: string }, _deps: HookDe
 
 export async function handleStop(
   input: { transcript_path?: string },
-  _deps: HookDeps,
+  deps: HookDeps,
 ): Promise<HookOutput> {
   const transcript = input.transcript_path;
   if (transcript === undefined || !existsSync(transcript)) return {};
@@ -236,9 +244,26 @@ export async function handleStop(
     const advisor = split
       ? ' Split point detected. redutok handoff will open a fresh session pre-loaded with codex plus state instead of carrying the full transcript.'
       : '';
-    return {
-      summaryLine: `Redutok: ${total} tokens across ${ledger.entries.length} turns this session.${advisor} Run redutok report --last for detail. Redutok by Truveil`,
-    };
+    const summaryLine = `Redutok: ${total} tokens across ${ledger.entries.length} turns this session.${advisor} Run redutok report --last for detail. Redutok by Truveil`;
+    // The receipt is assembled from local files only (ledger plus the
+    // session-attributed audit trail): no model call, no network. A receipt
+    // failure must never cost the summary line.
+    let receiptBlock: string | undefined;
+    try {
+      const receipt = buildSessionReceipt(ledger, {
+        auditPath: path.join(deps.dcpDir, 'audit.jsonl'),
+      });
+      receiptBlock = renderReceiptBlock(receipt);
+      if (existsSync(deps.dcpDir)) {
+        writeFileSync(
+          path.join(deps.dcpDir, 'last-receipt.txt'),
+          summaryLine + '\n' + receiptBlock + '\n',
+        );
+      }
+    } catch {
+      receiptBlock = undefined;
+    }
+    return { summaryLine, receiptBlock };
   } catch {
     return {};
   }
