@@ -12,7 +12,7 @@
     "./hook-main": "./dist/hook-main.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -b tsconfig.json"
   },
   "dependencies": {
     "@redutok/shared": "workspace:*",
