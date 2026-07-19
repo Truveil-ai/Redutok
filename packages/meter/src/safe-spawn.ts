@@ -27,7 +27,11 @@ export interface ResolvedExecutable {
 export function unwrapCmdShim(shimPath: string, contents: string): string | undefined {
   const match = /"%dp0%\\(.+?)"\s+%\*/.exec(contents);
   if (match?.[1] === undefined) return undefined;
-  return path.join(path.dirname(shimPath), match[1]);
+  // shimPath and the captured group are always Windows paths (a .cmd shim is
+  // Windows-only), regardless of which platform this function happens to run
+  // on (its own unit test runs on every CI platform); path.win32 keeps the
+  // backslash parsing correct even when process.platform is not win32.
+  return path.win32.join(path.win32.dirname(shimPath), match[1]);
 }
 
 /**

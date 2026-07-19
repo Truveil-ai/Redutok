@@ -20,9 +20,12 @@ describe('unwrapCmdShim', () => {
   ].join('\r\n');
 
   it('extracts the wrapped executable path relative to the shim directory', () => {
+    // unwrapCmdShim always parses Windows path syntax (a .cmd shim is
+    // Windows-only), so the expected value must be built the same way
+    // regardless of which platform this test happens to run on.
     const resolved = unwrapCmdShim('C:\\Users\\me\\npm\\claude.cmd', REAL_SHIM);
     expect(resolved).toBe(
-      path.join('C:\\Users\\me\\npm', 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe'),
+      path.win32.join('C:\\Users\\me\\npm', 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe'),
     );
   });
 
