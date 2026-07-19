@@ -54,6 +54,11 @@ describe('initRepo', () => {
     expect(existsSync(path.join(repo, '.claude', 'redutok', 'hook.mjs'))).toBe(true);
     expect(existsSync(path.join(repo, '.claude', 'redutok', 'mcp.mjs'))).toBe(true);
     expect(existsSync(path.join(repo, '.dcp', 'config.json'))).toBe(true);
+    const scout = readFileSync(path.join(repo, '.claude', 'agents', 'scout.md'), 'utf8');
+    expect(scout).toContain('name: scout');
+    expect(scout).toContain('tools: mcp__redutok__dcp__explore');
+    expect(scout).toContain('mcp__redutok__dcp__zoom');
+    expect(scout).not.toContain('Read, Bash, Grep,');
     const claudeMd = readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8');
     expect(claudeMd).toContain('Existing instructions.');
     expect(claudeMd).toContain('<!-- dcp:start v1 -->');
@@ -78,6 +83,7 @@ describe('portability', () => {
       '.claude/settings.local.json',
       '.claude/redutok/hook.mjs',
       '.claude/redutok/mcp.mjs',
+      '.claude/agents/scout.md',
       '.mcp.json',
       'CLAUDE.md',
     ];
