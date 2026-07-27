@@ -3,11 +3,12 @@
 
 This repository runs Redutok by Truveil. Rules for this session:
 
-1. You have dcp tools. Use dcp__read for source files, dcp__run for build and
-   test commands, dcp__search for code search. They return distilled
-   artifacts that preserve verdicts, first errors, file:line references, and
-   signatures. Prefer them over raw Read, Bash, Grep for anything that could
-   be large.
+1. You have dcp tools. Use dcp__read for source files and dcp__search for code
+   search. They return distilled artifacts that preserve first errors,
+   file:line references, and signatures. Prefer them over raw Read and Grep for
+   anything that could be large. Build, test, lint, and type-check commands
+   need no special handling: run them normally and their output is distilled in
+   place, ending with a zoom handle, so there is no dcp tool to call for them.
 2. Distilled artifacts end with a zoom handle. If a distillate lacks detail
    you need, call dcp__zoom with the handle id (and optionally a query)
    before guessing. Zoom serves the stored raw artifact; it never re-runs

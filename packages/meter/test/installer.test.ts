@@ -49,6 +49,21 @@ function makeRepo(withExisting: boolean): string {
 }
 
 describe('initRepo', () => {
+  it('demotes the protocol block: commands run normally, file-read guidance stays (v3 pillar A)', () => {
+    const repo = makeRepo(false);
+    initRepo(repo);
+    const claudeMd = readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8');
+    const block = /<!-- dcp:start[\s\S]*?dcp:end -->/.exec(claudeMd)?.[0] ?? '';
+    // The pipe now covers commands invisibly: no dcp tool to call for them.
+    expect(block).not.toContain('dcp__run');
+    expect(block).not.toContain('build and test commands');
+    expect(block).toContain('distilled in\n   place');
+    // File-read and search guidance is untouched (left for Session 2).
+    expect(block).toContain('dcp__read for source files');
+    expect(block).toContain('dcp__search for code');
+    expect(block).toContain('dcp__zoom');
+  });
+
   it('installs hooks, mcp registration, protocol block, and .dcp scaffold', () => {
     const repo = makeRepo(true);
     initRepo(repo);
