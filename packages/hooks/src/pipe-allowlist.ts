@@ -100,7 +100,12 @@ export function decideRewrite(
 ): RewriteDecision | undefined {
   // Never double-wrap: a command already routed through the pipe would recurse.
   if (command.includes('redutok-pipe') || command.includes(allowlist.invoke)) return undefined;
-  if (allowlist.deny.some((r) => new RegExp(r.pattern, 'i').test(command))) return undefined;
+  // A descriptor merge (`2>&1`, `1>&2`, `>&2`) only re-routes stderr into the
+  // same capture the pipe already reads; it is not a file redirect, pipe, or
+  // chain, so it is masked before deny testing. Digits are required after the
+  // `&` so a `>&file` redirect still trips the deny rule.
+  const denyProbe = command.replace(/\d*>&\d+/g, ' ');
+  if (allowlist.deny.some((r) => new RegExp(r.pattern, 'i').test(denyProbe))) return undefined;
   const matched = allowlist.allow.find((r) => new RegExp(r.pattern, 'i').test(command));
   if (matched === undefined) return undefined;
   return { rule: matched.rule, command: `${allowlist.invoke} -c ${shellQuote(command)}` };

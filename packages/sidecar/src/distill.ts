@@ -5,6 +5,7 @@ import {
   DistillProfileSchema,
   loadYamlFile,
   type AuditEvent,
+  type CodexFile,
   type DistillProfile,
 } from '@redutok/shared';
 import type { AuditWriter } from './audit.js';
@@ -287,24 +288,97 @@ export interface ZoomResult {
   text: string;
 }
 
-export function zoom(store: Store, audit: AuditWriter, id: string, query?: string): ZoomResult {
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Codex symbols declared for the artifact's file, matched with separators
+ * normalized in both directions so relative and absolute forms agree. */
+function symbolsForFile(codex: CodexFile | undefined, filePath: unknown): string[] {
+  if (codex === undefined || typeof filePath !== 'string' || filePath === '') return [];
+  const norm = (p: string): string => p.replace(/\\/g, '/');
+  const target = norm(filePath);
+  return codex.interfaces
+    .filter((i) => {
+      if (i.file === undefined) return false;
+      const file = norm(i.file);
+      return file === target || target.endsWith(`/${file}`) || file.endsWith(`/${target}`);
+    })
+    .map((i) => i.name);
+}
+
+/**
+ * The full definition block of a symbol in the raw source: from its
+ * definition line through the close of its balanced braces (or the first
+ * statement-ending line when no block opens). Brace counting is textual, so a
+ * pathological string literal can skew it; the 400-line cap bounds the damage.
+ */
+function extractDefinition(raw: string, name: string): string | undefined {
+  const lines = raw.split(/\r?\n/);
+  const def = new RegExp(
+    `^\\s*(?:export\\s+)?(?:default\\s+)?(?:async\\s+)?(?:const|let|var|function|class)\\s+${escapeRegExp(name)}\\b`,
+  );
+  const start = lines.findIndex((l) => def.test(l));
+  if (start === -1) return undefined;
+  let depth = 0;
+  let opened = false;
+  for (let i = start; i < Math.min(lines.length, start + 400); i += 1) {
+    for (const ch of lines[i] ?? '') {
+      if (ch === '{') {
+        depth += 1;
+        opened = true;
+      } else if (ch === '}') depth -= 1;
+    }
+    if (opened && depth <= 0) return lines.slice(start, i + 1).join('\n');
+    if (!opened && /;\s*$/.test(lines[i] ?? '')) return lines.slice(start, i + 1).join('\n');
+  }
+  return lines.slice(start, Math.min(lines.length, start + 400)).join('\n');
+}
+
+export function zoom(
+  store: Store,
+  audit: AuditWriter,
+  id: string,
+  query?: string,
+  codex?: CodexFile,
+): ZoomResult {
   const artifact = store.getArtifact(id);
   if (artifact === undefined) return { found: false, text: `no artifact ${id} in the store` };
   let text = artifact.raw;
   if (query !== undefined && query !== '') {
     const lines = artifact.raw.split(/\r?\n/);
-    const matcher = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    const keep = new Set<number>();
-    lines.forEach((line, i) => {
-      if (matcher.test(line)) {
-        for (let j = Math.max(0, i - 2); j <= Math.min(lines.length - 1, i + 2); j += 1) keep.add(j);
+    const windowFor = (pattern: string): Set<number> => {
+      const matcher = new RegExp(escapeRegExp(pattern), 'i');
+      const keep = new Set<number>();
+      lines.forEach((line, i) => {
+        if (matcher.test(line)) {
+          for (let j = Math.max(0, i - 2); j <= Math.min(lines.length - 1, i + 2); j += 1) keep.add(j);
+        }
+      });
+      return keep;
+    };
+    const words = query.trim().split(/\s+/);
+    // Symbol pass first: a query word naming a codex symbol for this file
+    // gets the symbol's whole definition body, not a line window — the h02
+    // session needed createStyler's body and the ±2 window could not carry it.
+    const bodies = words
+      .filter((w) => symbolsForFile(codex, artifact.meta['filePath']).includes(w))
+      .map((w) => extractDefinition(artifact.raw, w))
+      .filter((b): b is string => b !== undefined);
+    if (bodies.length > 0) {
+      text = bodies.join('\n\n');
+    } else {
+      let keep = windowFor(query);
+      if (keep.size === 0 && words.length > 1) {
+        // Per-word fallback: a multi-word query almost never appears verbatim
+        // on one line; match each word before declaring no match.
+        keep = new Set<number>();
+        for (const w of words) for (const i of windowFor(w)) keep.add(i);
       }
-    });
-    const slice = [...keep].sort((a, b) => a - b).slice(0, 200);
-    text =
-      slice.length === 0
-        ? `no lines matching "${query}" in artifact ${id}; zoom without a query for the full raw artifact`
-        : slice.map((i) => lines[i]).join('\n');
+      const slice = [...keep].sort((a, b) => a - b).slice(0, 200);
+      text =
+        slice.length === 0
+          ? `no lines matching "${query}" in artifact ${id}; zoom without a query for the full raw artifact`
+          : slice.map((i) => lines[i]).join('\n');
+    }
   }
   const event: AuditEvent = {
     id: `zoom-${id}-${randomBytes(2).toString('hex')}`,

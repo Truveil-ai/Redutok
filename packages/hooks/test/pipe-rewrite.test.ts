@@ -64,6 +64,34 @@ describe('allowlist matching', () => {
     }
   });
 
+  it('rewrites allowlisted commands carrying a stderr-merge, the h02 regression shape', () => {
+    // h02-redutok-1 ran `npm test 2>&1`; the `>` inside the descriptor merge
+    // tripped the shell-composition deny and the raw output entered the
+    // context undistilled. A descriptor merge re-routes stderr into the same
+    // capture; it is not a file redirect, pipe, or chain.
+    for (const [command, rule] of [
+      ['npm test 2>&1', 'test'],
+      ['pnpm run build 2>&1', 'build'],
+      ['tsc -p tsconfig.json 1>&2', 'typecheck'],
+    ] as const) {
+      const decision = decideRewrite(command, list);
+      expect(decision?.rule, command).toBe(rule);
+      expect(decision?.command).toBe(`redutok-pipe -c ${shellQuote(command)}`);
+    }
+  });
+
+  it('still denies true pipes, file redirects, and chains even alongside a stderr-merge', () => {
+    for (const command of [
+      'npm test 2>&1 | tail -c 8000', // stderr-merge feeding a true pipe
+      'npm test 2> err.txt', // stderr to a file
+      'npm test > out.txt 2>&1', // stdout to a file
+      'npm test 2>&1 && echo done', // chain
+      'npm test >& capture.log', // >&word file redirect, not a descriptor merge
+    ]) {
+      expect(decideRewrite(command, list), command).toBeUndefined();
+    }
+  });
+
   it('shell-quotes the wrapped command so the pipe receives it verbatim', () => {
     expect(shellQuote("pnpm run it's-fine")).toBe("'pnpm run it'\\''s-fine'");
   });

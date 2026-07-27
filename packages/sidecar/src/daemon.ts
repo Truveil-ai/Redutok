@@ -4,7 +4,7 @@ import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { AuditEvent, DistillProfile } from '@redutok/shared';
 import { AuditWriter } from './audit.js';
-import { refreshFiles } from './codex.js';
+import { readCodex, refreshFiles } from './codex.js';
 import { distillArtifact, loadProfiles, zoom } from './distill.js';
 import { exploreGoal } from './explore.js';
 import { NoopLlmPass, type LlmPass } from './llm.js';
@@ -137,7 +137,15 @@ function handler(
         .then(async (payload) => {
           const p = payload as Record<string, unknown>;
           if (url.pathname === '/zoom') {
-            respond(200, zoom(engines.store, engines.audit, String(p['id']), p['query'] as string | undefined));
+            // The codex rides along so a query naming a symbol of the
+            // artifact's file resolves to the full definition body.
+            let codex;
+            try {
+              codex = readCodex(repoRoot).codex;
+            } catch {
+              codex = undefined;
+            }
+            respond(200, zoom(engines.store, engines.audit, String(p['id']), p['query'] as string | undefined, codex));
             return;
           }
           const profile = engines.profiles.get(String(p['profile']));

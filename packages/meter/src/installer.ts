@@ -79,7 +79,10 @@ ${
 `;
 }
 
-function protocolBlock(): string {
+/** The dcp block shipped with this build, extracted from docs/PROTOCOL.md.
+ * Exported so the bench harness can assert a freshly-initialized copy runs
+ * the current protocol, not a stale dogfood block. */
+export function shippedProtocolBlock(): string {
   const protocolPath = path.join(
     path.dirname(fileURLToPath(import.meta.url)),
     '..', '..', '..', 'docs', 'PROTOCOL.md',
@@ -88,6 +91,12 @@ function protocolBlock(): string {
   const match = /<!-- dcp:start v1 -->[\s\S]*?<!-- dcp:end -->/.exec(text);
   if (match === null) throw new Error('docs/PROTOCOL.md is missing the dcp block markers');
   return match[0];
+}
+
+/** The dcp block between markers in an existing CLAUDE.md (or protocol.md)
+ * body, undefined when no block is present. */
+export function extractDcpBlock(text: string): string | undefined {
+  return /<!-- dcp:start [\s\S]*?<!-- dcp:end -->/.exec(text)?.[0];
 }
 
 /** Architecture-v2 pillar 2: the scout subagent definition, extracted the
@@ -199,7 +208,7 @@ export function initRepo(targetDir: string): string {
   mcpConfig['mcpServers'] = servers;
   writeFileSync(mcpPath, JSON.stringify(mcpConfig, null, 2) + '\n', 'utf8');
 
-  const block = protocolBlock();
+  const block = shippedProtocolBlock();
   const claudeMdPath = path.join(targetDir, 'CLAUDE.md');
   let claudeMd = existsSync(claudeMdPath) ? readFileSync(claudeMdPath, 'utf8') : '';
   if (/<!-- dcp:start [\s\S]*?<!-- dcp:end -->/.test(claudeMd)) {

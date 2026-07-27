@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { initRepo, removeRepo } from '../src/installer.js';
+import { extractDcpBlock, initRepo, removeRepo, shippedProtocolBlock } from '../src/installer.js';
 
 function snapshot(dir: string): Map<string, string> {
   const files = new Map<string, string>();
@@ -92,6 +92,20 @@ describe('initRepo', () => {
     expect(claudeMd).toContain('<!-- dcp:start v1 -->');
     expect(claudeMd).toContain('<!-- dcp:end -->');
     expect(existsSync(path.join(repo, '.dcp', 'protocol.md'))).toBe(true);
+  });
+
+  it('writes the current shipped protocol into both CLAUDE.md and .dcp/protocol.md (harness hygiene)', () => {
+    // The bench prep-check asserts exactly this equality on the temp copy, so
+    // a stale checkout or dogfood block can never masquerade as the shipped
+    // protocol in a bench run.
+    const dir = makeRepo(false);
+    initRepo(dir);
+    const shipped = shippedProtocolBlock().replace(/\r\n/g, '\n');
+    const claudeBlock = extractDcpBlock(readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8'));
+    expect(claudeBlock?.replace(/\r\n/g, '\n')).toBe(shipped);
+    const protocolMd = readFileSync(path.join(dir, '.dcp', 'protocol.md'), 'utf8');
+    expect(extractDcpBlock(protocolMd)?.replace(/\r\n/g, '\n')).toBe(shipped);
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it('is idempotent: a second init changes nothing', () => {
