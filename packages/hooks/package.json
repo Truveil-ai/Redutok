@@ -17,6 +17,7 @@
   "dependencies": {
     "@redutok/shared": "workspace:*",
     "@redutok/sidecar": "workspace:*",
-    "redutok": "workspace:*"
+    "redutok": "workspace:*",
+    "yaml": "^2.5.0"
   }
 }

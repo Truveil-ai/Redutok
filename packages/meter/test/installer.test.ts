@@ -1,5 +1,14 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
@@ -40,6 +49,22 @@ function makeRepo(withExisting: boolean): string {
 }
 
 describe('initRepo', () => {
+  it('demotes the protocol block: commands run normally, file-read guidance stays (v3 pillar A)', () => {
+    const repo = makeRepo(false);
+    initRepo(repo);
+    const claudeMd = readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8');
+    const block = /<!-- dcp:start[\s\S]*?dcp:end -->/.exec(claudeMd)?.[0] ?? '';
+    // The pipe now covers commands invisibly: no dcp tool to call for them.
+    expect(block).not.toContain('dcp__run');
+    expect(block).not.toContain('build and test commands');
+    // \r?\n: a CRLF checkout (Windows CI leg) wraps the block accordingly.
+    expect(block).toMatch(/distilled in\r?\n {3}place/);
+    // File-read and search guidance is untouched (left for Session 2).
+    expect(block).toContain('dcp__read for source files');
+    expect(block).toContain('dcp__search for code');
+    expect(block).toContain('dcp__zoom');
+  });
+
   it('installs hooks, mcp registration, protocol block, and .dcp scaffold', () => {
     const repo = makeRepo(true);
     initRepo(repo);
@@ -54,6 +79,11 @@ describe('initRepo', () => {
     expect(existsSync(path.join(repo, '.claude', 'redutok', 'hook.mjs'))).toBe(true);
     expect(existsSync(path.join(repo, '.claude', 'redutok', 'mcp.mjs'))).toBe(true);
     expect(existsSync(path.join(repo, '.dcp', 'config.json'))).toBe(true);
+    const scout = readFileSync(path.join(repo, '.claude', 'agents', 'scout.md'), 'utf8');
+    expect(scout).toContain('name: scout');
+    expect(scout).toContain('tools: mcp__redutok__dcp__explore');
+    expect(scout).toContain('mcp__redutok__dcp__zoom');
+    expect(scout).not.toContain('Read, Bash, Grep,');
     const claudeMd = readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8');
     expect(claudeMd).toContain('Existing instructions.');
     expect(claudeMd).toContain('<!-- dcp:start v1 -->');
@@ -68,6 +98,17 @@ describe('initRepo', () => {
     initRepo(repo);
     expect(snapshot(repo)).toEqual(after1);
   });
+
+  it('re-init recreates .claude/agents/scout.md on a repo installed before the scout subagent existed', () => {
+    const repo = makeRepo(true);
+    initRepo(repo);
+    // Simulate an install that predates the scout subagent: the manifest
+    // (and so the "already installed" fast path) stays, but the directory
+    // scout.md lives in is gone, same as a repo that never had it.
+    rmSync(path.join(repo, '.claude', 'agents'), { recursive: true, force: true });
+    expect(() => initRepo(repo)).not.toThrow();
+    expect(existsSync(path.join(repo, '.claude', 'agents', 'scout.md'))).toBe(true);
+  });
 });
 
 describe('portability', () => {
@@ -78,6 +119,7 @@ describe('portability', () => {
       '.claude/settings.local.json',
       '.claude/redutok/hook.mjs',
       '.claude/redutok/mcp.mjs',
+      '.claude/agents/scout.md',
       '.mcp.json',
       'CLAUDE.md',
     ];

@@ -8,6 +8,15 @@ export const LIMITS = {
   /** Local LLM calls time out after this and fall back to the rule engine. */
   LOCAL_LLM_TIMEOUT_MS: 2500,
   /**
+   * redutok-pipe's budget for the post-command /distill round-trip to the
+   * sidecar (v3 pillar A). Pure overhead added after the wrapped command has
+   * already finished, so it is bounded tightly: a profile's own local-model
+   * pass is guarded separately by LOCAL_LLM_TIMEOUT_MS inside the sidecar, and
+   * this sits just above it so an LLM-backed profile is not cut off, while a
+   * hung or dead sidecar fails open to raw passthrough within this ceiling.
+   */
+  PIPE_SIDECAR_TIMEOUT_MS: 3000,
+  /**
    * One-time model warmup budget before a semantic drafting loop. The first
    * inference after Ollama starts loads the model from disk (measured 9.2s
    * for qwen2.5:7b-instruct on this machine) and must not eat the per-call
@@ -57,6 +66,16 @@ export const LIMITS = {
     [70, 'C'],
     [60, 'D'],
   ],
+  /**
+   * dcp__explore internal step ceiling per budget tier (architecture-v2
+   * pillar 1). One search sweep counts as a step; each file skeleton-read
+   * counts as another. Exceeding the cap before a verdict is reached
+   * produces `incomplete` with whatever evidence was gathered, per spec.
+   * Product tuning constants, not measured claims.
+   */
+  EXPLORE_STEP_CAP: { quick: 3, standard: 6, thorough: 12 },
+  /** dcp__explore wall-clock ceiling per budget tier, paired with EXPLORE_STEP_CAP. */
+  EXPLORE_WALL_CLOCK_MS: { quick: 5_000, standard: 15_000, thorough: 30_000 },
 } as const;
 
 export type Limits = typeof LIMITS;

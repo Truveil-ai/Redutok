@@ -10,6 +10,7 @@ import {
 } from 'redutok';
 import { sidecarRequest, type SidecarTarget } from '@redutok/sidecar/client';
 import { buildCodexInjection, readCodex } from '@redutok/sidecar';
+import { decideRewrite, loadAllowlist } from './pipe-allowlist.js';
 
 /**
  * Pure hook handlers for every Claude Code lifecycle event Redutok uses.
@@ -41,8 +42,6 @@ export interface HookOutput {
 export const SMALL_READ_BYTES = 16_384;
 /** Reads above this are redirected to dcp__read; between, updatedInput caps the read. */
 export const LARGE_READ_BYTES = 65_536;
-
-const EXPENSIVE_BASH = /\b(tsc|vitest|jest|pytest|cargo (?:build|test)|go (?:build|test)|(?:pnpm|npm|yarn) (?:run )?(?:build|test|lint))\b/;
 
 async function sidecarUp(deps: HookDeps): Promise<boolean> {
   const res = await sidecarRequest(deps.target, 'GET', '/health', undefined, {
@@ -97,7 +96,7 @@ export async function handleSessionStart(
 }
 
 export async function handlePreToolUse(
-  input: { tool_name?: string; tool_input?: Record<string, unknown> },
+  input: { tool_name?: string; tool_input?: Record<string, unknown>; session_id?: string },
   deps: HookDeps,
 ): Promise<HookOutput> {
   const tool = input.tool_name ?? '';
@@ -147,12 +146,34 @@ export async function handlePreToolUse(
       return {};
     }
     if (tool === 'Bash') {
+      // v3 pillar A, the design law "never add a turn, only transform a turn
+      // that already exists": an allowlisted read-only, log-producing command
+      // is rewritten in place to run through redutok-pipe, which distills its
+      // output. The model sees the distilled verdict plus a zoom handle in the
+      // same tool result, without a second turn. Side-effecting, composed, or
+      // non-allowlisted commands are left untouched, and nothing is rewritten
+      // when the sidecar is down.
       const command = String(args['command'] ?? '');
-      if (!EXPENSIVE_BASH.test(command)) return {};
+      if (command === '') return {};
+      const decision = decideRewrite(command, loadAllowlist(deps.dcpDir));
+      if (decision === undefined) return {};
       if (!(await sidecarUp(deps))) return {};
-      return deny(
-        `This command produces bulky output. Call dcp__run(${JSON.stringify(command)}) for a distilled verdict with a zoom handle.`,
+      // Record the rewrite decision (with the matched rule) in the audit trail,
+      // attributed to the active session, before handing back the rewrite.
+      await sidecarRequest(
+        deps.target,
+        'POST',
+        '/notify',
+        { kind: 'command-rewrite', rule: decision.rule, command, sessionId: input.session_id },
+        { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
       );
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'allow',
+          updatedInput: { ...args, command: decision.command },
+        },
+      };
     }
     if (tool === 'Grep' || tool === 'Glob') {
       const scoped = args['path'] !== undefined && String(args['path']) !== '.';

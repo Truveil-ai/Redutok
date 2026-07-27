@@ -70,6 +70,28 @@ const TOOLS = [
     },
   },
   {
+    name: 'dcp__explore',
+    description:
+      'Run one bounded internal exploration hunt against a goal (search, then skeleton-read the most relevant files) and return a single dossier: verdict, evidence, zoom handles. Replaces a turn-by-turn read/search/zoom loop with one call. Read-only; a goal that requires a mutation comes back incomplete with a continuation hint.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        goal: { type: 'string', description: 'Natural-language statement of what to find or answer' },
+        scope: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional path hints to bound the search; omitted means repo-wide',
+        },
+        budget: {
+          type: 'string',
+          enum: ['quick', 'standard', 'thorough'],
+          description: 'Internal step-count and wall-clock ceiling; default standard',
+        },
+      },
+      required: ['goal'],
+    },
+  },
+  {
     name: 'dcp__zoom',
     description: 'Recover the raw artifact behind a dcp handle id, optionally sliced by a query.',
     inputSchema: {
@@ -191,6 +213,47 @@ async function toolSearch(deps: McpDeps, args: Record<string, unknown>): Promise
   return distillViaSidecar(deps, hits.join('\n'), 'search-results');
 }
 
+interface ExploreDossier {
+  verdict: string;
+  evidence: { file: string; line: number; snippet: string; why: string }[];
+  zoomHandles: string[];
+  stepsTaken: number;
+  distillationRatio: number;
+  incomplete?: { reason: string; continuationHint: string };
+}
+
+async function toolExplore(deps: McpDeps, args: Record<string, unknown>): Promise<string> {
+  const goal = String(args['goal'] ?? '');
+  const scope = Array.isArray(args['scope']) ? (args['scope'] as unknown[]).map(String) : undefined;
+  const budget = args['budget'] === undefined ? undefined : String(args['budget']);
+  const res = await sidecarRequest(
+    deps.target ?? {},
+    'POST',
+    '/explore',
+    { goal, scope, budget, sessionId: deps.sessionId ?? 'mcp-session' },
+    { timeoutMs: deps.timeoutMs ?? 20_000 },
+  );
+  if (!res.ok || res.status !== 200) {
+    return `dcp__explore: sidecar unavailable, fall back to raw Read/Bash/Grep for this exploration.\n${NOTICE}`;
+  }
+  const d = res.body as ExploreDossier;
+  const lines = [
+    `verdict: ${d.verdict}`,
+    '',
+    'evidence:',
+    ...(d.evidence.length === 0 ? ['(none)'] : d.evidence.map((e) => `- ${e.file}:${e.line}: ${e.snippet} (${e.why})`)),
+    '',
+    `steps taken: ${d.stepsTaken}, distillation ratio: ${d.distillationRatio.toFixed(1)}x`,
+    d.zoomHandles.length === 0
+      ? 'zoom handles: none'
+      : `zoom handles: ${d.zoomHandles.map((id) => `dcp__zoom("${id}")`).join(', ')}`,
+  ];
+  if (d.incomplete !== undefined) {
+    lines.push(`incomplete: ${d.incomplete.reason} — ${d.incomplete.continuationHint}`);
+  }
+  return lines.join('\n');
+}
+
 async function toolZoom(deps: McpDeps, args: Record<string, unknown>): Promise<string> {
   const res = await sidecarRequest(
     deps.target ?? {},
@@ -234,6 +297,7 @@ export async function handleMcpRequest(
       dcp__read: () => toolRead(deps, args),
       dcp__run: () => toolRun(deps, args),
       dcp__search: () => toolSearch(deps, args),
+      dcp__explore: () => toolExplore(deps, args),
       dcp__zoom: () => toolZoom(deps, args),
       dcp__state: () => toolState(deps),
     };

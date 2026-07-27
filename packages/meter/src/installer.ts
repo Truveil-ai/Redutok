@@ -25,6 +25,7 @@ const MANAGED = [
   '.claude/settings.local.json',
   '.claude/redutok/hook.mjs',
   '.claude/redutok/mcp.mjs',
+  '.claude/agents/scout.md',
   '.mcp.json',
   'CLAUDE.md',
 ];
@@ -89,6 +90,21 @@ function protocolBlock(): string {
   return match[0];
 }
 
+/** Architecture-v2 pillar 2: the scout subagent definition, extracted the
+ * same way protocolBlock extracts the CLAUDE.md block, from docs/SCOUT.md. */
+function scoutAgentBlock(): string {
+  const scoutPath = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..', '..', '..', 'docs', 'SCOUT.md',
+  );
+  const text = readFileSync(scoutPath, 'utf8');
+  // \r?\n: a fresh checkout with autocrlf (Windows CI leg) puts CRLF after
+  // the marker; requiring a bare \n made every initRepo call fail there.
+  const match = /<!-- scout:start v1 -->\r?\n([\s\S]*?)<!-- scout:end -->/.exec(text);
+  if (match === null) throw new Error('docs/SCOUT.md is missing the scout block markers');
+  return (match[1] ?? '').trim() + '\n';
+}
+
 /** Sidecar defaults persisted per repo in .dcp/config.json (unmanaged, per-machine). */
 export const DEFAULT_SIDECAR_PORT = 48642;
 
@@ -120,6 +136,7 @@ export function initRepo(targetDir: string): string {
       backupDir,
       path.join(targetDir, '.claude'),
       path.join(targetDir, '.claude', 'redutok'),
+      path.join(targetDir, '.claude', 'agents'),
     ]) {
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
@@ -146,6 +163,11 @@ export function initRepo(targetDir: string): string {
     launcherSource('@redutok/mcp/main', false),
     'utf8',
   );
+  // mkdirSync here too, not just in the first-init createdDirs block above:
+  // a repo initialized before the scout subagent existed has no
+  // .claude/agents directory yet, and a plain re-init must still create it.
+  mkdirSync(path.join(targetDir, '.claude', 'agents'), { recursive: true });
+  writeFileSync(path.join(targetDir, '.claude', 'agents', 'scout.md'), scoutAgentBlock(), 'utf8');
 
   const settingsPath = path.join(targetDir, '.claude', 'settings.local.json');
   const settings = existsSync(settingsPath)

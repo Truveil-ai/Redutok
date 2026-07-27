@@ -25,12 +25,12 @@ async function callTool(deps: McpDeps, name: string, args: unknown) {
 const DOWN: McpDeps = { target: { port: 1 }, timeoutMs: 300 };
 
 describe('mcp handshake and tool list', () => {
-  it('answers initialize and lists the five dcp tools', async () => {
+  it('answers initialize and lists the six dcp tools', async () => {
     const init = await handleMcpRequest(req(1, 'initialize', {}), DOWN);
     expect((init?.result as { serverInfo: { name: string } }).serverInfo.name).toBe('redutok-dcp');
     const list = await handleMcpRequest(req(2, 'tools/list'), DOWN);
     const names = (list?.result as { tools: { name: string }[] }).tools.map((t) => t.name).sort();
-    expect(names).toEqual(['dcp__read', 'dcp__run', 'dcp__search', 'dcp__state', 'dcp__zoom']);
+    expect(names).toEqual(['dcp__explore', 'dcp__read', 'dcp__run', 'dcp__search', 'dcp__state', 'dcp__zoom']);
   });
 
   it('returns null for notifications and an error for unknown methods', async () => {
@@ -53,6 +53,12 @@ describe('fail-open behaviour with the sidecar down', () => {
     expect(await callTool(DOWN, 'dcp__zoom', { id: 'aXXXX' })).toContain('sidecar unavailable');
     expect(await callTool(DOWN, 'dcp__state', {})).toContain('not running');
   });
+
+  it('dcp__explore falls back to a notice directing the model to raw tools', async () => {
+    const text = await callTool(DOWN, 'dcp__explore', { goal: 'anything' });
+    expect(text).toContain('dcp__explore: sidecar unavailable');
+    expect(text).toContain('[dcp notice: sidecar unavailable, raw passthrough]');
+  });
 });
 
 describe('distilled path with a live sidecar', () => {
@@ -73,6 +79,30 @@ describe('distilled path with a live sidecar', () => {
       const zoomText = await callTool(deps, 'dcp__zoom', { id: idMatch?.[1] });
       expect(zoomText).toContain('lines.push');
       expect(await callTool(deps, 'dcp__state', {})).toContain('running');
+    } finally {
+      await daemon.close();
+    }
+  });
+
+  it('dcp__explore returns a dossier with evidence and a resolvable zoom handle', async () => {
+    const daemon = await startDaemon({
+      port: 0,
+      dcpDir: mkdtempSync(path.join(os.tmpdir(), 'redutok-mcp-explore-')),
+      profilesDir: path.join(repoRoot, 'profiles'),
+    });
+    const deps: McpDeps = { target: { port: daemon.port }, timeoutMs: 15_000 };
+    try {
+      const text = await callTool(deps, 'dcp__explore', {
+        goal: 'how does levelMapping pick between ansi ansi256 and ansi16m color models',
+        scope: [path.join(repoRoot, 'fixtures', 'repos', 'chalk', 'source')],
+        budget: 'thorough',
+      });
+      expect(text).toContain('verdict:');
+      expect(text).toContain('steps taken:');
+      const idMatch = /dcp__zoom\("(a[0-9a-f]+)"\)/.exec(text);
+      expect(idMatch).not.toBeNull();
+      const zoomText = await callTool(deps, 'dcp__zoom', { id: idMatch?.[1] });
+      expect(zoomText).not.toContain('sidecar unavailable');
     } finally {
       await daemon.close();
     }

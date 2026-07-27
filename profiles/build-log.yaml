@@ -14,7 +14,17 @@ gates:
   verdict:
     primaryPass: ['build: Done', '\bDone in ', '\bbuild (?:succeeded|completed)\b']
     primaryFail: ['\berror TS\d+', '\bbuild failed\b', 'ELIFECYCLE', '^.+\(\d+,\d+\): error ']
-    secondaryFail: ['\berror\b']
+    # Secondary extractor: generic failure vocabulary, independent of the
+    # tool-specific primary patterns above. Each pattern is deterministic and
+    # documented; both extractors must agree or the raw log is served.
+    #   \berror\b       bare word "error" (tsc diagnostics, most compilers)
+    #   \b\w+Error\b    compound JS/Python exception names: SyntaxError,
+    #                   TypeError, ReferenceError, RangeError, AggregateError.
+    #                   The bare-word pattern cannot see these (no word
+    #                   boundary inside a compound identifier).
+    #   \bBUILD FAILED\b  banner printed by verbose build scripts and Gradle
+    #   npm ERR!        npm lifecycle failure prefix
+    secondaryFail: ['\berror\b', '\b\w+Error\b', '\bBUILD FAILED\b', 'npm ERR!']
     secondaryPassIfNoFail: true
   minOutputBytes: 12
 llm:

@@ -13,7 +13,8 @@
   },
   "bin": {
     "redutok": "./dist/cli.js",
-    "rtk": "./dist/cli.js"
+    "rtk": "./dist/cli.js",
+    "redutok-pipe": "./dist/pipe.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
