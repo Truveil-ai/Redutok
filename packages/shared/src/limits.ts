@@ -8,6 +8,15 @@ export const LIMITS = {
   /** Local LLM calls time out after this and fall back to the rule engine. */
   LOCAL_LLM_TIMEOUT_MS: 2500,
   /**
+   * redutok-pipe's budget for the post-command /distill round-trip to the
+   * sidecar (v3 pillar A). Pure overhead added after the wrapped command has
+   * already finished, so it is bounded tightly: a profile's own local-model
+   * pass is guarded separately by LOCAL_LLM_TIMEOUT_MS inside the sidecar, and
+   * this sits just above it so an LLM-backed profile is not cut off, while a
+   * hung or dead sidecar fails open to raw passthrough within this ceiling.
+   */
+  PIPE_SIDECAR_TIMEOUT_MS: 3000,
+  /**
    * One-time model warmup budget before a semantic drafting loop. The first
    * inference after Ollama starts loads the model from disk (measured 9.2s
    * for qwen2.5:7b-instruct on this machine) and must not eat the per-call
