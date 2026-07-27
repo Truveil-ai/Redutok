@@ -28,11 +28,11 @@ const repoRoot = path.join(here, '..', '..', '..');
 const tasksDir = path.join(repoRoot, 'bench', 'tasks');
 
 describe('bench task definitions', () => {
-  it('loads ten pinned tasks across the tiers', () => {
+  it('loads eleven pinned tasks across the tiers', () => {
     const tasks = loadBenchTasks(tasksDir);
-    expect(tasks).toHaveLength(10);
+    expect(tasks).toHaveLength(11);
     const tiers = new Set(tasks.map((t) => t.tier));
-    expect(tiers).toEqual(new Set(['small', 'medium', 'large']));
+    expect(tiers).toEqual(new Set(['small', 'medium', 'large', 'heavy']));
     for (const task of tasks) {
       expect(task.repo.url.length).toBeGreaterThan(0);
       expect(task.repo.commit.length).toBeGreaterThan(0);
@@ -65,7 +65,7 @@ describe('replay mode', () => {
     expect(results).toContain('## Savings per task');
     expect(results).toContain('## Failures (savings with success degradation)');
     expect(results).toMatch(/- t10: [\d.]+x savings but redutok run failed/);
-    // Every one of the ten tasks appears twice (vanilla and redutok rows).
+    // Every one of the eleven tasks appears twice (vanilla and redutok rows).
     for (let i = 1; i <= 10; i += 1) {
       const id = `t${String(i).padStart(2, '0')}`;
       const rows = results.split('\n').filter((l) => l.startsWith(`| ${id} |`));
@@ -78,8 +78,8 @@ describe('dry-run live matrix', () => {
   it('prints the exact command matrix without executing anything', () => {
     const tasks = loadBenchTasks(tasksDir);
     const lines = dryRunMatrix(tasks, 2, 'claude-sonnet-5');
-    // 10 tasks x 2 reps x 2 variants x 2 lines each.
-    expect(lines).toHaveLength(10 * 2 * 2 * 2);
+    // 11 tasks x 2 reps x 2 variants x 2 lines each.
+    expect(lines).toHaveLength(11 * 2 * 2 * 2);
     expect(lines.some((l) => l.includes('claude -p'))).toBe(true);
     expect(lines.some((l) => l.includes('vanilla'))).toBe(true);
     expect(lines.some((l) => l.includes('redutok init . and redutok up'))).toBe(true);
