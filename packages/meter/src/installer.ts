@@ -98,7 +98,9 @@ function scoutAgentBlock(): string {
     '..', '..', '..', 'docs', 'SCOUT.md',
   );
   const text = readFileSync(scoutPath, 'utf8');
-  const match = /<!-- scout:start v1 -->\n([\s\S]*?)<!-- scout:end -->/.exec(text);
+  // \r?\n: a fresh checkout with autocrlf (Windows CI leg) puts CRLF after
+  // the marker; requiring a bare \n made every initRepo call fail there.
+  const match = /<!-- scout:start v1 -->\r?\n([\s\S]*?)<!-- scout:end -->/.exec(text);
   if (match === null) throw new Error('docs/SCOUT.md is missing the scout block markers');
   return (match[1] ?? '').trim() + '\n';
 }
