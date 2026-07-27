@@ -119,7 +119,6 @@ describe('pipe distiller end-to-end (zero API cost)', () => {
       // Measured distillation figures for the closing summary.
       const rawBytes = Buffer.byteLength(rawText, 'utf8');
       const resultBytes = Buffer.byteLength(toolResult, 'utf8');
-      // eslint-disable-next-line no-console
       console.log(
         `[pipe-e2e] raw ${rawBytes}B -> tool result ${resultBytes}B ` +
           `(${(rawBytes / resultBytes).toFixed(2)}x smaller); exit ${piped.status}; zoom byte-equal`,
