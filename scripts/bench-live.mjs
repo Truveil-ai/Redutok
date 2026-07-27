@@ -46,12 +46,14 @@ const {
   captureBaselines,
   computeSessionCost,
   computeSessionEnergy,
+  extractDcpBlock,
   generateLiveResults,
   grandTotal,
   loadBenchTasks,
   parseSessionFile,
   runLiveChecks,
   scoreSession,
+  shippedProtocolBlock,
   spawnSafely,
   transcriptRoot,
 } = meter;
@@ -147,19 +149,20 @@ function stripRedutok(workDir) {
 }
 
 let nextPort = 49100;
+// Every cli invocation pins REDUTOK_HOME to this checkout, so an operator
+// shell exporting the dogfooded main checkout's home can never leak stale
+// packages, hooks, or protocol into the temp copy (harness hygiene, h02).
+const cliEnv = { ...process.env, REDUTOK_HOME: root };
 function initRedutok(workDir) {
   const port = nextPort++;
-  execFileSync('node', [cli, 'init', workDir], { cwd: workDir });
+  execFileSync('node', [cli, 'init', workDir], { cwd: workDir, env: cliEnv });
   const configPath = path.join(workDir, '.dcp', 'config.json');
   const config = JSON.parse(readFileSync(configPath, 'utf8'));
   config.port = port;
   config.profilesDir = path.join(root, 'profiles');
   writeFileSync(configPath, JSON.stringify(config, null, 2));
-  execFileSync('node', [cli, 'up'], { cwd: workDir, env: { ...process.env, REDUTOK_HOME: root } });
-  execFileSync('node', [cli, 'codex', 'refresh'], {
-    cwd: workDir,
-    env: { ...process.env, REDUTOK_HOME: root },
-  });
+  execFileSync('node', [cli, 'up'], { cwd: workDir, env: cliEnv });
+  execFileSync('node', [cli, 'codex', 'refresh'], { cwd: workDir, env: cliEnv });
   return port;
 }
 
@@ -178,7 +181,7 @@ function health(port) {
 
 async function downRedutok(workDir) {
   try {
-    execFileSync('node', [cli, 'down'], { cwd: workDir });
+    execFileSync('node', [cli, 'down'], { cwd: workDir, env: cliEnv });
   } catch {
     // A daemon that already exited is fine; the pidfile is authoritative.
   }
@@ -326,9 +329,26 @@ if (PREP_CHECK) {
     } else {
       const port = initRedutok(workDir);
       const up = await health(port);
+      // Harness hygiene (h02): the temp copy must carry the protocol this
+      // checkout ships, in both the CLAUDE.md block and the SessionStart
+      // injection source, or the bench measures a stale protocol.
+      const shipped = shippedProtocolBlock().replace(/\r\n/g, '\n');
+      const blockOf = (file) => {
+        try {
+          return extractDcpBlock(readFileSync(path.join(workDir, file), 'utf8'))?.replace(/\r\n/g, '\n');
+        } catch {
+          return undefined;
+        }
+      };
+      const claudeOk = blockOf('CLAUDE.md') === shipped;
+      const protocolOk = blockOf(path.join('.dcp', 'protocol.md')) === shipped;
+      if (!claudeOk || !protocolOk) process.exitCode = 1;
       await downRedutok(workDir);
       const downAgain = !(await health(port));
       console.log(`prep ${task.id} ${variant}: init ok, sidecar up on ${port}: ${up}, down again: ${downAgain}`);
+      console.log(
+        `prep ${task.id} ${variant}: protocol block matches shipped: CLAUDE.md ${claudeOk ? 'ok' : 'STALE'}, .dcp/protocol.md ${protocolOk ? 'ok' : 'STALE'}`,
+      );
     }
     const checks = runLiveChecks(task, variant, workDir, captureBaselines(task, workDir));
     console.log(`prep ${task.id} ${variant}: pre-run success checks (baseline): ${checks.detail.join('; ')}`);
