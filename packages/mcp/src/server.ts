@@ -133,7 +133,15 @@ async function distillViaSidecar(
 }
 
 async function toolRead(deps: McpDeps, args: Record<string, unknown>): Promise<string> {
-  const filePath = String(args['file_path']);
+  // The schema names the argument file_path, but callers do send `path`
+  // (dcp__search's name for it) — observed in a real session, where
+  // String(undefined) then resolved to a literal file named "undefined".
+  // Accept the alias; anything else fails with the argument name, not ENOENT.
+  const pathArg = args['file_path'] ?? args['path'];
+  if (typeof pathArg !== 'string' || pathArg.length === 0) {
+    return 'dcp__read failed: missing required argument file_path (string)';
+  }
+  const filePath = pathArg;
   let raw: string;
   try {
     raw = readFileSync(filePath, 'utf8');

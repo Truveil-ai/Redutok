@@ -49,6 +49,20 @@ describe('fail-open behaviour with the sidecar down', () => {
     expect(text).toContain('[dcp notice: sidecar unavailable, raw passthrough]');
   });
 
+  it('dcp__read accepts the path alias for file_path', async () => {
+    const text = await callTool(DOWN, 'dcp__read', {
+      path: path.join(repoRoot, 'fixtures', 'artifacts', 'sample.py'),
+    });
+    expect(text).toContain('def load_ledger');
+    expect(text).toContain('[dcp notice: sidecar unavailable, raw passthrough]');
+  });
+
+  it('dcp__read without a path argument names the missing argument instead of reading "undefined"', async () => {
+    const text = await callTool(DOWN, 'dcp__read', {});
+    expect(text).toBe('dcp__read failed: missing required argument file_path (string)');
+    expect(text).not.toContain('ENOENT');
+  });
+
   it('dcp__zoom and dcp__state report the sidecar as unavailable without throwing', async () => {
     expect(await callTool(DOWN, 'dcp__zoom', { id: 'aXXXX' })).toContain('sidecar unavailable');
     expect(await callTool(DOWN, 'dcp__state', {})).toContain('not running');
