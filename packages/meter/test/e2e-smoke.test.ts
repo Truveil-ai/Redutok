@@ -59,13 +59,15 @@ describe('phase 4 end-to-end smoke', () => {
       const start = await handleSessionStart({ source: 'startup' }, hookDeps);
       expect(start.hookSpecificOutput?.additionalContext).toContain('Delta Context Protocol');
 
-      // 2. The raw Read of the large file is redirected to the dcp tool.
+      // 2. v3 pillar B: reads govern themselves. No codex has been built in
+      //    this repo, so there is no mirror entry and the large Read passes
+      //    through raw (fail-open) instead of being denied toward dcp__read.
+      //    The mirror rewrite itself is proven in mirror-e2e.test.ts.
       const pre = await handlePreToolUse(
         { tool_name: 'Read', tool_input: { file_path: bigPath } },
         hookDeps,
       );
-      expect(pre.hookSpecificOutput?.permissionDecision).toBe('deny');
-      expect(pre.hookSpecificOutput?.permissionDecisionReason).toContain('dcp__read');
+      expect(pre).toEqual({});
 
       // 3. The distilled path is taken through the MCP tool and audited.
       const mcpDeps: McpDeps = { target: { port: daemon.port }, timeoutMs: 10_000, sessionId: 's-e2e' };

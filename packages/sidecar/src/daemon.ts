@@ -213,6 +213,8 @@ function handler(
             sessionId?: string;
             rule?: string;
             command?: string;
+            realPath?: string;
+            mirrorPath?: string;
           };
           if (typeof p.sessionId === 'string' && p.sessionId !== '') {
             session.activeId = p.sessionId;
@@ -236,6 +238,29 @@ function handler(
               engines.store.insertAuditEvent(event);
             } catch (err) {
               log.error('rewrite audit failed', { error: String(err) });
+            }
+          }
+          if (p.kind === 'read-mirror-rewrite' && engines !== undefined) {
+            // v3 pillar B: every mirror rewrite lands in the audit trail with
+            // the rule and both paths, attributed to the active session.
+            const event: AuditEvent = {
+              id: `rewrite-m${randomBytes(3).toString('hex')}`,
+              timestamp: new Date().toISOString(),
+              sessionId: attributedSessionId(p.sessionId),
+              module: 'hooks.pretooluse',
+              action: 'rewrite',
+              reason: 'large Read rewritten to the skeleton mirror, rule read-mirror',
+              details: {
+                rule: typeof p.rule === 'string' ? p.rule : 'read-mirror',
+                realPath: typeof p.realPath === 'string' ? p.realPath : '',
+                mirrorPath: typeof p.mirrorPath === 'string' ? p.mirrorPath : '',
+              },
+            };
+            try {
+              engines.audit.write(event);
+              engines.store.insertAuditEvent(event);
+            } catch (err) {
+              log.error('mirror rewrite audit failed', { error: String(err) });
             }
           }
           if (onNotify !== undefined) {

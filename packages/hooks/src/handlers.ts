@@ -9,7 +9,13 @@ import {
   renderReceiptBlock,
 } from 'redutok';
 import { sidecarRequest, type SidecarTarget } from '@redutok/sidecar/client';
-import { buildCodexInjection, readCodex } from '@redutok/sidecar';
+import {
+  buildCodexInjection,
+  mirrorEntryPath,
+  mirrorHash,
+  readCodex,
+  readMirrorIndex,
+} from '@redutok/sidecar';
 import { decideRewrite, loadAllowlist } from './pipe-allowlist.js';
 
 /**
@@ -40,7 +46,7 @@ export interface HookOutput {
 
 /** Reads below this pass untouched without even probing the sidecar. */
 export const SMALL_READ_BYTES = 16_384;
-/** Reads above this are redirected to dcp__read; between, updatedInput caps the read. */
+/** Reads above this serve the skeleton mirror; between, updatedInput caps the read. */
 export const LARGE_READ_BYTES = 65_536;
 
 async function sidecarUp(deps: HookDeps): Promise<boolean> {
@@ -115,12 +121,46 @@ export async function handlePreToolUse(
       if (filePath === '' || !existsSync(filePath)) return {};
       const size = statSync(filePath).size;
       if (size <= SMALL_READ_BYTES) return {};
-      if (!(await sidecarUp(deps))) return {};
       if (size > LARGE_READ_BYTES) {
-        return deny(
-          `File is ${Math.round(size / 1024)}KB. Call dcp__read("${filePath}") for a distilled skeleton with a zoom handle instead of reading it raw.`,
+        // v3 pillar B, same design law as the pipe: never add a turn, only
+        // transform one that already exists. A large Read is rewritten to the
+        // file's skeleton mirror entry, so the model receives the skeleton
+        // (header line first: real path, raw size, recovery path) through the
+        // Read it already made. An explicit offset/limit is a deliberate
+        // slice — the mirror header itself recommends one — and passes raw.
+        // Stale or missing mirror, sidecar down, or any doubt: raw, fail-open.
+        if (args['offset'] !== undefined || args['limit'] !== undefined) return {};
+        const root = path.dirname(path.resolve(deps.dcpDir));
+        const rel = path.relative(root, path.resolve(filePath)).replace(/\\/g, '/');
+        if (rel.startsWith('..') || path.isAbsolute(rel)) return {};
+        const entry = readMirrorIndex(root)?.files[rel];
+        if (entry === undefined) return {};
+        const mirrorPath = mirrorEntryPath(root, rel);
+        if (!existsSync(mirrorPath)) return {};
+        if (entry.hash !== mirrorHash(readFileSync(filePath, 'utf8'))) return {};
+        if (!(await sidecarUp(deps))) return {};
+        await sidecarRequest(
+          deps.target,
+          'POST',
+          '/notify',
+          {
+            kind: 'read-mirror-rewrite',
+            rule: 'read-mirror',
+            realPath: filePath,
+            mirrorPath,
+            sessionId: input.session_id,
+          },
+          { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
         );
+        return {
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'allow',
+            updatedInput: { ...args, file_path: mirrorPath },
+          },
+        };
       }
+      if (!(await sidecarUp(deps))) return {};
       return {
         hookSpecificOutput: {
           hookEventName: 'PreToolUse',
