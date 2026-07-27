@@ -1,7 +1,8 @@
 import http from 'node:http';
+import { randomBytes } from 'node:crypto';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { DistillProfile } from '@redutok/shared';
+import type { AuditEvent, DistillProfile } from '@redutok/shared';
 import { AuditWriter } from './audit.js';
 import { refreshFiles } from './codex.js';
 import { distillArtifact, loadProfiles, zoom } from './distill.js';
@@ -205,9 +206,37 @@ function handler(
       void readBody(req)
         .then(async (payload) => {
           log.info('notify', { payload });
-          const p = payload as { kind?: string; tool?: string; path?: string; sessionId?: string };
+          const p = payload as {
+            kind?: string;
+            tool?: string;
+            path?: string;
+            sessionId?: string;
+            rule?: string;
+            command?: string;
+          };
           if (typeof p.sessionId === 'string' && p.sessionId !== '') {
             session.activeId = p.sessionId;
+          }
+          if (p.kind === 'command-rewrite' && engines !== undefined) {
+            // v3 pillar A: the PreToolUse rewrite records every decision in the
+            // audit trail with the matched rule, attributed to the active
+            // session id, the same audit path distillation uses.
+            const rule = typeof p.rule === 'string' ? p.rule : 'unknown';
+            const event: AuditEvent = {
+              id: `rewrite-a${randomBytes(3).toString('hex')}`,
+              timestamp: new Date().toISOString(),
+              sessionId: attributedSessionId(p.sessionId),
+              module: 'hooks.pretooluse',
+              action: 'rewrite',
+              reason: `command rewritten through redutok-pipe, matched allowlist rule ${rule}`,
+              details: { rule, command: typeof p.command === 'string' ? p.command : '' },
+            };
+            try {
+              engines.audit.write(event);
+              engines.store.insertAuditEvent(event);
+            } catch (err) {
+              log.error('rewrite audit failed', { error: String(err) });
+            }
           }
           if (onNotify !== undefined) {
             await onNotify({ kind: p.kind ?? 'tool-use', tool: p.tool, path: p.path });

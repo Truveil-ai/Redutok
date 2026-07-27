@@ -153,12 +153,16 @@ describe('handlePreToolUse with a live sidecar', () => {
       expect(mid.hookSpecificOutput?.permissionDecision).toBe('allow');
       expect((mid.hookSpecificOutput?.updatedInput as { limit: number }).limit).toBeGreaterThan(0);
 
+      // v3 pillar A: an allowlisted command is rewritten in place through the
+      // pipe (an allow, with updatedInput) rather than denied with guidance.
       const bash = await handlePreToolUse(
         { tool_name: 'Bash', tool_input: { command: 'pnpm vitest run' } },
         deps,
       );
-      expect(bash.hookSpecificOutput?.permissionDecision).toBe('deny');
-      expect(bash.hookSpecificOutput?.permissionDecisionReason).toContain('dcp__run');
+      expect(bash.hookSpecificOutput?.permissionDecision).toBe('allow');
+      const rewritten = (bash.hookSpecificOutput?.updatedInput as { command: string }).command;
+      expect(rewritten).toContain('redutok-pipe -c');
+      expect(rewritten).toContain('pnpm vitest run');
 
       const cheapBash = await handlePreToolUse(
         { tool_name: 'Bash', tool_input: { command: 'git status' } },
