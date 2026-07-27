@@ -1,0 +1,25 @@
+id: h02
+tier: heavy
+# repo pin: chalk vendored at aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef (same
+# upstream commit as t05-t07's fixtures/repos/chalk). localPath points at a
+# dedicated copy, fixtures/repos/chalk-heavy-test, that seeds one real logic
+# bug in source/index.js's createStyler (chained styles open with their own
+# close code instead of their open code) plus a zero-dependency
+# test/heavy.test.mjs (node:test, no npm install needed) that fails 4 of its
+# 10 cases against it. Full details:
+# fixtures/repos/chalk-heavy-test/PROVENANCE.md.
+repo:
+  url: https://github.com/chalk/chalk
+  commit: aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef
+  localPath: fixtures/repos/chalk-heavy-test
+prompt: 'The test suite in this repo is failing. Run `npm test` (or `node --test test/heavy.test.mjs` directly) and read the output. Name every failing test and explain the single root cause common to all of them.'
+success:
+  - kind: answer-contains
+    needle: 'red.bold'
+  - kind: answer-contains
+    needle: 'createStyler'
+  - kind: answer-contains
+    needle: 'openAll'
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/medium.jsonl

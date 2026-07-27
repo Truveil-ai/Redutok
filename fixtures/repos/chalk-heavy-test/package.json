@@ -1,0 +1,52 @@
+{
+	"name": "chalk",
+	"version": "5.6.2",
+	"description": "Terminal string styling done right",
+	"license": "MIT",
+	"repository": "chalk/chalk",
+	"funding": "https://github.com/chalk/chalk?sponsor=1",
+	"type": "module",
+	"main": "./source/index.js",
+	"exports": "./source/index.js",
+	"imports": {
+		"#ansi-styles": "./source/vendor/ansi-styles/index.js",
+		"#supports-color": {
+			"node": "./source/vendor/supports-color/index.js",
+			"default": "./source/vendor/supports-color/browser.js"
+		}
+	},
+	"types": "./source/index.d.ts",
+	"sideEffects": false,
+	"engines": {
+		"node": "^12.17.0 || ^14.13 || >=16.0.0"
+	},
+	"scripts": {
+		"test": "node --test test/heavy.test.mjs"
+	},
+	"files": [
+		"source",
+		"!source/index.test-d.ts"
+	],
+	"keywords": [
+		"color",
+		"colour",
+		"colors",
+		"terminal",
+		"console",
+		"cli",
+		"string",
+		"ansi",
+		"style",
+		"styles",
+		"tty",
+		"formatting",
+		"rgb",
+		"256",
+		"shell",
+		"xterm",
+		"log",
+		"logging",
+		"command-line",
+		"text"
+	]
+}

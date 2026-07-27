@@ -1,0 +1,24 @@
+id: h01
+tier: heavy
+# repo pin: chalk vendored at aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef (same
+# upstream commit as t05-t07's fixtures/repos/chalk). localPath points at a
+# dedicated copy, fixtures/repos/chalk-heavy-build, that seeds one real
+# syntax error (source/utilities.js:12, an extra closing paren) plus a
+# zero-dependency scripts/build.mjs check so the failure is reproducible
+# with no npm install inside the isolated bench-live working copy. Full
+# details: fixtures/repos/chalk-heavy-build/PROVENANCE.md.
+repo:
+  url: https://github.com/chalk/chalk
+  commit: aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef
+  localPath: fixtures/repos/chalk-heavy-build
+prompt: 'The build in this repo is failing. Run `npm run build` (or `node scripts/verbose-build.mjs` directly) and read the output. Identify exactly which file and line contains the error, quote the malformed line, and explain the underlying cause.'
+success:
+  - kind: answer-contains
+    needle: 'utilities.js'
+  - kind: answer-contains
+    needle: 'Unexpected token'
+  - kind: answer-contains
+    needle: 'string.slice(endIndex, index))'
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/medium.jsonl
