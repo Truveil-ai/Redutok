@@ -246,7 +246,7 @@ export async function distillArtifact(
     distilled: gateReport.passed ? distilled : undefined,
     profile: request.profile.name,
     gatesPassed: gateReport.passed,
-    meta: { gates: gateReport.results },
+    meta: { gates: gateReport.results, filePath: request.context?.filePath },
   });
   const bytesIn = Buffer.byteLength(request.raw, 'utf8');
   const bytesOut = Buffer.byteLength(gateReport.passed ? distilled : request.raw, 'utf8');

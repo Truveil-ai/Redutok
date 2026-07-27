@@ -49,20 +49,23 @@ function makeRepo(withExisting: boolean): string {
 }
 
 describe('initRepo', () => {
-  it('demotes the protocol block: commands run normally, file-read guidance stays (v3 pillar A)', () => {
+  it('demotes the protocol block fully: reads and commands govern themselves (v3 pillar B)', () => {
     const repo = makeRepo(false);
     initRepo(repo);
     const claudeMd = readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8');
     const block = /<!-- dcp:start[\s\S]*?dcp:end -->/.exec(claudeMd)?.[0] ?? '';
-    // The pipe now covers commands invisibly: no dcp tool to call for them.
+    // The pipe covers commands invisibly (pillar A) and the mirror covers
+    // large reads (pillar B): no tool-preference guidance remains for either.
     expect(block).not.toContain('dcp__run');
-    expect(block).not.toContain('build and test commands');
+    expect(block).not.toContain('dcp__read');
+    expect(block).not.toContain('dcp__search');
     // \r?\n: a CRLF checkout (Windows CI leg) wraps the block accordingly.
     expect(block).toMatch(/distilled in\r?\n {3}place/);
-    // File-read and search guidance is untouched (left for Session 2).
-    expect(block).toContain('dcp__read for source files');
-    expect(block).toContain('dcp__search for code');
+    expect(block).toContain('need no special handling');
+    // What stays: zoom guidance, and explore/scout as optional equipment.
     expect(block).toContain('dcp__zoom');
+    expect(block).toContain('optional equipment');
+    expect(block).toContain('scout subagent');
   });
 
   it('installs hooks, mcp registration, protocol block, and .dcp scaffold', () => {

@@ -124,6 +124,20 @@ describe('handlePreToolUse fail-open budget', () => {
     expect(elapsed).toBeLessThan(LIMITS.HOOK_FAIL_OPEN_MS * 10);
   });
 
+  it('serves raw when the sidecar is down even if a fresh mirror entry exists', async () => {
+    const { writeCodex } = await import('@redutok/sidecar');
+    const root = mkdtempSync(path.join(os.tmpdir(), 'redutok-hooks-mirror-dead-'));
+    mkdirSync(path.join(root, 'src'));
+    const bigFile = path.join(root, 'src', 'big.ts');
+    writeFileSync(bigFile, 'export function block(): string {\n  return "x";\n}\n'.repeat(2_000));
+    await writeCodex(root);
+    const result = await handlePreToolUse(
+      { tool_name: 'Read', tool_input: { file_path: bigFile } },
+      { target: { port: 1 }, dcpDir: path.join(root, '.dcp') },
+    );
+    expect(result).toEqual({});
+  });
+
   it('always allows small reads without probing the sidecar at all', async () => {
     const smallFile = path.join(tempDcp(), 'small.txt');
     writeFileSync(smallFile, 'tiny');
@@ -136,16 +150,53 @@ describe('handlePreToolUse fail-open budget', () => {
 });
 
 describe('handlePreToolUse with a live sidecar', () => {
-  it('redirects large reads and expensive bash to dcp tools, rewrites moderate reads', async () => {
-    const dcpDir = tempDcp();
+  it('rewrites a large read to its fresh mirror entry, moderate reads to a cap', async () => {
+    // v3 pillar B: a repo with a codex has a skeleton mirror; a large Read is
+    // rewritten in place to the mirror entry (an allow with updatedInput),
+    // not denied toward dcp__read.
+    const { writeCodex, mirrorEntryPath } = await import('@redutok/sidecar');
+    const root = mkdtempSync(path.join(os.tmpdir(), 'redutok-hooks-mirror-'));
+    mkdirSync(path.join(root, 'src'));
+    const bigFile = path.join(root, 'src', 'big.ts');
+    writeFileSync(
+      bigFile,
+      'export function block(): string {\n  return "x";\n}\n'.repeat(2_000),
+    );
+    const dcpDir = path.join(root, '.dcp');
+    mkdirSync(dcpDir);
+    writeFileSync(path.join(dcpDir, 'protocol.md'), '## Delta Context Protocol (Redutok)\nrules');
+    await writeCodex(root);
     const daemon = await startDaemon({ port: 0, dcpDir });
     const deps: HookDeps = { target: { port: daemon.port }, dcpDir, timeoutMs: 1000 };
     try {
-      const bigFile = path.join(dcpDir, 'big.txt');
-      writeFileSync(bigFile, 'x'.repeat(200_000));
       const big = await handlePreToolUse({ tool_name: 'Read', tool_input: { file_path: bigFile } }, deps);
-      expect(big.hookSpecificOutput?.permissionDecision).toBe('deny');
-      expect(big.hookSpecificOutput?.permissionDecisionReason).toContain('dcp__read');
+      expect(big.hookSpecificOutput?.permissionDecision).toBe('allow');
+      expect((big.hookSpecificOutput?.updatedInput as { file_path: string }).file_path).toBe(
+        mirrorEntryPath(root, 'src/big.ts'),
+      );
+
+      // An explicit offset/limit is a deliberate slice and passes raw — the
+      // mirror header itself recommends exactly such a Read.
+      const sliced = await handlePreToolUse(
+        { tool_name: 'Read', tool_input: { file_path: bigFile, offset: 100, limit: 400 } },
+        deps,
+      );
+      expect(sliced).toEqual({});
+
+      // A stale mirror (source changed, no refresh yet) is never served.
+      writeFileSync(bigFile, 'export const changed = true;\n' + 'y'.repeat(200_000));
+      const stale = await handlePreToolUse(
+        { tool_name: 'Read', tool_input: { file_path: bigFile } },
+        deps,
+      );
+      expect(stale).toEqual({});
+
+      // A large file with no mirror entry at all passes raw too.
+      const noMirror = path.join(root, 'src', 'notes.txt');
+      writeFileSync(noMirror, 'z'.repeat(200_000));
+      expect(
+        await handlePreToolUse({ tool_name: 'Read', tool_input: { file_path: noMirror } }, deps),
+      ).toEqual({});
 
       const midFile = path.join(dcpDir, 'mid.txt');
       writeFileSync(midFile, 'y'.repeat(30_000));
