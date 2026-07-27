@@ -1,0 +1,10 @@
+{
+  "name": "failing-tsc-build",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Deterministic verbose failing tsc build, fixture for the pipe distiller e2e (v3 pillar A).",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  }
+}
