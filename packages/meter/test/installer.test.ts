@@ -57,7 +57,8 @@ describe('initRepo', () => {
     // The pipe now covers commands invisibly: no dcp tool to call for them.
     expect(block).not.toContain('dcp__run');
     expect(block).not.toContain('build and test commands');
-    expect(block).toContain('distilled in\n   place');
+    // \r?\n: a CRLF checkout (Windows CI leg) wraps the block accordingly.
+    expect(block).toMatch(/distilled in\r?\n {3}place/);
     // File-read and search guidance is untouched (left for Session 2).
     expect(block).toContain('dcp__read for source files');
     expect(block).toContain('dcp__search for code');
