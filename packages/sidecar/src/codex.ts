@@ -11,6 +11,7 @@ import {
   type CodexLock,
 } from '@redutok/shared';
 import { estimateTokens } from './distill.js';
+import { refreshMirror, type RefreshMirrorOptions } from './mirror.js';
 import { fileSkeleton, languageForPath } from './skeleton.js';
 
 /**
@@ -188,16 +189,26 @@ export async function buildStructuralCodex(root: string): Promise<CodexResult> {
 
 export async function writeCodex(root: string): Promise<CodexResult> {
   const result = await buildStructuralCodex(root);
-  if (!result.changed) return result;
-  const paths = codexPaths(root);
-  mkdirSync(path.dirname(paths.yaml), { recursive: true });
-  writeFileSync(paths.yaml, stringifyYaml(result.codex), 'utf8');
-  writeFileSync(paths.lock, JSON.stringify(result.lock, null, 2) + '\n', 'utf8');
+  if (result.changed) {
+    const paths = codexPaths(root);
+    mkdirSync(path.dirname(paths.yaml), { recursive: true });
+    writeFileSync(paths.yaml, stringifyYaml(result.codex), 'utf8');
+    writeFileSync(paths.lock, JSON.stringify(result.lock, null, 2) + '\n', 'utf8');
+  }
+  // v3 pillar B: the skeleton mirror rides the same refresh. Unconditional
+  // (not gated on changed) so a repo with an up-to-date codex still gains its
+  // mirror on the first refresh after the mirror feature exists; refreshMirror
+  // itself skips fresh entries, keeping unchanged input byte-stable.
+  await refreshMirror(root, Object.keys(result.lock.files));
   return result;
 }
 
 /** Incremental path: re-skeleton and re-hash exactly the given files. */
-export async function refreshFiles(root: string, changed: string[]): Promise<string[]> {
+export async function refreshFiles(
+  root: string,
+  changed: string[],
+  mirrorOptions: RefreshMirrorOptions = {},
+): Promise<string[]> {
   const { codex, lock } = readCodex(root);
   if (codex === undefined || lock === undefined) return [];
   const reindexed: string[] = [];
@@ -225,6 +236,14 @@ export async function refreshFiles(root: string, changed: string[]): Promise<str
     writeFileSync(paths.yaml, stringifyYaml(codex), 'utf8');
     writeFileSync(paths.lock, JSON.stringify(lock, null, 2) + '\n', 'utf8');
   }
+  // v3 pillar B: the mirror is maintained by this same incremental path. The
+  // full changed list (not just reindexed) is passed so a mirror entry that
+  // went missing or stale behind an up-to-date lock is still repaired.
+  await refreshMirror(
+    root,
+    changed.map((rel) => rel.replace(/\\/g, '/')),
+    mirrorOptions,
+  );
   return reindexed;
 }
 

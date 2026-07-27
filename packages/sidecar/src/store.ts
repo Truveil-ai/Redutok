@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -112,6 +113,30 @@ export class Store {
       gatesPassed: row['gates_passed'] === 1,
       meta: JSON.parse(row['meta'] as string) as Record<string, unknown>,
     };
+  }
+
+  /**
+   * Latest artifact whose stored raw matches the given content hash, looked
+   * up by the file path recorded in its meta (v3 pillar B: lets a mirror
+   * header point at dcp__zoom instead of a raw re-read). Any of the candidate
+   * paths may match: callers pass both the repo-relative and absolute forms.
+   * Redacted artifacts hash differently from their source and simply miss.
+   */
+  findArtifactIdByFile(candidatePaths: string[], rawHash: string): string | undefined {
+    for (const filePath of candidatePaths) {
+      const rows = this.db
+        .prepare(
+          `SELECT id, raw FROM artifacts WHERE json_extract(meta, '$.filePath') = ?
+           ORDER BY created_at DESC LIMIT 8`,
+        )
+        .all(filePath) as { id: string; raw: string }[];
+      for (const row of rows) {
+        if (createHash('sha256').update(row.raw).digest('hex').slice(0, 16) === rawHash) {
+          return row.id;
+        }
+      }
+    }
+    return undefined;
   }
 
   recordServedFile(

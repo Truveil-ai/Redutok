@@ -275,7 +275,21 @@ export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle>
   const onFileChange = async (filePath: string): Promise<string[]> => {
     try {
       const rel = path.isAbsolute(filePath) ? path.relative(repoRoot, filePath) : filePath;
-      return await refreshFiles(repoRoot, [rel]);
+      // v3 pillar B: the mirror refresh rides this same incremental path.
+      // When the store already holds a matching raw artifact for the file,
+      // the mirror header points at its zoom handle instead of a raw re-read.
+      const store = engines?.store;
+      const findHandle =
+        store === undefined
+          ? undefined
+          : (relPath: string, hash: string): string | undefined => {
+              try {
+                return store.findArtifactIdByFile([relPath, path.join(repoRoot, relPath)], hash);
+              } catch {
+                return undefined;
+              }
+            };
+      return await refreshFiles(repoRoot, [rel], { findHandle });
     } catch {
       return [];
     }
