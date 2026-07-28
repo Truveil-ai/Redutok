@@ -258,7 +258,11 @@ export async function refreshFiles(
 
 /** The mirror-facing view of the codex learned section (docs/GRADUATION.md). */
 export function enrichmentDirectives(codex: CodexFile | undefined): SkeletonEnrichment[] {
-  return (codex?.learned ?? []).map((entry) => ({ path: entry.path, symbols: entry.symbols }));
+  return (codex?.learned ?? []).map((entry) => ({
+    path: entry.path,
+    symbols: entry.symbols,
+    candidate: entry.candidate,
+  }));
 }
 
 /** Injection, architecture 3.4: codex minus the files index, trust preamble, hard 3k budget. */

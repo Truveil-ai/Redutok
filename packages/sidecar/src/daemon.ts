@@ -152,9 +152,11 @@ function handler(
           // Skeleton enrichment (docs/GRADUATION.md): a graduated hotspot
           // directive keeps its queried symbols full-bodied on this path too.
           let keepSymbols: readonly string[] = [];
+          let enrichmentCandidate: string | undefined;
           try {
             const directive = enrichmentFor(relPath, enrichmentDirectives(readCodex(repoRoot).codex));
             keepSymbols = directive?.symbols ?? [];
+            enrichmentCandidate = directive?.candidate;
           } catch {
             // An unreadable codex never blocks serving; the plain skeleton stands.
           }
@@ -163,7 +165,7 @@ function handler(
             profile,
             sessionId,
             tool: 'dcp__read',
-            context: { filePath: relPath, keepSymbols },
+            context: { filePath: relPath, keepSymbols, enrichmentCandidate },
           });
           respond(200, {
             mode: 'full',
@@ -300,7 +302,22 @@ function handler(
           }
           if (p.kind === 'read-mirror-rewrite' && engines !== undefined) {
             // v3 pillar B: every mirror rewrite lands in the audit trail with
-            // the rule and both paths, attributed to the active session.
+            // the rule and both paths, attributed to the active session. When
+            // the mirrored file carries a skeleton-enrichment directive, its
+            // candidate ref rides along for per-lesson attribution
+            // (docs/POSTURE.md).
+            let enrichmentCandidate: string | undefined;
+            try {
+              if (typeof p.realPath === 'string' && p.realPath !== '') {
+                const rel = path.relative(repoRoot, p.realPath).replace(/\\/g, '/');
+                enrichmentCandidate = enrichmentFor(
+                  rel,
+                  enrichmentDirectives(readCodex(repoRoot).codex),
+                )?.candidate;
+              }
+            } catch {
+              enrichmentCandidate = undefined;
+            }
             const event: AuditEvent = {
               id: `rewrite-m${randomBytes(3).toString('hex')}`,
               timestamp: new Date().toISOString(),
@@ -312,6 +329,7 @@ function handler(
                 rule: typeof p.rule === 'string' ? p.rule : 'read-mirror',
                 realPath: typeof p.realPath === 'string' ? p.realPath : '',
                 mirrorPath: typeof p.mirrorPath === 'string' ? p.mirrorPath : '',
+                ...(enrichmentCandidate === undefined ? {} : { enrichmentCandidate }),
               },
             };
             try {

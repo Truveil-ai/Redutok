@@ -159,6 +159,11 @@ export interface DistillContext {
    * file-skeleton profile keeps, from a graduated zoom-hotspot directive.
    */
   keepSymbols?: readonly string[];
+  /**
+   * Candidate ref of the directive that supplied keepSymbols, tagged onto
+   * the serve's audit event for per-lesson attribution (docs/POSTURE.md).
+   */
+  enrichmentCandidate?: string;
 }
 
 function zoomRef(context: DistillContext): string {
@@ -275,7 +280,14 @@ export async function distillArtifact(
     bytesOut,
     // Founder review 2026-07-19: the exact gate configuration rides along with
     // every event so any gate softening is visible in the trail.
-    details: { profile: request.profile.name, gates: gateReport.results, gateConfig },
+    details: {
+      profile: request.profile.name,
+      gates: gateReport.results,
+      gateConfig,
+      ...(request.context?.enrichmentCandidate === undefined
+        ? {}
+        : { enrichmentCandidate: request.context.enrichmentCandidate }),
+    },
   };
   audit.write(event);
   store.insertAuditEvent(event);

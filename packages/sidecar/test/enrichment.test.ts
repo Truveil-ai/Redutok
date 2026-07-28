@@ -151,3 +151,117 @@ describe('codex learned section carry-over', () => {
     expect(parsed.learned).toEqual([]);
   });
 });
+
+describe('per-lesson attribution telemetry (docs/POSTURE.md)', () => {
+  async function rootWithDirective(): Promise<string> {
+    const root = cloneFixtureRepo('repo-a');
+    await writeCodex(root);
+    const { codex } = readCodex(root);
+    if (codex === undefined) throw new Error('codex missing');
+    codex.learned.push({
+      kind: 'skeleton-enrichment',
+      candidate: 'cand-attr',
+      path: 'src/store.ts',
+      symbols: ['put'],
+      confidence: 0.6,
+      source: 'graduated',
+      addedAt: '2026-07-29T00:00:00.000Z',
+    });
+    writeFileSync(codexPaths(root).yaml, stringifyYaml(codex), 'utf8');
+    return root;
+  }
+
+  it('a dcp__read serve that applied a directive tags its audit event with the candidate ref', async () => {
+    const { startDaemon } = await import('../src/daemon.js');
+    const { sidecarRequest } = await import('../src/client.js');
+    const root = await rootWithDirective();
+    const dcpDir = path.join(root, '.dcp');
+    const daemon = await startDaemon({
+      port: 0,
+      dcpDir,
+      profilesDir: path.join(repoRoot, 'profiles'),
+    });
+    try {
+      const raw = readFileSync(path.join(root, 'src', 'store.ts'), 'utf8');
+      const res = await sidecarRequest({ port: daemon.port }, 'POST', '/serve-file', {
+        path: 'src/store.ts',
+        raw,
+        sessionId: 's-attr',
+        repoRoot: root,
+      }, { timeoutMs: 5000 });
+      expect(res.ok).toBe(true);
+      const events = readFileSync(path.join(dcpDir, 'audit.jsonl'), 'utf8')
+        .trim()
+        .split('\n')
+        .map((l) => JSON.parse(l) as { action: string; module: string; details?: Record<string, unknown> });
+      const serve = events.find(
+        (e) => e.module === 'sidecar.distill' && (e.action === 'distill' || e.action === 'serve-raw'),
+      );
+      expect(serve).toBeDefined();
+      expect(serve?.details?.['enrichmentCandidate']).toBe('cand-attr');
+    } finally {
+      await daemon.close();
+    }
+  });
+
+  it('a read-mirror rewrite for an enriched file carries the candidate ref too', async () => {
+    const { startDaemon } = await import('../src/daemon.js');
+    const { sidecarRequest } = await import('../src/client.js');
+    const root = await rootWithDirective();
+    const dcpDir = path.join(root, '.dcp');
+    const daemon = await startDaemon({
+      port: 0,
+      dcpDir,
+      profilesDir: path.join(repoRoot, 'profiles'),
+    });
+    try {
+      await sidecarRequest({ port: daemon.port }, 'POST', '/notify', {
+        kind: 'read-mirror-rewrite',
+        rule: 'read-mirror',
+        realPath: path.join(root, 'src', 'store.ts'),
+        mirrorPath: mirrorEntryPath(root, 'src/store.ts'),
+        sessionId: 's-attr2',
+      }, { timeoutMs: 5000 });
+      const events = readFileSync(path.join(dcpDir, 'audit.jsonl'), 'utf8')
+        .trim()
+        .split('\n')
+        .map((l) => JSON.parse(l) as { action: string; details?: Record<string, unknown> });
+      const rewrite = events.find((e) => e.action === 'rewrite');
+      expect(rewrite?.details?.['enrichmentCandidate']).toBe('cand-attr');
+    } finally {
+      await daemon.close();
+    }
+  });
+
+  it('serves without a matching directive carry no candidate tag', async () => {
+    const { startDaemon } = await import('../src/daemon.js');
+    const { sidecarRequest } = await import('../src/client.js');
+    const root = await rootWithDirective();
+    const dcpDir = path.join(root, '.dcp');
+    const daemon = await startDaemon({
+      port: 0,
+      dcpDir,
+      profilesDir: path.join(repoRoot, 'profiles'),
+    });
+    try {
+      const raw = readFileSync(path.join(root, 'src', 'service.ts'), 'utf8');
+      await sidecarRequest({ port: daemon.port }, 'POST', '/serve-file', {
+        path: 'src/service.ts',
+        raw,
+        sessionId: 's-attr3',
+        repoRoot: root,
+      }, { timeoutMs: 5000 });
+      const events = readFileSync(path.join(dcpDir, 'audit.jsonl'), 'utf8')
+        .trim()
+        .split('\n')
+        .map((l) => JSON.parse(l) as { action: string; module: string; details?: Record<string, unknown> });
+      const serve = events.find(
+        (e) => e.module === 'sidecar.distill' && (e.action === 'distill' || e.action === 'serve-raw'),
+      );
+      expect(serve).toBeDefined();
+      expect(serve?.details).not.toHaveProperty('enrichmentCandidate');
+    } finally {
+      await daemon.close();
+    }
+  });
+});
