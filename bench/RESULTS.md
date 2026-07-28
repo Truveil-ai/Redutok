@@ -1,7 +1,7 @@
 # Bench results (live)
 
 model: claude-sonnet-5
-date: 2026-07-19
+date: 2026-07-28
 repetitions: 1
 machine: win32-x64, node v24.14.1
 
@@ -9,50 +9,27 @@ Live-mode figures measure fresh headless claude CLI runs in isolated copies of t
 
 | task | tier | variant | rep | input | output | cache read | cache write | thinking | total | USD | Wh (band) | gCO2e (band) | wall ms | grade | success |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | ---: | --- | --- |
-| t01 | small | vanilla | 1 | 12 | 1,670 | 264,230 | 17,022 | 0 | 282,934 | 0.2065 | 84.88 (28.29 to 282.93) | 40.15 (13.38 to 133.83) | 38397 | A | pass |
-| t01 | small | redutok | 1 | 10 | 1,711 | 224,234 | 19,230 | 0 | 245,185 | 0.2083 | 73.56 (24.52 to 245.19) | 34.79 (11.60 to 115.97) | 34852 | A | pass |
-| t02 | small | vanilla | 1 | 8 | 517 | 166,844 | 16,021 | 0 | 183,390 | 0.1540 | 55.02 (18.34 to 183.39) | 26.02 (8.67 to 86.74) | 24941 | A | pass |
-| t02 | small | redutok | 1 | 14 | 1,652 | 324,714 | 18,552 | 0 | 344,932 | 0.2335 | 103.48 (34.49 to 344.93) | 48.95 (16.32 to 163.15) | 46935 | A | pass |
-| t03 | small | vanilla | 1 | 10 | 1,247 | 215,962 | 16,969 | 0 | 234,188 | 0.1853 | 70.26 (23.42 to 234.19) | 33.23 (11.08 to 110.77) | 29999 | A | pass |
-| t03 | small | redutok | 1 | 14 | 2,197 | 325,813 | 20,142 | 0 | 348,166 | 0.2516 | 104.45 (34.82 to 348.17) | 49.40 (16.47 to 164.68) | 47174 | A | pass |
-| t04 | small | vanilla | 1 | 16 | 1,701 | 362,672 | 17,500 | 0 | 381,889 | 0.2394 | 114.57 (38.19 to 381.89) | 54.19 (18.06 to 180.63) | 46933 | A | pass |
-| t04 | small | redutok | 1 | 8 | 2,619 | 174,103 | 19,016 | 0 | 195,746 | 0.2056 | 58.72 (19.57 to 195.75) | 27.78 (9.26 to 92.59) | 50007 | A | pass |
-| t05 | medium | vanilla | 1 | 26 | 3,173 | 626,505 | 20,327 | 0 | 650,031 | 0.3576 | 195.01 (65.00 to 650.03) | 92.24 (30.75 to 307.46) | 63615 | A | pass |
-| t05 | medium | redutok | 1 | 60 | 10,672 | 1,687,417 | 33,811 | 0 | 1,731,960 | 0.8694 | 519.59 (173.20 to 1731.96) | 245.77 (81.92 to 819.22) | 214106 | A | pass |
-| t06 | medium | vanilla | 1 | 6 | 418 | 122,450 | 17,926 | 0 | 140,800 | 0.1506 | 42.24 (14.08 to 140.80) | 19.98 (6.66 to 66.60) | 19580 | A | pass |
-| t06 | medium | redutok | 1 | 12 | 830 | 279,902 | 19,600 | 0 | 300,344 | 0.2141 | 90.10 (30.03 to 300.34) | 42.62 (14.21 to 142.06) | 31107 | A | pass |
-| t07 | medium | vanilla | 1 | 14 | 2,420 | 329,379 | 21,438 | 0 | 353,251 | 0.2638 | 105.98 (35.33 to 353.25) | 50.13 (16.71 to 167.09) | 50420 | A | pass |
-| t07 | medium | redutok | 1 | 24 | 3,901 | 631,383 | 27,294 | 0 | 662,602 | 0.4118 | 198.78 (66.26 to 662.60) | 94.02 (31.34 to 313.41) | 232925 | A | pass |
-| t08 | large | vanilla | 1 | 34 | 5,897 | 946,014 | 35,951 | 0 | 987,896 | 0.5881 | 296.37 (98.79 to 987.90) | 140.18 (46.73 to 467.27) | 89254 | A | pass |
-| t08 | large | redutok | 1 | 30 | 4,973 | 864,282 | 43,426 | 0 | 912,711 | 0.5945 | 273.81 (91.27 to 912.71) | 129.51 (43.17 to 431.71) | 84431 | A | FAIL |
-| t09 | large | vanilla | 1 | 18 | 5,249 | 475,371 | 37,781 | 0 | 518,419 | 0.4481 | 155.53 (51.84 to 518.42) | 73.56 (24.52 to 245.21) | 77301 | A | pass |
-| t09 | large | redutok | 1 | 12 | 5,742 | 313,985 | 34,604 | 0 | 354,343 | 0.3880 | 106.30 (35.43 to 354.34) | 50.28 (16.76 to 167.60) | 95797 | A | pass |
-| t10 | large | vanilla | 1 | 22 | 4,164 | 648,424 | 49,814 | 0 | 702,424 | 0.5559 | 210.73 (70.24 to 702.42) | 99.67 (33.22 to 332.25) | 79777 | A | pass |
-| t10 | large | redutok | 1 | 24 | 8,793 | 706,472 | 53,412 | 0 | 768,701 | 0.6644 | 230.61 (76.87 to 768.70) | 109.08 (36.36 to 363.60) | 142951 | A | FAIL |
+| h03 | heavy | vanilla | 1 | 14 | 7,797 | 313,248 | 31,133 | 0 | 352,192 | 0.3978 | 105.66 (35.22 to 352.19) | 49.98 (16.66 to 166.59) | 0 | A | pass |
+| h03 | heavy | redutok | 1 | 10 | 6,606 | 243,680 | 36,001 | 0 | 286,297 | 0.3882 | 85.89 (28.63 to 286.30) | 40.63 (13.54 to 135.42) | 78215 | A | pass |
 
 ## Medians per task (across repetitions)
 
 | task | vanilla tokens | redutok tokens | token reduction | vanilla USD | redutok USD | USD reduction | vanilla non-cache-read tokens | redutok non-cache-read tokens | non-cache-read reduction | vanilla success | redutok success |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| t01 | 282,934 | 245,185 | 1.2x | 0.2065 | 0.2083 | 1.0x | 18,704 | 20,951 | 0.9x | 1/1 | 1/1 |
-| t02 | 183,390 | 344,932 | 0.5x | 0.1540 | 0.2335 | 0.7x | 16,546 | 20,218 | 0.8x | 1/1 | 1/1 |
-| t03 | 234,188 | 348,166 | 0.7x | 0.1853 | 0.2516 | 0.7x | 18,226 | 22,353 | 0.8x | 1/1 | 1/1 |
-| t04 | 381,889 | 195,746 | 2.0x | 0.2394 | 0.2056 | 1.2x | 19,217 | 21,643 | 0.9x | 1/1 | 1/1 |
-| t05 | 650,031 | 1,731,960 | 0.4x | 0.3576 | 0.8694 | 0.4x | 23,526 | 44,543 | 0.5x | 1/1 | 1/1 |
-| t06 | 140,800 | 300,344 | 0.5x | 0.1506 | 0.2141 | 0.7x | 18,350 | 20,442 | 0.9x | 1/1 | 1/1 |
-| t07 | 353,251 | 662,602 | 0.5x | 0.2638 | 0.4118 | 0.6x | 23,872 | 31,219 | 0.8x | 1/1 | 1/1 |
-| t08 | 987,896 | 912,711 | 1.1x | 0.5881 | 0.5945 | 1.0x | 41,882 | 48,429 | 0.9x | 1/1 | 0/1 |
-| t09 | 518,419 | 354,343 | 1.5x | 0.4481 | 0.3880 | 1.2x | 43,048 | 40,358 | 1.1x | 1/1 | 1/1 |
-| t10 | 702,424 | 768,701 | 0.9x | 0.5559 | 0.6644 | 0.8x | 54,000 | 62,229 | 0.9x | 1/1 | 0/1 |
+| h03 | 352,192 | 286,297 | 1.2x | 0.3978 | 0.3882 | 1.0x | 38,944 | 42,617 | 0.9x | 1/1 | 1/1 |
 
 ## Definition of done
 
-- median token reduction across tasks: 0.8x (threshold: at least 10x, applies to this metric, the raw total-token median) NOT MET
-- median USD reduction across tasks: 0.8x (context only, no threshold)
+- median token reduction across tasks: 1.2x (threshold: at least 10x, applies to this metric, the raw total-token median) NOT MET
+- median USD reduction across tasks: 1.0x (context only, no threshold)
 - median non-cache-read token reduction across tasks: 0.9x (context only, no threshold; input plus output plus cache-write plus thinking, excludes the per-turn re-billed cache-read)
-- success parity: redutok 80% vs vanilla 100%, parity 80% (threshold: at least 95%) NOT MET
-- cumulative spend: 7.1904 USD (meter, prices.yaml), 7.1966 USD (claude CLI reported)
+- success parity: redutok 100% vs vanilla 100%, parity 100% (threshold: at least 95%) MET
+- cumulative spend: 0.7860 USD (meter, prices.yaml), 0.7869 USD (claude CLI reported)
 
 ## Failures (savings with success degradation)
 
-- t08 rep 1: 1.1x savings but the redutok run failed its success checks (answer-contains AuditEventSchema: pass; answer-contains audit-file: FAIL). Savings without success are failures.
+None in this run set.
+
+## Incidents
+
+- h03 redutok rep 1, 2026-07-28 (superseded by the clean rerun above; transcripts archived in bench/runs/v3-h03-incident/): 4,364,974 tokens, 2.3615 USD, 45 turns. Verdict: a stale-build port defect caused raw double-reading, and a Write-tool escape-materialization repair loop, model behavior outside governance scope, re-billed the inflated context 41 times. The harness now gates on build freshness and port wiring (scripts/bench-live.mjs), so a stale dist or a hardcoded REDUTOK_PORT aborts the run instead of measuring the wrong code.
