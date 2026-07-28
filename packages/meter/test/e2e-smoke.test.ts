@@ -48,6 +48,13 @@ describe('phase 4 end-to-end smoke', () => {
 
     initRepo(repo);
     const dcpDir = path.join(repo, '.dcp');
+    // Pin full posture: this one-file sample repo would assess idle
+    // (docs/POSTURE.md), and this test is about engaged-mode behavior.
+    const configPath = path.join(dcpDir, 'config.json');
+    writeFileSync(
+      configPath,
+      JSON.stringify({ ...(JSON.parse(readFileSync(configPath, 'utf8')) as object), posture: 'full' }),
+    );
     const daemon = await startDaemon({ port: 0, dcpDir, profilesDir: path.join(repoRoot, 'profiles') });
     try {
       // Hook target discovery exactly as the installed hook binary does it.

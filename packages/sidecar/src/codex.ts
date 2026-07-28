@@ -24,6 +24,9 @@ import { fileSkeleton, languageForPath } from './skeleton.js';
 
 const SOURCE_EXT = new Set(['.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs', '.py']);
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.dcp', '.claude', 'coverage', 'backup']);
+/** Shared with the posture assessment (posture.ts) so both walk the same universe. */
+export const INDEXABLE_EXT: ReadonlySet<string> = SOURCE_EXT;
+export const INDEX_SKIP_DIRS: ReadonlySet<string> = SKIP_DIRS;
 
 export function listSourceFiles(root: string): string[] {
   const out: string[] = [];

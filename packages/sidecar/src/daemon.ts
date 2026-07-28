@@ -321,6 +321,44 @@ function handler(
               log.error('mirror rewrite audit failed', { error: String(err) });
             }
           }
+          if (p.kind === 'session-posture' && engines !== undefined) {
+            // v4 pillar 4: the posture decision is audited with its full
+            // basis, plus the injected/excluded candidate refs so the miner
+            // and the slope bench can attribute per-lesson effect
+            // (docs/POSTURE.md). The same trail records learned-budget
+            // exclusions: nothing leaves the injection silently.
+            const d = payload as Record<string, unknown>;
+            const refs = (key: string): string[] =>
+              Array.isArray(d[key]) ? (d[key] as unknown[]).map(String) : [];
+            const posture = typeof d['posture'] === 'string' ? d['posture'] : 'full';
+            const pinned = d['pinned'] === true;
+            const event: AuditEvent = {
+              id: `posture-${randomBytes(3).toString('hex')}`,
+              timestamp: new Date().toISOString(),
+              sessionId: attributedSessionId(p.sessionId),
+              module: 'hooks.session-start',
+              action: 'posture',
+              reason: `session posture ${posture}${pinned ? ' (pinned)' : ''}: ${String(d['files'] ?? 0)} files, ${String(d['sourceBytes'] ?? 0)}B source, ${String(d['learnedEntries'] ?? 0)} learned entries`,
+              details: {
+                posture,
+                pinned,
+                files: Number(d['files'] ?? 0),
+                sourceBytes: Number(d['sourceBytes'] ?? 0),
+                learnedEntries: Number(d['learnedEntries'] ?? 0),
+                pitfallEntries: Number(d['pitfallEntries'] ?? 0),
+                injectedLearned: refs('injectedLearned'),
+                excludedLearned: refs('excludedLearned'),
+                injectedPitfalls: refs('injectedPitfalls'),
+                droppedSections: refs('droppedSections'),
+              },
+            };
+            try {
+              engines.audit.write(event);
+              engines.store.insertAuditEvent(event);
+            } catch (err) {
+              log.error('posture audit failed', { error: String(err) });
+            }
+          }
           if (p.kind === 'session-end' && onSessionEnd !== undefined) {
             // v4 graduation: mining runs post-session, off the notify path.
             // The hook gets its ok immediately; a mining failure only logs.

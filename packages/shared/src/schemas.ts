@@ -66,6 +66,7 @@ export const AuditActionSchema = z.enum([
   'refuse',
   'graduate',
   'withdraw',
+  'posture',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 

@@ -32,7 +32,21 @@ const fixtureSession = path.join(
 function tempDcp(): string {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'redutok-hooks-'));
   writeFileSync(path.join(dir, 'protocol.md'), '## Delta Context Protocol (Redutok)\nrules here');
+  // Pin full posture: these fixtures sit directly in the OS temp dir, whose
+  // contents (and therefore an assessed posture) vary by machine.
+  writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ posture: 'full' }));
   return dir;
+}
+
+/** A tiny repo root with a .dcp dir and no posture pin: assesses idle. */
+function tinyRepo(): { root: string; dcpDir: string } {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'redutok-tiny-'));
+  mkdirSync(path.join(root, 'src'));
+  writeFileSync(path.join(root, 'src', 'a.ts'), 'export const a = 1;\n');
+  const dcpDir = path.join(root, '.dcp');
+  mkdirSync(dcpDir);
+  writeFileSync(path.join(dcpDir, 'protocol.md'), '## Delta Context Protocol (Redutok)\nrules');
+  return { root, dcpDir };
 }
 
 const DEAD: HookDeps = { target: { port: 1 }, dcpDir: tempDcp() };
@@ -55,6 +69,8 @@ describe('handleSessionStart', () => {
     const dcpDir = path.join(root, '.dcp');
     mkdirSync(dcpDir);
     writeFileSync(path.join(dcpDir, 'protocol.md'), '## Delta Context Protocol (Redutok)\nrules');
+    // Pinned full: this test is about the injection, not the posture rules.
+    writeFileSync(path.join(dcpDir, 'config.json'), JSON.stringify({ posture: 'full' }));
     await writeCodex(root);
     const out = await handleSessionStart({ source: 'startup' }, { ...DEAD, dcpDir });
     const ctx = out.hookSpecificOutput?.additionalContext ?? '';
@@ -404,5 +420,82 @@ describe('handleStop', () => {
   it('degrades to empty output when the transcript is missing', async () => {
     const result = await handleStop({ transcript_path: 'C:/nope/missing.jsonl' }, DEAD);
     expect(result).toEqual({});
+  });
+});
+
+describe('idle gear (docs/POSTURE.md)', () => {
+  it('SessionStart on a tiny repo injects the one-line notice only and records the decision', async () => {
+    const { dcpDir } = tinyRepo();
+    const out = await handleSessionStart(
+      { source: 'startup', session_id: 's-idle' },
+      { target: { port: 1 }, dcpDir },
+    );
+    const ctx = out.hookSpecificOutput?.additionalContext ?? '';
+    expect(ctx).toContain('Redutok idle posture');
+    expect(ctx.split('\n')).toHaveLength(1);
+    expect(ctx).not.toContain('Delta Context Protocol');
+    expect(ctx).not.toContain('verified codex');
+    const record = JSON.parse(
+      readFileSync(path.join(dcpDir, 'session-posture.json'), 'utf8'),
+    ) as { sessionId: string; posture: string; files: number };
+    expect(record.posture).toBe('idle');
+    expect(record.sessionId).toBe('s-idle');
+    expect(record.files).toBeGreaterThan(0);
+  });
+
+  it('per-turn hooks pass everything through with zero sidecar traffic', async () => {
+    const { root, dcpDir } = tinyRepo();
+    await handleSessionStart({ source: 'startup', session_id: 's-idle' }, { target: { port: 1 }, dcpDir });
+    // A file large enough that full governance would rewrite or cap the Read.
+    const bigPath = path.join(root, 'src', 'big.ts');
+    writeFileSync(bigPath, `export const s = '${'x'.repeat(80_000)}';\n`);
+    const deps: HookDeps = { target: { port: 1 }, dcpDir };
+    const httpSpy = vi.spyOn(http, 'request');
+    try {
+      const read = await handlePreToolUse(
+        { tool_name: 'Read', tool_input: { file_path: bigPath }, session_id: 's-idle' },
+        deps,
+      );
+      expect(read).toEqual({});
+      const grep = await handlePreToolUse(
+        { tool_name: 'Grep', tool_input: { pattern: 'anything' }, session_id: 's-idle' },
+        deps,
+      );
+      expect(grep).toEqual({});
+      const post = await handlePostToolUse(
+        { tool_name: 'Edit', tool_input: { file_path: bigPath }, session_id: 's-idle' },
+        deps,
+      );
+      expect(post).toEqual({});
+      const prompt = handleUserPromptSubmit(
+        { prompt: 'refactor the whole architecture across the codebase', session_id: 's-idle' },
+        deps,
+      );
+      expect(prompt).toEqual({});
+      expect(handlePreCompact({ session_id: 's-idle' }, deps)).toEqual({});
+      expect(httpSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('a mismatched or missing posture record stays fully engaged', async () => {
+    const { dcpDir } = tinyRepo();
+    await handleSessionStart({ source: 'startup', session_id: 's-idle' }, { target: { port: 1 }, dcpDir });
+    const deps: HookDeps = { target: { port: 1 }, dcpDir };
+    // Another session's id: the idle record must not silence this session.
+    const out = handleUserPromptSubmit(
+      { prompt: 'refactor everything across the codebase', session_id: 's-other' },
+      deps,
+    );
+    expect(out.hookSpecificOutput?.additionalContext).toContain('hard, multi-step');
+  });
+
+  it('the Stop receipt carries the posture line', async () => {
+    const { dcpDir } = tinyRepo();
+    // The fixture transcript's session id is s-small; decide posture for it.
+    await handleSessionStart({ source: 'startup', session_id: 's-small' }, { target: { port: 1 }, dcpDir });
+    const result = await handleStop({ transcript_path: fixtureSession }, { target: { port: 1 }, dcpDir });
+    expect(result.receiptBlock).toContain('posture  idle');
   });
 });

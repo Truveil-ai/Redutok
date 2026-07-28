@@ -10,12 +10,16 @@ import {
 } from 'redutok';
 import { sidecarRequest, type SidecarTarget } from '@redutok/sidecar/client';
 import {
-  buildCodexInjection,
+  assessSessionPosture,
+  buildInjection,
   mirrorEntryPath,
   mirrorHash,
   readCodex,
   readMirrorIndex,
+  type CodexInjection,
+  type PostureDecision,
 } from '@redutok/sidecar';
+import type { SessionPostureRecord } from '@redutok/shared';
 import { decideRewrite, loadAllowlist } from './pipe-allowlist.js';
 
 /**
@@ -72,6 +76,25 @@ async function registerSession(sessionId: string | undefined, deps: HookDeps): P
   );
 }
 
+/** The session's posture record, written by SessionStart and read by every
+ * per-turn hook and by Stop. Missing, stale, or mismatched records mean full
+ * engagement: the failure direction is never a wrongly idle session. */
+function readPostureRecord(deps: HookDeps): SessionPostureRecord | undefined {
+  try {
+    return JSON.parse(
+      readFileSync(path.join(deps.dcpDir, 'session-posture.json'), 'utf8'),
+    ) as SessionPostureRecord;
+  } catch {
+    return undefined;
+  }
+}
+
+function idleFor(deps: HookDeps, sessionId: string | undefined): boolean {
+  const record = readPostureRecord(deps);
+  if (record === undefined || record.posture !== 'idle') return false;
+  return sessionId === undefined || sessionId === '' || record.sessionId === sessionId;
+}
+
 export async function handleSessionStart(
   input: { source?: string; session_id?: string },
   deps: HookDeps,
@@ -79,20 +102,89 @@ export async function handleSessionStart(
   await registerSession(input.session_id, deps);
   const protocolPath = path.join(deps.dcpDir, 'protocol.md');
   if (!existsSync(protocolPath)) return {};
+  const root = path.dirname(path.resolve(deps.dcpDir));
+
+  // v4 pillar 4 (docs/POSTURE.md): governance engages proportionally to what
+  // it can earn. Any assessment failure engages full governance: the
+  // fail-open direction here is the current, fully-engaged behavior.
+  let decision: PostureDecision = {
+    posture: 'full',
+    assessment: { files: 0, sourceBytes: 0, learnedEntries: 0, pitfallEntries: 0, capped: false },
+    pinned: false,
+  };
+  try {
+    decision = assessSessionPosture(root, deps.dcpDir);
+  } catch {
+    // Assessed as full above.
+  }
+
+  let injection: CodexInjection | undefined;
+  if (decision.posture !== 'idle') {
+    try {
+      const { codex } = readCodex(root);
+      if (codex !== undefined) {
+        injection = buildInjection(codex, {
+          posture: decision.posture === 'light' ? 'light' : 'full',
+        });
+      }
+    } catch {
+      injection = undefined;
+    }
+  }
+
+  const record: SessionPostureRecord = {
+    sessionId: input.session_id ?? '',
+    posture: decision.posture,
+    pinned: decision.pinned,
+    ...decision.assessment,
+    decidedAt: new Date().toISOString(),
+  };
+  try {
+    writeFileSync(
+      path.join(deps.dcpDir, 'session-posture.json'),
+      JSON.stringify(record, null, 2) + '\n',
+    );
+  } catch {
+    // Best-effort: a missing record means per-turn hooks stay fully engaged.
+  }
+  // The decision is audited through the sidecar (fail-open like every hook
+  // path); the audit event also carries the injected/excluded candidate refs
+  // for per-lesson attribution (docs/POSTURE.md).
+  await sidecarRequest(
+    deps.target,
+    'POST',
+    '/notify',
+    {
+      kind: 'session-posture',
+      sessionId: input.session_id,
+      posture: decision.posture,
+      pinned: decision.pinned,
+      ...decision.assessment,
+      injectedLearned: injection?.injectedLearned ?? [],
+      excludedLearned: injection?.excludedLearned ?? [],
+      injectedPitfalls: injection?.injectedPitfalls ?? [],
+      droppedSections: injection?.droppedSections ?? [],
+    },
+    { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
+  );
+
+  if (decision.posture === 'idle') {
+    const kb = Math.round(decision.assessment.sourceBytes / 1024);
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'SessionStart',
+        additionalContext: `Redutok idle posture: this repo is below the governance thresholds (${decision.assessment.files} source files, ~${kb} KB), so hooks pass everything through and no codex is injected; the meter still records. Redutok by Truveil`,
+      },
+    };
+  }
+
   const block = readFileSync(protocolPath, 'utf8');
   const source = input.source ?? 'startup';
   const prefix =
     source === 'compact' || source === 'resume'
       ? `Redutok protocol re-injected after ${source}.\n\n`
       : '';
-  let codexInjection = '';
-  try {
-    const root = path.dirname(path.resolve(deps.dcpDir));
-    const { codex } = readCodex(root);
-    if (codex !== undefined) codexInjection = '\n\n' + buildCodexInjection(codex);
-  } catch {
-    codexInjection = '';
-  }
+  const codexInjection = injection === undefined ? '' : '\n\n' + injection.text;
   return {
     hookSpecificOutput: {
       hookEventName: 'SessionStart',
@@ -105,6 +197,9 @@ export async function handlePreToolUse(
   input: { tool_name?: string; tool_input?: Record<string, unknown>; session_id?: string },
   deps: HookDeps,
 ): Promise<HookOutput> {
+  // Idle gear (docs/POSTURE.md): everything passes through untouched, no
+  // sidecar probe, no rewrite, no deny — zero per-turn overhead.
+  if (idleFor(deps, input.session_id)) return {};
   const tool = input.tool_name ?? '';
   const args = input.tool_input ?? {};
   const deny = (reason: string): HookOutput => ({
@@ -233,6 +328,10 @@ export async function handlePostToolUse(
   input: { tool_name?: string; tool_input?: Record<string, unknown>; session_id?: string },
   deps: HookDeps,
 ): Promise<HookOutput> {
+  // Idle gear: no per-turn notify at all (docs/POSTURE.md). Rolling state
+  // and incremental reindexing sleep with it; the next engaged session or an
+  // explicit codex refresh catches the repo up.
+  if (idleFor(deps, input.session_id)) return {};
   const tool = input.tool_name ?? '';
   const kind = tool === 'Edit' || tool === 'Write' ? 'file-change' : 'tool-use';
   // sessionId re-registers the transcript session on every notify, so a
@@ -247,7 +346,12 @@ export async function handlePostToolUse(
   return {};
 }
 
-export function handlePreCompact(_input: unknown, deps: HookDeps): HookOutput {
+export function handlePreCompact(
+  input: { session_id?: string },
+  deps: HookDeps,
+): HookOutput {
+  // Idle gear: nothing was governed, so nothing needs preserving.
+  if (idleFor(deps, input?.session_id)) return {};
   const statePath = path.join(deps.dcpDir, 'session-state.md');
   const state = existsSync(statePath)
     ? readFileSync(statePath, 'utf8')
@@ -266,9 +370,14 @@ const HARD_PROMPT = /\b(refactor|architect|design|migrate|debug|rewrite|overhaul
  * Rules-first complexity classifier, architecture 6.3. Advisory only in v1:
  * it injects a thinking-budget hint, never a constraint.
  */
-export function handleUserPromptSubmit(input: { prompt?: string }, _deps: HookDeps): HookOutput {
+export function handleUserPromptSubmit(
+  input: { prompt?: string; session_id?: string },
+  deps: HookDeps,
+): HookOutput {
   const prompt = input.prompt ?? '';
   if (prompt === '') return {};
+  // Idle gear: even the advisory hint stays silent — zero per-turn tokens.
+  if (idleFor(deps, input.session_id)) return {};
   let tier: 'trivial' | 'standard' | 'hard' = 'standard';
   if (HARD_PROMPT.test(prompt)) tier = 'hard';
   else if (prompt.length <= LIMITS.TRIVIAL_PROMPT_MAX_CHARS && !prompt.includes('\n')) tier = 'trivial';
@@ -333,6 +442,7 @@ export async function handleStop(
     try {
       const receipt = buildSessionReceipt(ledger, {
         auditPath: path.join(deps.dcpDir, 'audit.jsonl'),
+        posturePath: path.join(deps.dcpDir, 'session-posture.json'),
       });
       receiptBlock = renderReceiptBlock(receipt);
       if (existsSync(deps.dcpDir)) {
