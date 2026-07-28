@@ -22,6 +22,10 @@ export interface Report {
   energy: SessionEnergy;
   scores: SessionScores;
   parse: ParseCounts;
+  /**
+   * Sidecar audit trail events attributed to this session: the same array
+   * scoring reads, so every audit count on the report agrees with the scores.
+   */
   audit: AuditEvent[];
   notes: string[];
 }
@@ -72,9 +76,10 @@ export async function buildReport(
     );
   }
 
-  // Session audit trail (sidecar side), distinct from the parse audit above.
-  // Only events attributed to this transcript's session id count toward the
-  // context-efficiency score.
+  // Session audit trail (sidecar side). Only events attributed to this
+  // transcript's session id count toward the context-efficiency score, and the
+  // same array is surfaced as report.audit so rendered counts cannot diverge
+  // from what scoring saw. Parse skips are reported via parse counts, not here.
   const sessionAudit = buildAuditReport(ledger.sessionId, options.auditPath).events;
   const scores = scoreSession(ledger, energy, sessionAudit);
 
@@ -86,7 +91,7 @@ export async function buildReport(
     energy,
     scores,
     parse: parsed.counts,
-    audit: parsed.audit,
+    audit: sessionAudit,
     notes,
   };
 }

@@ -15,7 +15,9 @@ describe('buildReport on small.jsonl', () => {
     expect(report.grandTotal).toBe(20100);
     expect(report.cost.pricedTurns).toBe(3);
     expect(report.parse.unknownType).toBe(1);
-    expect(report.audit).toHaveLength(1);
+    // report.audit is the sidecar session trail (none for this fixture); the
+    // parse skip above is reported via parse counts, not as an audit event.
+    expect(report.audit).toEqual([]);
     // Shipped prices are source-cited, so no TODO-VERIFY note appears; the
     // thinking-rate assumption is always stated.
     expect(report.notes.join(' ')).toContain('Thinking tokens are priced at the output rate');
@@ -56,6 +58,36 @@ describe('buildReport on small.jsonl', () => {
     );
     const report = await buildReport(fixture('small.jsonl'), { auditPath });
     expect(report.scores.contextEfficiency).toMatchObject({ scorable: true, score: 90 });
+  });
+
+  it('footer audit-event count and scoring serve count read the same trail', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'redutok-report-footer-'));
+    const auditPath = path.join(dir, 'audit.jsonl');
+    const event = (sessionId: string, action: string, bytesOut: number, id: string) =>
+      JSON.stringify({
+        id,
+        timestamp: '2026-07-19T10:00:00.000Z',
+        sessionId,
+        module: 'sidecar.distill',
+        action,
+        reason: 'x',
+        bytesOut,
+      });
+    writeFileSync(
+      auditPath,
+      [
+        event('s-small', 'distill', 900, 'e1'),
+        event('s-small', 'serve-raw', 100, 'e2'),
+        event('s-other', 'serve-raw', 90_000, 'e3'),
+      ].join('\n') + '\n',
+    );
+    const report = await buildReport(fixture('small.jsonl'), { auditPath });
+    // Both counters derive from report.audit: the session-attributed sidecar
+    // trail scoring consumed, never the parse audit.
+    expect(report.audit).toHaveLength(2);
+    const text = renderText(report);
+    expect(text).toContain('Audit events: 2.');
+    expect(text).toContain('across 2 serves');
   });
 
   it('round-trips through JSON for --json output', async () => {
