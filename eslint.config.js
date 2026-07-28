@@ -7,8 +7,10 @@ export default tseslint.config(
     // third-party code, e.g. chalk); they are test data measured by the
     // bench harness, not our own source, and vendored files carry their
     // upstream project's own lint conventions (eslint-disable comments for
-    // plugin rules we do not install).
-    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', 'fixtures/repos/**'],
+    // plugin rules we do not install). .claude holds generated launchers and
+    // session worktrees (full checkouts, fixtures included) that the
+    // pre-push lint must not descend into.
+    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', 'fixtures/repos/**', '.claude/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
