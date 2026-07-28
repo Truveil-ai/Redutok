@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 import { createInterface } from 'node:readline';
+import { resolveSidecarPort } from './config.js';
 import { handleMcpRequest, type JsonRpcRequest, type McpDeps } from './server.js';
 
 /**
  * Stdio entry: newline-delimited JSON-RPC per the MCP stdio transport.
- * Sidecar discovery via REDUTOK_PORT, defaulting to the pidfile-free
- * fail-open path (a dead target just means raw passthrough).
+ * Sidecar discovery via this repo's .dcp/config.json, with REDUTOK_PORT as
+ * an explicit override only; a dead target just means raw passthrough.
  */
 
+const repoRoot = process.cwd();
 const deps: McpDeps = {
-  target: { port: Number(process.env['REDUTOK_PORT'] ?? '48642') },
+  target: { port: resolveSidecarPort(process.env, repoRoot) },
   sessionId: process.env['REDUTOK_SESSION'] ?? `mcp-${process.pid}`,
+  repoRoot,
 };
 
 const rl = createInterface({ input: process.stdin, terminal: false });

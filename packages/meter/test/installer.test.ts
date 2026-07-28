@@ -79,6 +79,10 @@ describe('initRepo', () => {
     expect(settings.hooks.SessionStart).toBeDefined();
     const mcp = JSON.parse(readFileSync(path.join(repo, '.mcp.json'), 'utf8'));
     expect(mcp.mcpServers.redutok.command).toBe('node');
+    // Port isolation: no hardcoded port in .mcp.json; the MCP entry resolves
+    // it from this repo's .dcp/config.json so temp copies hit their own daemon.
+    expect(mcp.mcpServers.redutok.env.REDUTOK_PORT).toBeUndefined();
+    expect(mcp.mcpServers.redutok.env.REDUTOK_DCP_DIR).toBe('.dcp');
     expect(existsSync(path.join(repo, '.claude', 'redutok', 'hook.mjs'))).toBe(true);
     expect(existsSync(path.join(repo, '.claude', 'redutok', 'mcp.mjs'))).toBe(true);
     expect(existsSync(path.join(repo, '.dcp', 'config.json'))).toBe(true);

@@ -200,10 +200,13 @@ export function initRepo(targetDir: string): string {
     ? (JSON.parse(readFileSync(mcpPath, 'utf8')) as Record<string, unknown>)
     : {};
   const servers = (mcpConfig['mcpServers'] ?? {}) as Record<string, unknown>;
+  // No REDUTOK_PORT here: the MCP entry resolves the port from this repo's
+  // .dcp/config.json, so every copy of a repo targets its own daemon. A
+  // hardcoded port made bench temp copies talk to the dogfood daemon.
   servers['redutok'] = {
     command: 'node',
     args: ['.claude/redutok/mcp.mjs'],
-    env: { REDUTOK_PORT: String(DEFAULT_SIDECAR_PORT), REDUTOK_DCP_DIR: '.dcp' },
+    env: { REDUTOK_DCP_DIR: '.dcp' },
   };
   mcpConfig['mcpServers'] = servers;
   writeFileSync(mcpPath, JSON.stringify(mcpConfig, null, 2) + '\n', 'utf8');

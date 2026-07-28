@@ -26,6 +26,9 @@ export interface McpDeps {
   target?: SidecarTarget;
   timeoutMs?: number;
   sessionId?: string;
+  /** Repo this server fronts; rides on serve/zoom requests so a misdirected
+   * daemon can refuse cross-repo traffic (defense in depth). */
+  repoRoot?: string;
 }
 
 const NOTICE = '[dcp notice: sidecar unavailable, raw passthrough]';
@@ -154,7 +157,7 @@ async function toolRead(deps: McpDeps, args: Record<string, unknown>): Promise<s
     deps.target ?? {},
     'POST',
     '/serve-file',
-    { raw, path: filePath, sessionId: deps.sessionId ?? 'mcp-session' },
+    { raw, path: filePath, sessionId: deps.sessionId ?? 'mcp-session', repoRoot: deps.repoRoot },
     { timeoutMs: deps.timeoutMs ?? 2500 },
   );
   if (!res.ok || res.status !== 200) return `${raw}\n${NOTICE}`;
@@ -267,10 +270,18 @@ async function toolZoom(deps: McpDeps, args: Record<string, unknown>): Promise<s
     deps.target ?? {},
     'POST',
     '/zoom',
-    { id: String(args['id']), query: args['query'] === undefined ? undefined : String(args['query']) },
+    {
+      id: String(args['id']),
+      query: args['query'] === undefined ? undefined : String(args['query']),
+      repoRoot: deps.repoRoot,
+    },
     { timeoutMs: deps.timeoutMs ?? 2500 },
   );
   if (!res.ok) return `dcp__zoom: sidecar unavailable (${res.error}); the raw artifact cannot be recovered until redutok up`;
+  if (res.status !== 200) {
+    const body = res.body as { error?: string };
+    return `dcp__zoom failed: ${body.error ?? `sidecar answered ${res.status}`}`;
+  }
   const body = res.body as { found: boolean; text: string };
   return body.text;
 }

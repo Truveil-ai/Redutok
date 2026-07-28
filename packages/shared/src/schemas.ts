@@ -63,6 +63,7 @@ export const AuditActionSchema = z.enum([
   'skip',
   'zoom',
   'rewrite',
+  'refuse',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 

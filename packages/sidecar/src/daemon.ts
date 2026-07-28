@@ -61,6 +61,13 @@ function readBody(req: http.IncomingMessage): Promise<unknown> {
   });
 }
 
+/** Roots compare after resolution, trailing-separator strip, and (win32)
+ * case folding, so `E:\repo\` and `e:/repo` agree. */
+function normalizedRoot(p: string): string {
+  const resolved = path.resolve(p).replace(/[\\/]+$/, '');
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
 function handler(
   log: Logger,
   repoRoot: string,
@@ -86,6 +93,35 @@ function handler(
       res.end(JSON.stringify(body));
     };
     log.info('request', { method: req.method, path: url.pathname });
+    // Defense in depth for the port-collision scenario: serve and zoom
+    // payloads carry the caller's repoRoot, and a caller rooted in another
+    // repo is refused with an audited error instead of silently answered.
+    const refuseIfCrossRepo = (p: Record<string, unknown>): boolean => {
+      const caller = p['repoRoot'];
+      if (typeof caller !== 'string' || caller === '') return false;
+      if (normalizedRoot(caller) === normalizedRoot(repoRoot)) return false;
+      const reason = `cross-repo ${url.pathname} refused: this daemon serves ${repoRoot}, caller is rooted at ${caller}`;
+      if (engines !== undefined) {
+        const event: AuditEvent = {
+          id: `refuse-${randomBytes(3).toString('hex')}`,
+          timestamp: new Date().toISOString(),
+          sessionId: attributedSessionId(p['sessionId']),
+          module: 'sidecar.daemon',
+          action: 'refuse',
+          reason,
+          details: { path: url.pathname, callerRepoRoot: caller, daemonRepoRoot: repoRoot },
+        };
+        try {
+          engines.audit.write(event);
+          engines.store.insertAuditEvent(event);
+        } catch (err) {
+          log.error('refusal audit failed', { error: String(err) });
+        }
+      }
+      log.error('cross-repo request refused', { path: url.pathname, caller });
+      respond(403, { ok: false, error: `${reason}; check the caller's .dcp/config.json port wiring` });
+      return true;
+    };
     if (req.method === 'POST' && url.pathname === '/serve-file') {
       // Delta path for dcp__read: first serve full (then distilled by the
       // caller's profile), later serves as diff or unchanged reference.
@@ -96,6 +132,7 @@ function handler(
       void readBody(req)
         .then(async (payload) => {
           const p = payload as Record<string, unknown>;
+          if (refuseIfCrossRepo(p)) return;
           const sessionId = attributedSessionId(p['sessionId']);
           const relPath = String(p['path'] ?? '');
           const raw = String(p['raw'] ?? '');
@@ -137,6 +174,7 @@ function handler(
         .then(async (payload) => {
           const p = payload as Record<string, unknown>;
           if (url.pathname === '/zoom') {
+            if (refuseIfCrossRepo(p)) return;
             // The codex rides along so a query naming a symbol of the
             // artifact's file resolves to the full definition body.
             let codex;
