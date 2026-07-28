@@ -10,7 +10,7 @@ export default tseslint.config(
     // plugin rules we do not install). .claude holds generated launchers and
     // session worktrees (full checkouts, fixtures included) that the
     // pre-push lint must not descend into.
-    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', 'fixtures/repos/**', '.claude/**'],
+    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', 'fixtures/repos/**', '.claude/**', '.dcp/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
