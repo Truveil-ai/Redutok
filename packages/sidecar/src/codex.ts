@@ -11,7 +11,7 @@ import {
   type CodexLock,
 } from '@redutok/shared';
 import { estimateTokens } from './distill.js';
-import { refreshMirror, type RefreshMirrorOptions } from './mirror.js';
+import { refreshMirror, type RefreshMirrorOptions, type SkeletonEnrichment } from './mirror.js';
 import { fileSkeleton, languageForPath } from './skeleton.js';
 
 /**
@@ -98,6 +98,10 @@ function preserveLocked(generated: CodexFile, existing?: CodexFile): CodexFile {
   merged.glossary = existing.glossary;
   merged.pitfalls = existing.pitfalls;
   merged.conventions = existing.conventions;
+  // The learned section is generated, but from candidates rather than from
+  // source: regeneration cannot rebuild it, so it carries over wholesale and
+  // only the graduation pass adds or withdraws entries.
+  merged.learned = existing.learned;
   merged.locked = existing.locked;
   if (existing.summary !== undefined && existing.locked.includes('summary')) {
     merged.summary = existing.summary;
@@ -199,7 +203,9 @@ export async function writeCodex(root: string): Promise<CodexResult> {
   // (not gated on changed) so a repo with an up-to-date codex still gains its
   // mirror on the first refresh after the mirror feature exists; refreshMirror
   // itself skips fresh entries, keeping unchanged input byte-stable.
-  await refreshMirror(root, Object.keys(result.lock.files));
+  await refreshMirror(root, Object.keys(result.lock.files), {
+    enrichments: enrichmentDirectives(result.codex),
+  });
   return result;
 }
 
@@ -239,29 +245,56 @@ export async function refreshFiles(
   // v3 pillar B: the mirror is maintained by this same incremental path. The
   // full changed list (not just reindexed) is passed so a mirror entry that
   // went missing or stale behind an up-to-date lock is still repaired.
-  await refreshMirror(
-    root,
-    changed.map((rel) => rel.replace(/\\/g, '/')),
-    mirrorOptions,
-  );
+  await refreshMirror(root, changed.map((rel) => rel.replace(/\\/g, '/')), {
+    enrichments: enrichmentDirectives(codex),
+    ...mirrorOptions,
+  });
   return reindexed;
+}
+
+/** The mirror-facing view of the codex learned section (docs/GRADUATION.md). */
+export function enrichmentDirectives(codex: CodexFile | undefined): SkeletonEnrichment[] {
+  return (codex?.learned ?? []).map((entry) => ({ path: entry.path, symbols: entry.symbols }));
 }
 
 /** Injection, architecture 3.4: codex minus the files index, trust preamble, hard 3k budget. */
 export const TRUST_PREAMBLE =
   'You have a verified codex of this repository. Trust it. Do not re-explore structure that the codex covers. Use dcp tools to read code.';
 
-/** Documented degrade order when the injection exceeds the budget. */
-export const DEGRADE_ORDER = ['glossary', 'conventions', 'importGraph', 'interfaces', 'keySymbols'] as const;
+/**
+ * Documented degrade order when the injection exceeds the budget. learned
+ * sits after importGraph and before interfaces: graduated entries are the
+ * product of repeated observed friction so they outrank generic context,
+ * but raw interface truth still outranks them (docs/GRADUATION.md).
+ */
+export const DEGRADE_ORDER = ['glossary', 'conventions', 'importGraph', 'learned', 'interfaces', 'keySymbols'] as const;
 
 export function buildCodexInjection(codex: CodexFile, maxTokens = 3000): string {
   const slim: Record<string, unknown> = { ...codex };
   delete slim['files'];
+  // Hard per-section budget for learned (docs/GRADUATION.md): when over,
+  // the lowest-confidence directives are excluded first until it fits.
+  let learnedExcluded = 0;
+  if (codex.learned.length > 0) {
+    const entries = [...codex.learned].sort((a, b) => b.confidence - a.confidence);
+    while (
+      entries.length > 0 &&
+      estimateTokens(stringifyYaml({ learned: entries })) > LIMITS.GRADUATION.LEARNED_SECTION_MAX_TOKENS
+    ) {
+      entries.pop();
+      learnedExcluded += 1;
+    }
+    slim['learned'] = entries;
+  }
   const dropped: string[] = [];
   const render = (): string => {
+    const learnedNote =
+      learnedExcluded > 0 && !dropped.includes('learned')
+        ? `\n[${learnedExcluded} learned entries excluded to fit the learned budget]`
+        : '';
     const note =
       dropped.length > 0 ? `\n[codex sections dropped to fit the budget: ${dropped.join(', ')}]` : '';
-    return `${TRUST_PREAMBLE}\n\n${stringifyYaml(slim)}${note}`;
+    return `${TRUST_PREAMBLE}\n\n${stringifyYaml(slim)}${learnedNote}${note}`;
   };
   let text = render();
   for (const section of DEGRADE_ORDER) {

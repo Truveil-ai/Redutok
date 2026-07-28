@@ -76,6 +76,31 @@ export const LIMITS = {
   EXPLORE_STEP_CAP: { quick: 3, standard: 6, thorough: 12 },
   /** dcp__explore wall-clock ceiling per budget tier, paired with EXPLORE_STEP_CAP. */
   EXPLORE_WALL_CLOCK_MS: { quick: 5_000, standard: 15_000, thorough: 30_000 },
+  /**
+   * Graduation confidence formula and thresholds, docs/GRADUATION.md (v4
+   * Compounding Codex phase 2). Confidence is
+   *   clamp((1 - 0.5^(occurrences / OCCURRENCE_HALF_SATURATION))
+   *         * 0.5^(daysSince(lastSeen) / RECENCY_HALF_LIFE_DAYS)
+   *         - CONTRADICTION_PENALTY * contradictions, 0, 1).
+   * Two fresh observations sit exactly at GRADUATE_MIN_CONFIDENCE; a weakly
+   * supported graduated entry withdraws on its first contradiction while a
+   * seven-session entry takes three. Product tuning constants, not measured
+   * claims.
+   */
+  GRADUATION: {
+    /** Occurrence count at which the occurrence term reaches 0.5 (saturating toward 1). */
+    OCCURRENCE_HALF_SATURATION: 2,
+    /** Days since lastSeen that halve the confidence. */
+    RECENCY_HALF_LIFE_DAYS: 14,
+    /** Flat confidence cost per recorded contradiction. */
+    CONTRADICTION_PENALTY: 0.25,
+    /** A candidate at or above this is eligible to graduate into the codex. */
+    GRADUATE_MIN_CONFIDENCE: 0.5,
+    /** A contradicted graduated entry below this is withdrawn from the codex. */
+    WITHDRAW_BELOW_CONFIDENCE: 0.3,
+    /** Hard token budget for the codex learned section at injection time. */
+    LEARNED_SECTION_MAX_TOKENS: 500,
+  },
 } as const;
 
 export type Limits = typeof LIMITS;

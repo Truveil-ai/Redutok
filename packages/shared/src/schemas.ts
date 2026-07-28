@@ -64,6 +64,8 @@ export const AuditActionSchema = z.enum([
   'zoom',
   'rewrite',
   'refuse',
+  'graduate',
+  'withdraw',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
@@ -105,8 +107,21 @@ export const CandidateRecordSchema = z.object({
   lastSeen: z.string().datetime(),
   /** Increments once per session that re-observes the candidate. */
   occurrences: z.number().int().positive(),
-  /** Reserved for the codex-write phase; always null in extraction-only v1. */
-  contradiction: z.null().default(null),
+  /**
+   * Count of contradiction observations (evidence conflicting with the
+   * graduated entry). null is the extraction-era spelling of zero; each
+   * contradiction subtracts LIMITS.GRADUATION.CONTRADICTION_PENALTY from
+   * confidence (docs/GRADUATION.md).
+   */
+  contradiction: z.number().int().nonnegative().nullable().default(null),
+  /** Sessions already counted as contradictions, so re-running the pass stays idempotent. */
+  contradictedSessions: z.array(z.string()).default([]),
+  /** Lifecycle: graduation promotes to graduated; demotion moves to withdrawn (history kept). */
+  status: z.enum(['candidate', 'graduated', 'withdrawn']).default('candidate'),
+  /** Confidence at the last graduation pass; live value comes from candidateConfidence. */
+  confidence: z.number().min(0).max(1).optional(),
+  graduatedAt: z.string().datetime().optional(),
+  withdrawnAt: z.string().datetime().optional(),
   details: z.record(z.unknown()).default({}),
 });
 export type CandidateRecord = z.infer<typeof CandidateRecordSchema>;
@@ -162,7 +177,31 @@ export type DistillProfile = z.infer<typeof DistillProfileSchema>;
 export const LockableTextSchema = z.object({
   text: z.string().min(1),
   locked: z.boolean().default(false),
+  /**
+   * graduated entries are machine-written by the graduation pass and carry
+   * their candidate reference; the pipeline only ever adds or withdraws its
+   * own graduated, unlocked entries — human or locked entries are untouchable.
+   */
+  source: z.enum(['human', 'graduated']).default('human'),
+  candidate: z.string().optional(),
+  confidence: z.number().min(0).max(1).optional(),
 });
+
+/**
+ * A graduated zoom-hotspot's skeleton-enrichment directive: the mirror and
+ * the file-skeleton profile keep the full bodies of these symbols for this
+ * file from then on. Generated only; withdrawal removes it.
+ */
+export const LearnedEntrySchema = z.object({
+  kind: z.literal('skeleton-enrichment'),
+  candidate: z.string().min(1),
+  path: z.string().min(1),
+  symbols: z.array(z.string().min(1)).min(1),
+  confidence: z.number().min(0).max(1),
+  source: z.literal('graduated').default('graduated'),
+  addedAt: z.string().datetime(),
+});
+export type LearnedEntry = z.infer<typeof LearnedEntrySchema>;
 
 export const CodexFileSchema = z.object({
   version: z.string().min(1),
@@ -192,6 +231,8 @@ export const CodexFileSchema = z.object({
     .default([]),
   conventions: z.array(LockableTextSchema).default([]),
   pitfalls: z.array(LockableTextSchema).default([]),
+  /** Generated section: graduated skeleton-enrichment directives (docs/GRADUATION.md). */
+  learned: z.array(LearnedEntrySchema).default([]),
   glossary: z
     .array(
       z.object({

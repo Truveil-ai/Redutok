@@ -126,7 +126,9 @@ describe('locked entries', () => {
     await writeCodex(root);
     await semanticPass(root, { baseUrl: 'http://127.0.0.1:1', timeoutMs: 100 });
     const after = readCodex(root).codex;
-    expect(after?.pitfalls).toEqual([{ text: 'never call put during iteration', locked: true }]);
+    expect(after?.pitfalls).toEqual([
+      { text: 'never call put during iteration', locked: true, source: 'human' },
+    ]);
     expect(after?.glossary[0]?.term).toBe('row');
     expect(after?.map.find((m) => m.path === 'src')?.role).toBe('hand written role');
   });

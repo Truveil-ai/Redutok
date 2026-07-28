@@ -95,7 +95,7 @@ async function fileSkeletonDistill(
   const allowed = (ruleConfig(profile, 'skeleton')['languages'] as string[] | undefined) ?? ['ts'];
   if (!allowed.includes(lang)) return '';
   const header = context.filePath === undefined ? [] : [`skeleton of ${context.filePath}`];
-  const skeleton = await fileSkeleton(raw, lang);
+  const skeleton = await fileSkeleton(raw, lang, context.keepSymbols ?? []);
   const withZoom = skeleton.replace(
     /^\[(\d+ import lines omitted)\]/,
     (_m, inner: string) => `[${inner}, ${zoomRef(context)}]`,
@@ -154,6 +154,11 @@ export interface DistillContext {
    * path. Absent only when a distiller is exercised outside distillArtifact.
    */
   artifactId?: string;
+  /**
+   * Skeleton enrichment (docs/GRADUATION.md): symbols whose full bodies the
+   * file-skeleton profile keeps, from a graduated zoom-hotspot directive.
+   */
+  keepSymbols?: readonly string[];
 }
 
 function zoomRef(context: DistillContext): string {

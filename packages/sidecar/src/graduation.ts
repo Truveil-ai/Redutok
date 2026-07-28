@@ -1,25 +1,33 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { stringify as stringifyYaml } from 'yaml';
 import {
   CandidateRecordSchema,
-  LIMITS,
+  candidateConfidence,
+  isBelowWithdrawal,
+  isEligibleForGraduation,
   readAuditFile,
   readCandidatesFile,
+  LIMITS,
   type AuditEvent,
   type CandidateRecord,
   type CandidateType,
 } from '@redutok/shared';
 import { AuditWriter } from './audit.js';
+import { codexPaths, enrichmentDirectives, readCodex } from './codex.js';
+import { enrichmentFor, readMirrorIndex, refreshMirror } from './mirror.js';
 import { NoopLlmPass, type LlmPass } from './llm.js';
 
 /**
- * Graduation miner, v4 (Compounding Codex) phase 1: extraction only.
- * Triggered asynchronously by the session-end notify path, it mines the
- * just-ended session's attributed audit events for candidate learnings and
- * persists them to .dcp/candidates.jsonl. Rules-first and fully local: with
- * the default NoopLlmPass no model is called and no byte leaves the machine.
- * Nothing here writes to the codex yet.
+ * Graduation miner and pass, v4 (Compounding Codex) phase 2. Triggered
+ * asynchronously by the session-end notify path: extraction mines the
+ * just-ended session's attributed audit events into .dcp/candidates.jsonl,
+ * then the graduation pass acts on the accumulated knowledge — candidates
+ * that earned enough confidence graduate into the codex, contradicted
+ * graduated entries demote, and every action writes its own audit event
+ * (docs/GRADUATION.md). Rules-first and fully local: with the default
+ * NoopLlmPass no model is called and no byte leaves the machine.
  */
 
 /** Minimal artifact view the miner needs; the store's getArtifact satisfies it. */
@@ -255,11 +263,24 @@ function candidateId(type: string, key: string): string {
   return `cand-${createHash('sha256').update(`${type}\n${key}`).digest('hex').slice(0, 8)}`;
 }
 
+/** Sessions a candidate was mined from, remembered so no re-run inflates occurrences. */
+const MINED_SESSIONS_CAP = 50;
+
+function minedSessionsOf(record: CandidateRecord): string[] {
+  const sessions = record.details['minedSessions'];
+  if (Array.isArray(sessions)) return sessions.filter((s): s is string => typeof s === 'string');
+  // Extraction-era records tracked only the last mined session.
+  const last = record.details['lastMinedSession'];
+  return typeof last === 'string' ? [last] : [];
+}
+
 /**
  * Merges one session's mined candidates into the persistent record list.
- * Occurrences increment once per session that re-observes a candidate; a
- * re-run over the same session (Stop fires more than once) refreshes the
- * record without inflating the count and is reported as skipped.
+ * Occurrences increment once per session that re-observes a candidate; any
+ * re-run over already-mined sessions (a second Stop, a full-history re-mine)
+ * refreshes the record without inflating the count and is reported as
+ * skipped. Found live: tracking only the last mined session let a
+ * full-history re-run inflate every multi-session candidate.
  */
 export function mergeCandidates(
   records: CandidateRecord[],
@@ -282,17 +303,30 @@ export function mergeCandidates(
           firstSeen: now,
           lastSeen: now,
           occurrences: 1,
-          details: { ...candidate.details, lastMinedSession: sessionId },
+          details: { ...candidate.details, lastMinedSession: sessionId, minedSessions: [sessionId] },
         }),
       );
       continue;
     }
-    const sameSession = existing.details['lastMinedSession'] === sessionId;
+    const minedSessions = minedSessionsOf(existing);
+    const sameSession = minedSessions.includes(sessionId);
     existing.evidence = [...new Set([...existing.evidence, ...candidate.evidence])].slice(
       0,
       EVIDENCE_CAP,
     );
-    existing.details = { ...candidate.details, lastMinedSession: sessionId };
+    const details: Record<string, unknown> = {
+      ...candidate.details,
+      lastMinedSession: sessionId,
+      minedSessions: [...new Set([...minedSessions, sessionId])].slice(-MINED_SESSIONS_CAP),
+    };
+    // Queried symbols accumulate across sessions: a graduated hotspot must
+    // enrich every symbol any observing session asked for, not just the last.
+    const priorQueries = existing.details['queries'];
+    const newQueries = candidate.details['queries'];
+    if (Array.isArray(priorQueries) && Array.isArray(newQueries)) {
+      details['queries'] = [...new Set([...priorQueries, ...newQueries])];
+    }
+    existing.details = details;
     existing.lastSeen = now;
     if (sameSession) {
       skipped += 1;
@@ -306,6 +340,8 @@ export function mergeCandidates(
 
 export interface GraduationOptions {
   dcpDir: string;
+  /** Repo root holding codex and mirror; defaults to the parent of dcpDir. */
+  repoRoot?: string;
   /** Mine only this session; omitted, every session in the audit history is mined in order. */
   sessionId?: string;
   /** Local-model lesson drafting seam; NoopLlmPass (rule fallback only) by default. */
@@ -319,6 +355,218 @@ export interface GraduationOptions {
 export interface GraduationResult extends MergeCounts {
   records: CandidateRecord[];
   candidatesPath: string;
+  /** Candidate ids graduated, contradicted, and withdrawn by this run's pass. */
+  graduated: string[];
+  contradicted: string[];
+  withdrawn: string[];
+}
+
+/** Path equality with the /-boundary suffix rule the mirror uses (docs/GRADUATION.md). */
+function pathsMatch(a: string, b: string): boolean {
+  const na = a.replace(/\\/g, '/');
+  const nb = b.replace(/\\/g, '/');
+  return na === nb || na.endsWith(`/${nb}`) || nb.endsWith(`/${na}`);
+}
+
+/** Identifier tokens across every query a hotspot accumulated, capped. */
+function queriedSymbols(record: CandidateRecord): string[] {
+  const queries = record.details['queries'];
+  if (!Array.isArray(queries)) return [];
+  const symbols = queries
+    .filter((q): q is string => typeof q === 'string')
+    .flatMap((q) => q.split(/[^A-Za-z0-9_$]+/))
+    .filter((s) => s !== '');
+  return [...new Set(symbols)].slice(0, 12);
+}
+
+const CONTRADICTED_SESSIONS_CAP = 20;
+
+/**
+ * One contradiction per conflicting session: for a graduated error-fix, the
+ * same error signature failing again after the fix was present in the codex;
+ * for a graduated zoom-hotspot, the enriched file still producing zoom-backs.
+ * Only events after graduatedAt count — history mined before an entry
+ * existed cannot contradict it.
+ */
+function sessionContradicts(
+  record: CandidateRecord,
+  events: AuditEvent[],
+  resolve?: ArtifactLookup,
+): boolean {
+  const graduatedAt = record.graduatedAt ?? '';
+  if (record.type === 'error-fix') {
+    const wanted = String(record.details['errorSignature'] ?? record.signature);
+    return events.some((event) => {
+      if (event.timestamp <= graduatedAt || verdictOf(event) !== 'fail') return false;
+      const profile = String(event.details?.['profile'] ?? 'unknown');
+      const signature =
+        errorSignatureFor(event, resolve) ?? `${profile} verdict fail then pass`;
+      return signature === wanted;
+    });
+  }
+  if (record.type === 'zoom-hotspot' && record.details['targetKind'] === 'file') {
+    const target = String(record.details['target'] ?? '');
+    return events.some((event) => {
+      if (event.timestamp <= graduatedAt) return false;
+      if (event.module !== 'sidecar.zoom' || event.inputRef === undefined) return false;
+      const filePath = resolve?.(event.inputRef)?.filePath;
+      return typeof filePath === 'string' && filePath !== '' && pathsMatch(filePath, target);
+    });
+  }
+  return false;
+}
+
+interface PassCounts {
+  graduated: string[];
+  contradicted: string[];
+  withdrawn: string[];
+}
+
+/**
+ * Acts on the merged candidate list: refreshes every record's confidence,
+ * withdraws contradicted graduated entries that fell below the demotion
+ * threshold, graduates newly eligible candidates into the codex, and keeps
+ * the mirror in step with the learned directives. Idempotent by
+ * construction: statuses gate re-graduation, codex entries are keyed by
+ * candidate id, and contradiction counting is per-session. Human or locked
+ * codex entries are never modified or removed.
+ */
+async function runGraduationPass(
+  records: CandidateRecord[],
+  root: string,
+  now: () => string,
+  emit: (event: AuditEvent) => void,
+): Promise<PassCounts> {
+  const counts: PassCounts = { graduated: [], contradicted: [], withdrawn: [] };
+  const nowDate = new Date(now());
+  for (const record of records) {
+    record.confidence = candidateConfidence(record, nowDate);
+  }
+  const { codex } = readCodex(root);
+  // No codex, no place to graduate into or withdraw from: confidence still
+  // refreshed above, everything else waits for redutok codex refresh.
+  if (codex === undefined) return counts;
+
+  const directivePathsBefore = codex.learned.map((entry) => entry.path);
+  let codexDirty = false;
+
+  for (const record of records) {
+    if (!isBelowWithdrawal(record, nowDate)) continue;
+    codex.learned = codex.learned.filter((entry) => entry.candidate !== record.id);
+    const lockedKept: string[] = [];
+    for (const section of ['pitfalls', 'conventions'] as const) {
+      codex[section] = codex[section].filter((entry) => {
+        if (entry.source !== 'graduated' || entry.candidate !== record.id) return true;
+        if (entry.locked) {
+          lockedKept.push(section);
+          return true;
+        }
+        return false;
+      });
+    }
+    codexDirty = true;
+    record.status = 'withdrawn';
+    record.withdrawnAt = now();
+    counts.withdrawn.push(record.id);
+    emit({
+      id: `withdraw-${randomBytes(3).toString('hex')}`,
+      timestamp: now(),
+      sessionId: 'graduation',
+      module: 'sidecar.graduation',
+      action: 'withdraw',
+      reason:
+        `graduated entry for ${record.id} withdrawn: confidence ${record.confidence?.toFixed(2) ?? '?'} ` +
+        `below ${LIMITS.GRADUATION.WITHDRAW_BELOW_CONFIDENCE} after ${record.contradiction ?? 0} contradiction(s)` +
+        (lockedKept.length > 0 ? `; locked ${lockedKept.join(', ')} entry left in place` : ''),
+      details: {
+        candidate: record.id,
+        type: record.type,
+        confidence: record.confidence,
+        contradiction: record.contradiction,
+      },
+    });
+  }
+
+  for (const record of records) {
+    if (!isEligibleForGraduation(record, nowDate)) continue;
+    let section: 'learned' | 'pitfalls' | 'conventions';
+    if (record.type === 'zoom-hotspot') {
+      // Only file-target hotspots with queried symbols are actionable as
+      // skeleton enrichment; the rest stay candidates.
+      const symbols = queriedSymbols(record);
+      if (record.details['targetKind'] !== 'file' || symbols.length === 0) continue;
+      if (codex.learned.some((entry) => entry.candidate === record.id)) continue;
+      codex.learned.push({
+        kind: 'skeleton-enrichment',
+        candidate: record.id,
+        path: String(record.details['target']),
+        symbols,
+        confidence: record.confidence ?? 0,
+        source: 'graduated',
+        addedAt: now(),
+      });
+      section = 'learned';
+    } else {
+      section = record.type === 'error-fix' ? 'pitfalls' : 'conventions';
+      if (codex[section].some((entry) => entry.candidate === record.id)) continue;
+      const text =
+        record.type === 'error-fix'
+          ? `${String(record.details['errorSignature'] ?? record.signature)} — fix: ${errorFixSummary(record)}`
+          : (record.lesson ?? record.signature);
+      codex[section].push({
+        text,
+        locked: false,
+        source: 'graduated',
+        candidate: record.id,
+        confidence: record.confidence,
+      });
+    }
+    codexDirty = true;
+    record.status = 'graduated';
+    record.graduatedAt = now();
+    counts.graduated.push(record.id);
+    emit({
+      id: `graduate-${randomBytes(3).toString('hex')}`,
+      timestamp: now(),
+      sessionId: 'graduation',
+      module: 'sidecar.graduation',
+      action: 'graduate',
+      reason:
+        `candidate ${record.id} (${record.type}, x${record.occurrences}, confidence ` +
+        `${record.confidence?.toFixed(2) ?? '?'}) graduated into codex ${section}`,
+      details: {
+        candidate: record.id,
+        type: record.type,
+        section,
+        confidence: record.confidence,
+        occurrences: record.occurrences,
+      },
+    });
+  }
+
+  if (codexDirty) {
+    codex.generatedAt = now();
+    writeFileSync(codexPaths(root).yaml, stringifyYaml(codex), 'utf8');
+    // The mirror follows the directives: entries matching an added or
+    // withdrawn directive regenerate (the enrichment fingerprint makes an
+    // unchanged source refresh anyway).
+    const affected = [...new Set([...directivePathsBefore, ...codex.learned.map((e) => e.path)])];
+    const mirrorRels = Object.keys(readMirrorIndex(root)?.files ?? {}).filter((rel) =>
+      affected.some((p) => enrichmentFor(rel, [{ path: p, symbols: [] }]) !== undefined),
+    );
+    if (mirrorRels.length > 0) {
+      await refreshMirror(root, mirrorRels, { enrichments: enrichmentDirectives(codex) });
+    }
+  }
+  return counts;
+}
+
+function errorFixSummary(record: CandidateRecord): string {
+  if (record.lesson !== undefined) return record.lesson;
+  const changed = record.details['changedFiles'];
+  const files = Array.isArray(changed) ? changed.filter((f): f is string => typeof f === 'string') : [];
+  const command = typeof record.details['command'] === 'string' ? ` (${record.details['command']})` : '';
+  return files.length > 0 ? `edit ${files.join(', ')}${command}` : `re-run until green${command}`;
 }
 
 const LESSON_PROMPT =
@@ -348,6 +596,7 @@ export async function runGraduationMiner(opts: GraduationOptions): Promise<Gradu
       ? [opts.sessionId]
       : [...new Set(events.map((e) => e.sessionId ?? 'unknown'))];
   const counts: MergeCounts = { mined: 0, merged: 0, skipped: prior.malformed };
+  const contradicted: string[] = [];
   const knownKeys = new Set(records.map((r) => `${r.type}\n${r.key}`));
   for (const sessionId of sessionIds) {
     const sessionEvents = events.filter((e) => (e.sessionId ?? 'unknown') === sessionId);
@@ -359,6 +608,20 @@ export async function runGraduationMiner(opts: GraduationOptions): Promise<Gradu
     counts.mined += merge.mined;
     counts.merged += merge.merged;
     counts.skipped += merge.skipped;
+    // Contradiction sweep (docs/GRADUATION.md): evidence in this session
+    // conflicting with an entry graduated before it. Counted once per
+    // session so re-running the same history stays idempotent.
+    for (const record of records) {
+      if (record.status !== 'graduated' || record.contradictedSessions.includes(sessionId)) {
+        continue;
+      }
+      if (!sessionContradicts(record, sessionEvents, opts.resolveArtifact)) continue;
+      record.contradiction = (record.contradiction ?? 0) + 1;
+      record.contradictedSessions = [...record.contradictedSessions, sessionId].slice(
+        -CONTRADICTED_SESSIONS_CAP,
+      );
+      contradicted.push(record.id);
+    }
   }
 
   // Optional local-model pass over the records this run created. Timeout-
@@ -376,6 +639,16 @@ export async function runGraduationMiner(opts: GraduationOptions): Promise<Gradu
     if (lesson !== null && lesson.trim() !== '') record.lesson = lesson.trim();
   }
 
+  // The pass acts on the merged knowledge before it is persisted, so status
+  // changes and the candidate file land together.
+  const writer = new AuditWriter(auditPath);
+  const emit = (event: AuditEvent): void => {
+    writer.write(event);
+    opts.onAuditEvent?.(event);
+  };
+  const repoRoot = opts.repoRoot ?? path.dirname(opts.dcpDir);
+  const pass = await runGraduationPass(records, repoRoot, now, emit);
+
   writeFileSync(
     candidatesPath,
     records.map((r) => JSON.stringify(CandidateRecordSchema.parse(r))).join('\n') +
@@ -383,17 +656,25 @@ export async function runGraduationMiner(opts: GraduationOptions): Promise<Gradu
     'utf8',
   );
 
-  const event: AuditEvent = {
+  emit({
     id: `graduation-${randomBytes(3).toString('hex')}`,
     timestamp: now(),
     sessionId: opts.sessionId ?? 'graduation',
     module: 'sidecar.graduation',
     action: 'summarize',
-    reason: `graduation mining run: ${counts.mined} mined, ${counts.merged} merged, ${counts.skipped} skipped across ${sessionIds.length} session(s)`,
-    details: { ...counts, sessions: sessionIds.length, candidatesTotal: records.length },
-  };
-  new AuditWriter(auditPath).write(event);
-  opts.onAuditEvent?.(event);
+    reason:
+      `graduation mining run: ${counts.mined} mined, ${counts.merged} merged, ${counts.skipped} skipped ` +
+      `across ${sessionIds.length} session(s); pass: ${pass.graduated.length} graduated, ` +
+      `${contradicted.length} contradicted, ${pass.withdrawn.length} withdrawn`,
+    details: {
+      ...counts,
+      sessions: sessionIds.length,
+      candidatesTotal: records.length,
+      graduated: pass.graduated.length,
+      contradicted: contradicted.length,
+      withdrawn: pass.withdrawn.length,
+    },
+  });
 
-  return { ...counts, records, candidatesPath };
+  return { ...counts, records, candidatesPath, graduated: pass.graduated, contradicted, withdrawn: pass.withdrawn };
 }
