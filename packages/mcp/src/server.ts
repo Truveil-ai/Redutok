@@ -96,14 +96,15 @@ const TOOLS = [
   },
   {
     name: 'dcp__zoom',
-    description: 'Recover the raw artifact behind a dcp handle id, optionally sliced by a query.',
+    description:
+      'Recover the raw artifact behind a dcp reference (artifact id like a1b2c3 or file ref like F1a2b@hash), optionally sliced by a query.',
     inputSchema: {
       type: 'object',
       properties: {
-        id: { type: 'string' },
+        id: { type: 'string', description: 'Reference from a dcp handle or elision marker' },
+        handle: { type: 'string', description: 'Alias for id; either name works' },
         query: { type: 'string' },
       },
-      required: ['id'],
     },
   },
   {
@@ -266,12 +267,19 @@ async function toolExplore(deps: McpDeps, args: Record<string, unknown>): Promis
 }
 
 async function toolZoom(deps: McpDeps, args: Record<string, unknown>): Promise<string> {
+  // Observed in the h02 bench session: the model passed the reference as
+  // `handle` (the protocol's own word for it). Accept the alias; a missing
+  // reference fails with the argument name, not a store miss on "undefined".
+  const idArg = args['id'] ?? args['handle'];
+  if (typeof idArg !== 'string' || idArg.length === 0) {
+    return 'dcp__zoom failed: missing required argument id (string; handle is an accepted alias)';
+  }
   const res = await sidecarRequest(
     deps.target ?? {},
     'POST',
     '/zoom',
     {
-      id: String(args['id']),
+      id: idArg,
       query: args['query'] === undefined ? undefined : String(args['query']),
       repoRoot: deps.repoRoot,
     },

@@ -154,6 +154,19 @@ export class Store {
       .run(sessionId, filePath, hash, servedAt, content);
   }
 
+  /** Every served-file row, for resolving F-id@hash references back to
+   * content: the ref does not carry the session or path, only hashes. */
+  listServedFiles(): ServedFileRecord[] {
+    const rows = this.db.prepare('SELECT * FROM served_files').all() as Record<string, unknown>[];
+    return rows.map((row) => ({
+      sessionId: row['session_id'] as string,
+      path: row['path'] as string,
+      hash: row['hash'] as string,
+      servedAt: row['served_at'] as string,
+      content: (row['content'] as string | null) ?? '',
+    }));
+  }
+
   getServedFile(sessionId: string, filePath: string): ServedFileRecord | undefined {
     const row = this.db
       .prepare('SELECT * FROM served_files WHERE session_id = ? AND path = ?')

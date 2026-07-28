@@ -12,7 +12,8 @@ import type { AuditWriter } from './audit.js';
 import { runGates, type GateConfig, type GateReport } from './gates.js';
 import { fileSkeleton, languageForPath, type SkeletonLanguage } from './skeleton.js';
 import { storeRedactedArtifact } from './redact.js';
-import type { Store } from './store.js';
+import { fileIdFor } from './serve.js';
+import type { ArtifactRecord, Store } from './store.js';
 
 /**
  * Rule-engine distillation, architecture 4.2. Profiles are yaml specs in
@@ -333,6 +334,38 @@ function extractDefinition(raw: string, name: string): string | undefined {
   return lines.slice(start, Math.min(lines.length, start + 400)).join('\n');
 }
 
+/**
+ * F-id@hash references from the served-file delta registry (serve.ts) resolve
+ * back to content: preferably the stored artifact behind the file's first
+ * full serve, else the registry's own copy of that content version. Every
+ * reference the system hands out must be recoverable by zoom.
+ */
+function resolveFileRef(store: Store, ref: string): ArtifactRecord | undefined {
+  const match = /^(F[0-9a-f]{4})@([0-9a-f]{16})$/.exec(ref);
+  if (match === null) return undefined;
+  const [, fileId, hash] = match;
+  for (const served of store.listServedFiles()) {
+    if (fileIdFor(served.path) !== fileId) continue;
+    const artifactId = store.findArtifactIdByFile([served.path], hash as string);
+    if (artifactId !== undefined) {
+      const artifact = store.getArtifact(artifactId);
+      if (artifact !== undefined) return artifact;
+    }
+    if (served.hash === hash && served.content !== '') {
+      return {
+        id: ref,
+        sessionId: served.sessionId,
+        artifactClass: 'served-file',
+        createdAt: served.servedAt,
+        raw: served.content,
+        gatesPassed: false,
+        meta: { filePath: served.path },
+      };
+    }
+  }
+  return undefined;
+}
+
 export function zoom(
   store: Store,
   audit: AuditWriter,
@@ -340,7 +373,7 @@ export function zoom(
   query?: string,
   codex?: CodexFile,
 ): ZoomResult {
-  const artifact = store.getArtifact(id);
+  const artifact = store.getArtifact(id) ?? resolveFileRef(store, id);
   if (artifact === undefined) return { found: false, text: `no artifact ${id} in the store` };
   let text = artifact.raw;
   if (query !== undefined && query !== '') {
