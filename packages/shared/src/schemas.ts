@@ -82,6 +82,35 @@ export const AuditEventSchema = z.object({
 });
 export type AuditEvent = z.infer<typeof AuditEventSchema>;
 
+export const CandidateTypeSchema = z.enum(['error-fix', 'zoom-hotspot', 'recurrence']);
+export type CandidateType = z.infer<typeof CandidateTypeSchema>;
+
+/**
+ * A graduation-miner candidate learning (v4 phase 1: extraction only).
+ * Mined post-session from attributed audit events; persisted one per line in
+ * .dcp/candidates.jsonl. Nothing here writes to the codex yet.
+ */
+export const CandidateRecordSchema = z.object({
+  id: z.string().min(1),
+  type: CandidateTypeSchema,
+  /** Stable dedupe key; re-observation across sessions merges on (type, key). */
+  key: z.string().min(1),
+  /** Rule-derived raw signature; the human-readable fallback when no lesson is drafted. */
+  signature: z.string().min(1),
+  /** Optional one-sentence lesson drafted by the local-model LlmPass. */
+  lesson: z.string().optional(),
+  /** Audit event ids backing this candidate. */
+  evidence: z.array(z.string()).default([]),
+  firstSeen: z.string().datetime(),
+  lastSeen: z.string().datetime(),
+  /** Increments once per session that re-observes the candidate. */
+  occurrences: z.number().int().positive(),
+  /** Reserved for the codex-write phase; always null in extraction-only v1. */
+  contradiction: z.null().default(null),
+  details: z.record(z.unknown()).default({}),
+});
+export type CandidateRecord = z.infer<typeof CandidateRecordSchema>;
+
 export const DistillProfileSchema = z.object({
   name: z.string().min(1),
   version: z.string().min(1),
