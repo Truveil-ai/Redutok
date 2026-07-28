@@ -87,6 +87,18 @@ export const LIMITS = {
    * seven-session entry takes three. Product tuning constants, not measured
    * claims.
    */
+  /**
+   * SessionStart injection budgets (docs/POSTURE.md). CODEX_MAX_TOKENS caps
+   * the rendered codex injection via the degrade-and-restore order in
+   * buildInjection; TOTAL_MAX_TOKENS is the documented ceiling for the whole
+   * SessionStart injection (protocol block plus codex plus learned), asserted
+   * against this repository's own mirror in injection-budget.test.ts. Product
+   * tuning constants, not measured claims.
+   */
+  INJECTION: {
+    CODEX_MAX_TOKENS: 3000,
+    TOTAL_MAX_TOKENS: 3500,
+  },
   GRADUATION: {
     /** Occurrence count at which the occurrence term reaches 0.5 (saturating toward 1). */
     OCCURRENCE_HALF_SATURATION: 2,
