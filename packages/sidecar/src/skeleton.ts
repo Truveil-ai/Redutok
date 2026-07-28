@@ -60,7 +60,20 @@ function pythonDocstring(node: Parser.SyntaxNode): string | undefined {
   return undefined;
 }
 
-function walk(node: Parser.SyntaxNode, lang: SkeletonLanguage, depth: number, out: string[]): void {
+/** Whole-word match of any kept symbol against a declaration's first line. */
+function keepsDeclaration(firstLine: string, keepSymbols: readonly string[]): boolean {
+  return keepSymbols.some((symbol) =>
+    new RegExp(`\\b${symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(firstLine),
+  );
+}
+
+function walk(
+  node: Parser.SyntaxNode,
+  lang: SkeletonLanguage,
+  depth: number,
+  out: string[],
+  keepSymbols: readonly string[],
+): void {
   for (let i = 0; i < node.namedChildCount; i += 1) {
     const child = node.namedChild(i);
     if (child === null) continue;
@@ -70,6 +83,13 @@ function walk(node: Parser.SyntaxNode, lang: SkeletonLanguage, depth: number, ou
     }
     if (DECLARATION_TYPES.has(target.type)) {
       const indent = '  '.repeat(depth);
+      if (keepsDeclaration(firstLineOf(child.text), keepSymbols)) {
+        // Skeleton enrichment (docs/GRADUATION.md): a graduated zoom hotspot
+        // keeps this declaration's full body in the skeleton.
+        const [first, ...rest] = child.text.split(/\r?\n/);
+        out.push(`${indent}${first ?? ''}`, ...rest);
+        continue;
+      }
       out.push(`${indent}${firstLineOf(child.text)} ...`);
       if (lang === 'py') {
         const doc = pythonDocstring(target);
@@ -82,13 +102,17 @@ function walk(node: Parser.SyntaxNode, lang: SkeletonLanguage, depth: number, ou
         )
       ) {
         const body = target.childForFieldName('body');
-        if (body !== null && body !== undefined) walk(body, lang, depth + 1, out);
+        if (body !== null && body !== undefined) walk(body, lang, depth + 1, out, keepSymbols);
       }
     }
   }
 }
 
-export async function fileSkeleton(source: string, lang: SkeletonLanguage): Promise<string> {
+export async function fileSkeleton(
+  source: string,
+  lang: SkeletonLanguage,
+  keepSymbols: readonly string[] = [],
+): Promise<string> {
   const language = await loadLanguage(lang);
   const parser = new Parser();
   parser.setLanguage(language);
@@ -96,7 +120,7 @@ export async function fileSkeleton(source: string, lang: SkeletonLanguage): Prom
   const out: string[] = [];
   const importLines = source.split(/\r?\n/).filter((l) => /^\s*(import|from)\b/.test(l)).length;
   if (importLines > 0) out.push(`[${importLines} import lines omitted]`);
-  walk(tree.rootNode, lang, 0, out);
+  walk(tree.rootNode, lang, 0, out, keepSymbols);
   parser.delete();
   return out.join('\n');
 }

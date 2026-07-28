@@ -4,7 +4,8 @@ import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { AuditEvent, DistillProfile } from '@redutok/shared';
 import { AuditWriter } from './audit.js';
-import { readCodex, refreshFiles } from './codex.js';
+import { enrichmentDirectives, readCodex, refreshFiles } from './codex.js';
+import { enrichmentFor } from './mirror.js';
 import { distillArtifact, loadProfiles, zoom } from './distill.js';
 import { exploreGoal } from './explore.js';
 import { runGraduationMiner } from './graduation.js';
@@ -148,12 +149,21 @@ function handler(
             respond(200, { ...served, handle: `[dcp:file ${served.ref}]` });
             return;
           }
+          // Skeleton enrichment (docs/GRADUATION.md): a graduated hotspot
+          // directive keeps its queried symbols full-bodied on this path too.
+          let keepSymbols: readonly string[] = [];
+          try {
+            const directive = enrichmentFor(relPath, enrichmentDirectives(readCodex(repoRoot).codex));
+            keepSymbols = directive?.symbols ?? [];
+          } catch {
+            // An unreadable codex never blocks serving; the plain skeleton stands.
+          }
           const outcome = await distillArtifact(engines.store, engines.audit, {
             raw,
             profile,
             sessionId,
             tool: 'dcp__read',
-            context: { filePath: relPath },
+            context: { filePath: relPath, keepSymbols },
           });
           respond(200, {
             mode: 'full',

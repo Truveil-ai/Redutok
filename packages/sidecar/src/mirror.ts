@@ -21,6 +21,13 @@ export interface MirrorIndexEntry {
   hash: string;
   rawBytes: number;
   rawLines: number;
+  /**
+   * Fingerprint of the skeleton-enrichment directive this entry was built
+   * with (docs/GRADUATION.md); absent for a plain skeleton. A directive
+   * added or withdrawn regenerates the entry even when the source hash is
+   * unchanged.
+   */
+  enrichment?: string;
 }
 
 export interface MirrorIndex {
@@ -68,13 +75,43 @@ export function buildMirrorHeader(
   rawBytes: number,
   rawLines: number,
   zoomId?: string,
+  keepSymbols: readonly string[] = [],
 ): string {
   const fidelity =
     zoomId === undefined
       ? `Read("${realPath}") with offset/limit, e.g. offset=1 limit=400 of ${rawLines} lines`
       : `dcp__zoom("${zoomId}")`;
-  return `[dcp:mirror of ${realPath}, raw ${rawBytes} bytes / ${rawLines} lines, skeleton only; full fidelity: ${fidelity}]`;
+  const shape =
+    keepSymbols.length === 0
+      ? 'skeleton only'
+      : `skeleton + full bodies of ${keepSymbols.join(', ')} (learned)`;
+  return `[dcp:mirror of ${realPath}, raw ${rawBytes} bytes / ${rawLines} lines, ${shape}; full fidelity: ${fidelity}]`;
 }
+
+/**
+ * A graduated zoom-hotspot directive (codex learned section): mirror entries
+ * for this path keep the full bodies of these symbols.
+ */
+export interface SkeletonEnrichment {
+  path: string;
+  symbols: string[];
+}
+
+/**
+ * The directive matching a mirror-relative path: exact, or a /-boundary
+ * suffix. Bench sessions observe fixture repos through their own relative
+ * paths, so `source/index.js` also enriches every mirrored copy such as
+ * `fixtures/repos/chalk/source/index.js` (docs/GRADUATION.md).
+ */
+export function enrichmentFor(
+  rel: string,
+  enrichments: readonly SkeletonEnrichment[] = [],
+): SkeletonEnrichment | undefined {
+  return enrichments.find((e) => rel === e.path || rel.endsWith(`/${e.path}`));
+}
+
+const enrichmentFingerprint = (e: SkeletonEnrichment): string =>
+  mirrorHash([...e.symbols].sort().join('\n'));
 
 export interface RefreshMirrorOptions {
   /**
@@ -83,6 +120,8 @@ export interface RefreshMirrorOptions {
    * supplies this from its store; the offline codex refresh runs without it.
    */
   findHandle?: (rel: string, hash: string) => string | undefined;
+  /** Skeleton-enrichment directives from the codex learned section. */
+  enrichments?: readonly SkeletonEnrichment[];
 }
 
 /**
@@ -122,10 +161,18 @@ export async function refreshMirror(
     const content = readFileSync(abs, 'utf8');
     const hash = mirrorHash(content);
     const entryPath = mirrorEntryPath(root, rel);
-    if (index.files[rel]?.hash === hash && existsSync(entryPath)) continue;
+    const directive = enrichmentFor(rel, options.enrichments);
+    const fingerprint = directive === undefined ? undefined : enrichmentFingerprint(directive);
+    if (
+      index.files[rel]?.hash === hash &&
+      index.files[rel]?.enrichment === fingerprint &&
+      existsSync(entryPath)
+    ) {
+      continue;
+    }
     let skeleton: string;
     try {
-      skeleton = await fileSkeleton(content, lang);
+      skeleton = await fileSkeleton(content, lang, directive?.symbols ?? []);
     } catch {
       skeleton = '';
     }
@@ -137,10 +184,16 @@ export async function refreshMirror(
     }
     const rawBytes = Buffer.byteLength(content, 'utf8');
     const rawLines = content.split('\n').length;
-    const header = buildMirrorHeader(abs, rawBytes, rawLines, options.findHandle?.(rel, hash));
+    const header = buildMirrorHeader(
+      abs,
+      rawBytes,
+      rawLines,
+      options.findHandle?.(rel, hash),
+      directive?.symbols ?? [],
+    );
     mkdirSync(path.dirname(entryPath), { recursive: true });
     writeFileSync(entryPath, `${header}\n\n${skeleton}\n`, 'utf8');
-    index.files[rel] = { hash, rawBytes, rawLines };
+    index.files[rel] = { hash, rawBytes, rawLines, ...(fingerprint === undefined ? {} : { enrichment: fingerprint }) };
     dirty = true;
     written.push(rel);
   }
