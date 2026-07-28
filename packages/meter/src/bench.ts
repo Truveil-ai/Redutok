@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
@@ -161,6 +161,45 @@ export function runLiveChecks(
     detail.push(`${check.kind} ${check.path ?? check.command ?? check.needle ?? ''}: ${ok ? 'pass' : 'FAIL'}`);
   }
   return { passed, detail };
+}
+
+/**
+ * Build-freshness gate for the live harness: workspace packages (those with a
+ * build script) whose dist is missing or older than their newest src file.
+ * The 4.36M-token h03 incident ran against a stale dist whose installer still
+ * hardcoded the sidecar port; the harness now rebuilds before any run and
+ * fails loudly if anything is still stale afterwards.
+ */
+export function staleDistPackages(root: string): string[] {
+  const newestMtime = (dir: string): number => {
+    let newest = 0;
+    let names: string[] = [];
+    try {
+      names = readdirSync(dir);
+    } catch {
+      return 0;
+    }
+    for (const name of names) {
+      const full = path.join(dir, name);
+      const stats = statSync(full);
+      newest = Math.max(newest, stats.isDirectory() ? newestMtime(full) : stats.mtimeMs);
+    }
+    return newest;
+  };
+  const stale: string[] = [];
+  const packagesDir = path.join(root, 'packages');
+  if (!existsSync(packagesDir)) return stale;
+  for (const name of readdirSync(packagesDir).sort()) {
+    const pkgDir = path.join(packagesDir, name);
+    const pkgJson = path.join(pkgDir, 'package.json');
+    if (!existsSync(pkgJson)) continue;
+    const pkg = JSON.parse(readFileSync(pkgJson, 'utf8')) as { scripts?: Record<string, string> };
+    if (pkg.scripts?.['build'] === undefined) continue;
+    const src = newestMtime(path.join(pkgDir, 'src'));
+    const dist = newestMtime(path.join(pkgDir, 'dist'));
+    if (dist === 0 || src > dist) stale.push(name);
+  }
+  return stale;
 }
 
 export interface RunMeasurement {

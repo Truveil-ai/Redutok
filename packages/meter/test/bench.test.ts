@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +14,7 @@ import {
   needsAnswerFile,
   runLiveChecks,
   runReplay,
+  staleDistPackages,
   type BenchTask,
   type LiveRunMeasurement,
 } from '../src/bench.js';
@@ -320,5 +321,50 @@ describe('generateLiveResults', () => {
     const withReported = await liveMeasurement('small.jsonl', 't01', 'redutok', 1, { reportedCostUsd: 0.5 });
     const summary = generateLiveResults([withReported], [], { model: 'claude-sonnet-5', n: 1, done: true });
     expect(summary.markdown).toContain('0.5000 USD (claude CLI reported)');
+  });
+});
+
+describe('staleDistPackages (bench build-freshness gate)', () => {
+  function makeWorkspace(): string {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'redutok-stale-dist-'));
+    const pkg = path.join(root, 'packages', 'alpha');
+    mkdirSync(path.join(pkg, 'src'), { recursive: true });
+    mkdirSync(path.join(pkg, 'dist'), { recursive: true });
+    writeFileSync(path.join(pkg, 'package.json'), JSON.stringify({ name: 'alpha', scripts: { build: 'tsc' } }));
+    writeFileSync(path.join(pkg, 'src', 'index.ts'), 'export const x = 1;');
+    writeFileSync(path.join(pkg, 'dist', 'index.js'), 'export const x = 1;');
+    return root;
+  }
+
+  const touch = (file: string, msOffset: number): void => {
+    const t = new Date(Date.now() + msOffset);
+    utimesSync(file, t, t);
+  };
+
+  it('reports a package whose src is newer than its dist', () => {
+    const root = makeWorkspace();
+    touch(path.join(root, 'packages', 'alpha', 'dist', 'index.js'), -60_000);
+    touch(path.join(root, 'packages', 'alpha', 'src', 'index.ts'), 0);
+    expect(staleDistPackages(root)).toEqual(['alpha']);
+  });
+
+  it('reports a package with no dist at all', () => {
+    const root = makeWorkspace();
+    rmSync(path.join(root, 'packages', 'alpha', 'dist'), { recursive: true, force: true });
+    expect(staleDistPackages(root)).toEqual(['alpha']);
+  });
+
+  it('is clean when dist is at least as new as src', () => {
+    const root = makeWorkspace();
+    touch(path.join(root, 'packages', 'alpha', 'src', 'index.ts'), -60_000);
+    touch(path.join(root, 'packages', 'alpha', 'dist', 'index.js'), 0);
+    expect(staleDistPackages(root)).toEqual([]);
+  });
+
+  it('ignores packages without a build script', () => {
+    const root = makeWorkspace();
+    writeFileSync(path.join(root, 'packages', 'alpha', 'package.json'), JSON.stringify({ name: 'alpha' }));
+    rmSync(path.join(root, 'packages', 'alpha', 'dist'), { recursive: true, force: true });
+    expect(staleDistPackages(root)).toEqual([]);
   });
 });
