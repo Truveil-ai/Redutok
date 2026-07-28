@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readCandidatesFile, type CandidatesFileResult } from '@redutok/shared';
+import { candidateConfidence, readCandidatesFile, type CandidatesFileResult } from '@redutok/shared';
 
 /** Renderer for redutok candidates. Reads the graduation miner's candidates.jsonl. */
 
@@ -29,7 +29,7 @@ export function renderCandidatesText(result: CandidatesFileResult, now: Date = n
   );
   for (const r of ranked) {
     lines.push(
-      `${r.type.padEnd(12)} x${String(r.occurrences).padEnd(3)} first seen ${age(r.firstSeen, now)} ago, last seen ${age(r.lastSeen, now)} ago  ${r.lesson ?? r.signature}`,
+      `${r.type.padEnd(12)} ${r.status.padEnd(9)} ${candidateConfidence(r, now).toFixed(2)} x${String(r.occurrences).padEnd(3)} first seen ${age(r.firstSeen, now)} ago, last seen ${age(r.lastSeen, now)} ago  ${r.lesson ?? r.signature}`,
     );
   }
   if (result.malformed > 0) lines.push(`Malformed lines skipped: ${result.malformed}.`);

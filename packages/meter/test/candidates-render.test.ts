@@ -57,6 +57,40 @@ describe('renderCandidatesText', () => {
     expect(text).toContain('last seen 30m ago');
   });
 
+  it('shows lifecycle status and live confidence per record', () => {
+    const file = tmpCandidates([
+      record({ id: 'c1', status: 'candidate', occurrences: 1, lastSeen: NOW.toISOString() }),
+      record({
+        id: 'c2',
+        key: 'error-fix:build-log:other',
+        signature: "error TS7006: Parameter 'other' implicitly has an 'any' type",
+        status: 'graduated',
+        occurrences: 2,
+        lastSeen: NOW.toISOString(),
+        graduatedAt: NOW.toISOString(),
+      }),
+      record({
+        id: 'c3',
+        key: 'error-fix:build-log:third',
+        signature: "error TS2532: Object is possibly 'undefined' in third",
+        status: 'withdrawn',
+        occurrences: 2,
+        contradiction: 2,
+        lastSeen: NOW.toISOString(),
+      }),
+    ]);
+    const text = renderCandidatesText(buildCandidatesReport(file), NOW);
+    const line = (id: string): string =>
+      text.split('\n').find((l) => l.includes(id === 'c1' ? "name 'x'" : id === 'c2' ? 'other' : 'third')) ?? '';
+    expect(text).toContain('candidate');
+    expect(text).toContain('graduated');
+    expect(text).toContain('withdrawn');
+    // Two fresh observations sit exactly at the graduation threshold.
+    expect(line('c2')).toContain('0.50');
+    // Two contradictions on a two-session record floor the confidence.
+    expect(line('c3')).toContain('0.00');
+  });
+
   it('says so when no candidates have been mined yet', () => {
     const missing = path.join(os.tmpdir(), 'redutok-none', 'candidates.jsonl');
     const text = renderCandidatesText(buildCandidatesReport(missing), NOW);
