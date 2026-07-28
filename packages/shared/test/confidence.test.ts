@@ -26,7 +26,7 @@ function record(overrides: Partial<CandidateRecord> = {}): CandidateRecord {
 
 describe('candidateConfidence', () => {
   it('saturates with occurrence count: 2 fresh occurrences reach the graduation threshold', () => {
-    expect(candidateConfidence(record({ occurrences: 1 }), NOW)).toBeCloseTo(1 - 0.5 ** 0.5, 5);
+    expect(candidateConfidence(record({ occurrences: 1 }), NOW)).toBeCloseTo(1 - 0.5 ** 0.5, 3);
     expect(candidateConfidence(record({ occurrences: 2 }), NOW)).toBeCloseTo(0.5, 5);
     expect(candidateConfidence(record({ occurrences: 7 }), NOW)).toBeGreaterThan(0.9);
     expect(candidateConfidence(record({ occurrences: 1000 }), NOW)).toBeLessThanOrEqual(1);
@@ -38,13 +38,13 @@ describe('candidateConfidence', () => {
     ).toISOString();
     const fresh = candidateConfidence(record({ occurrences: 4 }), NOW);
     const stale = candidateConfidence(record({ occurrences: 4, lastSeen: halfLifeAgo }), NOW);
-    expect(stale).toBeCloseTo(fresh / 2, 5);
+    expect(stale).toBeCloseTo(fresh / 2, 3);
   });
 
   it('subtracts a fixed penalty per contradiction and clamps to [0, 1]', () => {
     const base = candidateConfidence(record({ occurrences: 7 }), NOW);
     const one = candidateConfidence(record({ occurrences: 7, contradiction: 1 }), NOW);
-    expect(base - one).toBeCloseTo(LIMITS.GRADUATION.CONTRADICTION_PENALTY, 5);
+    expect(base - one).toBeCloseTo(LIMITS.GRADUATION.CONTRADICTION_PENALTY, 3);
     expect(candidateConfidence(record({ occurrences: 1, contradiction: 9 }), NOW)).toBe(0);
   });
 
@@ -59,6 +59,11 @@ describe('graduation and withdrawal thresholds', () => {
   it('a candidate crossing GRADUATE_MIN_CONFIDENCE is eligible; below it is not', () => {
     expect(isEligibleForGraduation(record({ occurrences: 2 }), NOW)).toBe(true);
     expect(isEligibleForGraduation(record({ occurrences: 1 }), NOW)).toBe(false);
+  });
+
+  it('the seconds between mining and the pass never decay a fresh candidate below the threshold', () => {
+    const secondsLater = new Date(NOW.getTime() + 45_000);
+    expect(isEligibleForGraduation(record({ occurrences: 2 }), secondsLater)).toBe(true);
   });
 
   it('only candidate-status records are eligible', () => {

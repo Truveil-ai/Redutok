@@ -26,8 +26,10 @@ score. Each contradiction costs a flat 0.25, so a two-session entry dies on
 its first contradiction while a seven-session entry survives two.
 
 Confidence is computed on demand (so displayed values reflect the current
-clock); the graduation pass also persists the value it acted on in the
-record's `confidence` field.
+clock), quantized to four decimals so the seconds between the miner
+stamping `lastSeen` and the pass evaluating never decay a fresh
+two-session candidate below the graduation threshold; the graduation pass
+also persists the value it acted on in the record's `confidence` field.
 
 ### Thresholds
 

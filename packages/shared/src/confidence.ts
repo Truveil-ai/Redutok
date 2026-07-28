@@ -17,7 +17,11 @@ export function candidateConfidence(record: CandidateRecord, now: Date): number 
   const ageDays = Math.max(0, now.getTime() - new Date(record.lastSeen).getTime()) / DAY_MS;
   const recencyFactor = 0.5 ** (ageDays / g.RECENCY_HALF_LIFE_DAYS);
   const penalty = g.CONTRADICTION_PENALTY * (record.contradiction ?? 0);
-  return Math.min(1, Math.max(0, occurrenceScore * recencyFactor - penalty));
+  const raw = Math.min(1, Math.max(0, occurrenceScore * recencyFactor - penalty));
+  // Quantized to 4 decimals so threshold comparisons are stable: the seconds
+  // between the miner stamping lastSeen and the pass evaluating must not
+  // decay a fresh two-session candidate below the graduation threshold.
+  return Math.round(raw * 10_000) / 10_000;
 }
 
 /** Eligible to graduate: still a candidate and at or above the graduation threshold. */
