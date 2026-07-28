@@ -37,6 +37,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+// Build-freshness gate: the h03 incident (4.36M tokens) measured a temp copy
+// initialized from a stale dist whose installer still hardcoded the sidecar
+// port. The harness now rebuilds unconditionally before importing anything
+// from dist, and staleDistPackages re-verifies below; either failing aborts.
+console.log('build gate: pnpm -r build (the harness never measures a stale dist)');
+// One whole literal command string with shell:true (the same intentional
+// single-string form runLiveChecks uses): no args array, so no DEP0190.
+execFileSync('pnpm -r build', { cwd: root, stdio: 'inherit', shell: true });
+
 const meter = await import(
   new URL('file:///' + path.join(root, 'packages', 'meter', 'dist', 'index.js').replace(/\\/g, '/')).href
 );
@@ -55,8 +65,23 @@ const {
   scoreSession,
   shippedProtocolBlock,
   spawnSafely,
+  staleDistPackages,
   transcriptRoot,
 } = meter;
+{
+  const stale = staleDistPackages(root);
+  if (stale.length > 0) {
+    throw new Error(
+      `build gate: dist is still stale after rebuild for: ${stale.join(', ')}. ` +
+        'A bench run against a stale build measures the wrong code; fix the build before running.',
+    );
+  }
+  console.log('build gate: all package dists are at least as new as their sources');
+}
+const mcp = await import(
+  new URL('file:///' + path.join(root, 'packages', 'mcp', 'dist', 'index.js').replace(/\\/g, '/')).href
+);
+const { resolveSidecarPort } = mcp;
 const shared = await import(
   new URL(
     'file:///' + path.join(root, 'packages', 'shared', 'dist', 'index.js').replace(/\\/g, '/'),
@@ -163,7 +188,34 @@ function initRedutok(workDir) {
   writeFileSync(configPath, JSON.stringify(config, null, 2));
   execFileSync('node', [cli, 'up'], { cwd: workDir, env: cliEnv });
   execFileSync('node', [cli, 'codex', 'refresh'], { cwd: workDir, env: cliEnv });
+  assertPortWiring(workDir, port);
   return port;
+}
+
+/**
+ * Port-wiring gate, run for every redutok temp copy: the h03 incident's temp
+ * copy carried a stale-installer .mcp.json with REDUTOK_PORT=48642, an
+ * explicit override that outranks .dcp/config.json and pointed the MCP server
+ * at the (dead) dogfood daemon — every dcp read failed open to raw. Asserts
+ * the shipped .mcp.json hardcodes no port and that the MCP entry's own
+ * resolution (resolveSidecarPort) lands on this copy's configured port.
+ */
+function assertPortWiring(workDir, port) {
+  const mcpJson = JSON.parse(readFileSync(path.join(workDir, '.mcp.json'), 'utf8'));
+  const env = mcpJson.mcpServers?.redutok?.env ?? {};
+  if (env.REDUTOK_PORT !== undefined) {
+    throw new Error(
+      `port gate: ${workDir}\\.mcp.json hardcodes REDUTOK_PORT=${env.REDUTOK_PORT}; ` +
+        'the installer in dist is stale (pre port-isolation). Rebuild and re-run.',
+    );
+  }
+  const resolved = resolveSidecarPort(env, workDir);
+  if (resolved !== port) {
+    throw new Error(
+      `port gate: MCP resolution yields ${resolved} but this copy's configured sidecar port is ${port}. ` +
+        'The temp copy would talk to the wrong daemon.',
+    );
+  }
 }
 
 function health(port) {
@@ -204,9 +256,14 @@ function runClaude(prompt, workDir, streamPath) {
     // spawnSafely resolves 'claude' to a directly-executable target and never
     // uses shell:true, so a multi-word prompt arrives at the child intact
     // instead of being word-split by cmd.exe (see packages/meter/src/safe-spawn.ts).
+    // REDUTOK_PORT is scrubbed: it is an explicit override that outranks the
+    // temp copy's .dcp/config.json, so an operator shell exporting it would
+    // point every temp copy's MCP server at the same foreign daemon.
+    const claudeEnv = { ...process.env, REDUTOK_HOME: root };
+    delete claudeEnv.REDUTOK_PORT;
     const child = spawnSafely('claude', args, {
       cwd: workDir,
-      env: { ...process.env, REDUTOK_HOME: root },
+      env: claudeEnv,
       windowsHide: true,
     });
     const chunks = [];
@@ -346,6 +403,9 @@ if (PREP_CHECK) {
       await downRedutok(workDir);
       const downAgain = !(await health(port));
       console.log(`prep ${task.id} ${variant}: init ok, sidecar up on ${port}: ${up}, down again: ${downAgain}`);
+      console.log(
+        `prep ${task.id} ${variant}: port gate: .mcp.json hardcodes no REDUTOK_PORT, MCP resolves configured port ${port}: ok`,
+      );
       console.log(
         `prep ${task.id} ${variant}: protocol block matches shipped: CLAUDE.md ${claudeOk ? 'ok' : 'STALE'}, .dcp/protocol.md ${protocolOk ? 'ok' : 'STALE'}`,
       );
