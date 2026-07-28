@@ -263,11 +263,24 @@ function candidateId(type: string, key: string): string {
   return `cand-${createHash('sha256').update(`${type}\n${key}`).digest('hex').slice(0, 8)}`;
 }
 
+/** Sessions a candidate was mined from, remembered so no re-run inflates occurrences. */
+const MINED_SESSIONS_CAP = 50;
+
+function minedSessionsOf(record: CandidateRecord): string[] {
+  const sessions = record.details['minedSessions'];
+  if (Array.isArray(sessions)) return sessions.filter((s): s is string => typeof s === 'string');
+  // Extraction-era records tracked only the last mined session.
+  const last = record.details['lastMinedSession'];
+  return typeof last === 'string' ? [last] : [];
+}
+
 /**
  * Merges one session's mined candidates into the persistent record list.
- * Occurrences increment once per session that re-observes a candidate; a
- * re-run over the same session (Stop fires more than once) refreshes the
- * record without inflating the count and is reported as skipped.
+ * Occurrences increment once per session that re-observes a candidate; any
+ * re-run over already-mined sessions (a second Stop, a full-history re-mine)
+ * refreshes the record without inflating the count and is reported as
+ * skipped. Found live: tracking only the last mined session let a
+ * full-history re-run inflate every multi-session candidate.
  */
 export function mergeCandidates(
   records: CandidateRecord[],
@@ -290,17 +303,22 @@ export function mergeCandidates(
           firstSeen: now,
           lastSeen: now,
           occurrences: 1,
-          details: { ...candidate.details, lastMinedSession: sessionId },
+          details: { ...candidate.details, lastMinedSession: sessionId, minedSessions: [sessionId] },
         }),
       );
       continue;
     }
-    const sameSession = existing.details['lastMinedSession'] === sessionId;
+    const minedSessions = minedSessionsOf(existing);
+    const sameSession = minedSessions.includes(sessionId);
     existing.evidence = [...new Set([...existing.evidence, ...candidate.evidence])].slice(
       0,
       EVIDENCE_CAP,
     );
-    const details: Record<string, unknown> = { ...candidate.details, lastMinedSession: sessionId };
+    const details: Record<string, unknown> = {
+      ...candidate.details,
+      lastMinedSession: sessionId,
+      minedSessions: [...new Set([...minedSessions, sessionId])].slice(-MINED_SESSIONS_CAP),
+    };
     // Queried symbols accumulate across sessions: a graduated hotspot must
     // enrich every symbol any observing session asked for, not just the last.
     const priorQueries = existing.details['queries'];

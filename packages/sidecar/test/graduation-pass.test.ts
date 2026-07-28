@@ -375,6 +375,25 @@ describe('human and locked entries are untouchable', () => {
   });
 });
 
+describe('full-history re-mining stays idempotent', () => {
+  it('a second mine over the same multi-session history inflates nothing', async () => {
+    const { root, dcpDir } = await repoWithCodex();
+    writeAudit(dcpDir, [
+      zoomEvent('z1', 19, 0, 'a111', 'createStyler', 's1'),
+      zoomEvent('z2', 20, 0, 'a222', 'createStyler', 's2'),
+      zoomEvent('z3', 20, 30, 'a333', 'createStyler', 's3'),
+    ]);
+    const opts = { dcpDir, repoRoot: root, resolveArtifact: hotspotLookup, now: (): string => at(21, 0) };
+    await runGraduationMiner(opts);
+    const rerun = await runGraduationMiner(opts);
+    expect(rerun.merged).toBe(0);
+    const record = readCandidatesFile(path.join(dcpDir, 'candidates.jsonl')).records.find(
+      (r) => r.type === 'zoom-hotspot',
+    );
+    expect(record?.occurrences).toBe(3);
+  });
+});
+
 describe('mergeCandidates query accumulation', () => {
   it('unions zoom-hotspot queries across sessions instead of keeping only the last', () => {
     const records: Parameters<typeof mergeCandidates>[0] = [];
