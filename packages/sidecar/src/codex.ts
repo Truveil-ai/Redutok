@@ -261,17 +261,40 @@ export function enrichmentDirectives(codex: CodexFile | undefined): SkeletonEnri
 export const TRUST_PREAMBLE =
   'You have a verified codex of this repository. Trust it. Do not re-explore structure that the codex covers. Use dcp tools to read code.';
 
-/** Documented degrade order when the injection exceeds the budget. */
-export const DEGRADE_ORDER = ['glossary', 'conventions', 'importGraph', 'interfaces', 'keySymbols'] as const;
+/**
+ * Documented degrade order when the injection exceeds the budget. learned
+ * sits after importGraph and before interfaces: graduated entries are the
+ * product of repeated observed friction so they outrank generic context,
+ * but raw interface truth still outranks them (docs/GRADUATION.md).
+ */
+export const DEGRADE_ORDER = ['glossary', 'conventions', 'importGraph', 'learned', 'interfaces', 'keySymbols'] as const;
 
 export function buildCodexInjection(codex: CodexFile, maxTokens = 3000): string {
   const slim: Record<string, unknown> = { ...codex };
   delete slim['files'];
+  // Hard per-section budget for learned (docs/GRADUATION.md): when over,
+  // the lowest-confidence directives are excluded first until it fits.
+  let learnedExcluded = 0;
+  if (codex.learned.length > 0) {
+    const entries = [...codex.learned].sort((a, b) => b.confidence - a.confidence);
+    while (
+      entries.length > 0 &&
+      estimateTokens(stringifyYaml({ learned: entries })) > LIMITS.GRADUATION.LEARNED_SECTION_MAX_TOKENS
+    ) {
+      entries.pop();
+      learnedExcluded += 1;
+    }
+    slim['learned'] = entries;
+  }
   const dropped: string[] = [];
   const render = (): string => {
+    const learnedNote =
+      learnedExcluded > 0 && !dropped.includes('learned')
+        ? `\n[${learnedExcluded} learned entries excluded to fit the learned budget]`
+        : '';
     const note =
       dropped.length > 0 ? `\n[codex sections dropped to fit the budget: ${dropped.join(', ')}]` : '';
-    return `${TRUST_PREAMBLE}\n\n${stringifyYaml(slim)}${note}`;
+    return `${TRUST_PREAMBLE}\n\n${stringifyYaml(slim)}${learnedNote}${note}`;
   };
   let text = render();
   for (const section of DEGRADE_ORDER) {
