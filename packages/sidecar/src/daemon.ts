@@ -7,6 +7,7 @@ import { AuditWriter } from './audit.js';
 import { readCodex, refreshFiles } from './codex.js';
 import { distillArtifact, loadProfiles, zoom } from './distill.js';
 import { exploreGoal } from './explore.js';
+import { runGraduationMiner } from './graduation.js';
 import { NoopLlmPass, type LlmPass } from './llm.js';
 import { serveFile } from './serve.js';
 import { updateRollingState } from './state.js';
@@ -74,6 +75,7 @@ function handler(
   engines?: Engines,
   onFileChange?: (filePath: string) => Promise<string[]>,
   onNotify?: (event: { kind: string; tool?: string; path?: string }) => Promise<void>,
+  onSessionEnd?: (sessionId: string) => void,
 ): http.RequestListener {
   const startedAt = Date.now();
   // Active Claude Code transcript session, registered by the SessionStart and
@@ -309,6 +311,12 @@ function handler(
               log.error('mirror rewrite audit failed', { error: String(err) });
             }
           }
+          if (p.kind === 'session-end' && onSessionEnd !== undefined) {
+            // v4 graduation: mining runs post-session, off the notify path.
+            // The hook gets its ok immediately; a mining failure only logs.
+            const ended = attributedSessionId(p.sessionId);
+            setImmediate(() => onSessionEnd(ended));
+          }
           if (onNotify !== undefined) {
             await onNotify({ kind: p.kind ?? 'tool-use', tool: p.tool, path: p.path });
           }
@@ -372,7 +380,29 @@ export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle>
       // State maintenance must never fail a notify.
     }
   };
-  const listener = handler(log, repoRoot, engines, onFileChange, onNotify);
+  const activeEngines = engines;
+  const onSessionEnd =
+    activeEngines === undefined
+      ? undefined
+      : (sessionId: string): void => {
+          void runGraduationMiner({
+            dcpDir: options.dcpDir,
+            sessionId,
+            llm: activeEngines.llm,
+            resolveArtifact: (id) => {
+              const artifact = activeEngines.store.getArtifact(id);
+              return artifact === undefined
+                ? undefined
+                : {
+                    raw: artifact.raw,
+                    distilled: artifact.distilled,
+                    filePath: artifact.meta['filePath'],
+                  };
+            },
+            onAuditEvent: (event) => activeEngines.store.insertAuditEvent(event),
+          }).catch((err: unknown) => log.error('graduation mining failed', { error: String(err) }));
+        };
+  const listener = handler(log, repoRoot, engines, onFileChange, onNotify, onSessionEnd);
   const httpServer = http.createServer(listener);
   await new Promise<void>((resolve, reject) => {
     httpServer.once('error', reject);

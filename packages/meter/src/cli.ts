@@ -8,7 +8,7 @@ import { buildReport, locateLastSessionLog, renderText } from './report.js';
 import { initRepo, removeRepo } from './installer.js';
 import { sidecarDown, sidecarStatus, sidecarUp } from './sidecar-cli.js';
 
-const USAGE = `Usage: redutok <report|badge|audit|up|down|status> [args] [options]
+const USAGE = `Usage: redutok <report|badge|audit|candidates|up|down|status> [args] [options]
 
 report and badge take a transcript:
   session.jsonl  path to a Claude Code session transcript
@@ -18,6 +18,9 @@ report and badge take a transcript:
 
 audit takes a session id:
   redutok audit <session-id> [--file audit.jsonl]   render the audit trail
+
+candidates (graduation miner output, mined post-session):
+  redutok candidates [--file candidates.jsonl]      render candidates with counts and ages
 
 sidecar lifecycle (state in ./.dcp):
   redutok up | down | status
@@ -110,6 +113,13 @@ export async function main(argv: string[]): Promise<number> {
   if (command === 'up' || command === 'down' || command === 'status') {
     const run = command === 'up' ? sidecarUp : command === 'down' ? sidecarDown : sidecarStatus;
     console.log(await run());
+    return 0;
+  }
+  if (command === 'candidates') {
+    const { buildCandidatesReport, renderCandidatesText } = await import('./candidates-render.js');
+    const fileIndex = rest.indexOf('--file');
+    const filePath = fileIndex >= 0 ? rest[fileIndex + 1] : undefined;
+    console.log(renderCandidatesText(buildCandidatesReport(filePath)));
     return 0;
   }
   if (command === 'audit') {
