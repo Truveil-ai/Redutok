@@ -108,6 +108,43 @@ describe('session registration with a live sidecar', () => {
   });
 });
 
+describe('handleSessionEnd', () => {
+  it('notifies the sidecar with kind session-end and the transcript session id', async () => {
+    const bodies: unknown[] = [];
+    const server = http.createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (c: Buffer) => chunks.push(c));
+      req.on('end', () => {
+        bodies.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end('{"ok":true}');
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const address = server.address();
+    const port = typeof address === 'object' && address !== null ? address.port : 0;
+    try {
+      const { handleSessionEnd } = await import('../src/handlers.js');
+      const out = await handleSessionEnd(
+        { session_id: 's-over' },
+        { target: { port }, dcpDir: tempDcp(), timeoutMs: 1000 },
+      );
+      expect(out).toEqual({});
+      expect(bodies).toEqual([{ kind: 'session-end', sessionId: 's-over' }]);
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+    }
+  });
+
+  it('fails open within the budget when the sidecar is dead', async () => {
+    const { handleSessionEnd } = await import('../src/handlers.js');
+    const started = Date.now();
+    const out = await handleSessionEnd({ session_id: 's-over' }, DEAD);
+    expect(out).toEqual({});
+    expect(Date.now() - started).toBeLessThan(LIMITS.HOOK_FAIL_OPEN_MS * 4);
+  });
+});
+
 describe('handlePreToolUse fail-open budget', () => {
   it('allows a large Read untouched within the 50ms budget when the sidecar is dead', async () => {
     const bigFile = path.join(tempDcp(), 'big.txt');

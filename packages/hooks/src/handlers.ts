@@ -286,6 +286,26 @@ export function handleUserPromptSubmit(input: { prompt?: string }, _deps: HookDe
   };
 }
 
+/**
+ * Fires the graduation miner (v4 phase 1): one session-end notify so the
+ * sidecar mines the ended session's audit trail asynchronously, off the
+ * hook's path. Fail-open like every hook: a dead sidecar costs one timed-out
+ * probe and the session ends vanilla.
+ */
+export async function handleSessionEnd(
+  input: { session_id?: string },
+  deps: HookDeps,
+): Promise<HookOutput> {
+  await sidecarRequest(
+    deps.target,
+    'POST',
+    '/notify',
+    { kind: 'session-end', sessionId: input.session_id },
+    { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
+  );
+  return {};
+}
+
 export async function handleStop(
   input: { transcript_path?: string },
   deps: HookDeps,

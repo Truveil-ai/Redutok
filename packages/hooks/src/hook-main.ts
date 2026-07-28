@@ -5,6 +5,7 @@ import {
   handlePreCompact,
   handlePreToolUse,
   handlePostToolUse,
+  handleSessionEnd,
   handleSessionStart,
   handleStop,
   handleUserPromptSubmit,
@@ -83,6 +84,9 @@ async function main(): Promise<void> {
       break;
     case 'Stop':
     case 'SessionEnd':
+      // The session-end notify fires the graduation miner in the sidecar,
+      // asynchronously; the receipt below stays network-free on its own.
+      await handleSessionEnd(input, deps);
       output = await handleStop(input, deps);
       break;
     default:
