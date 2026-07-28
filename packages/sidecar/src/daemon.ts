@@ -397,6 +397,7 @@ export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle>
       : (sessionId: string): void => {
           void runGraduationMiner({
             dcpDir: options.dcpDir,
+            repoRoot,
             sessionId,
             llm: activeEngines.llm,
             resolveArtifact: (id) => {
@@ -406,7 +407,9 @@ export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle>
                 : {
                     raw: artifact.raw,
                     distilled: artifact.distilled,
-                    filePath: artifact.meta['filePath'],
+                    filePath:
+                      artifact.meta['filePath'] ??
+                      activeEngines.store.servedPathByContent(artifact.raw),
                   };
             },
             onAuditEvent: (event) => activeEngines.store.insertAuditEvent(event),

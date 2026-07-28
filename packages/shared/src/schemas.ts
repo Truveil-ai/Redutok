@@ -114,6 +114,8 @@ export const CandidateRecordSchema = z.object({
    * confidence (docs/GRADUATION.md).
    */
   contradiction: z.number().int().nonnegative().nullable().default(null),
+  /** Sessions already counted as contradictions, so re-running the pass stays idempotent. */
+  contradictedSessions: z.array(z.string()).default([]),
   /** Lifecycle: graduation promotes to graduated; demotion moves to withdrawn (history kept). */
   status: z.enum(['candidate', 'graduated', 'withdrawn']).default('candidate'),
   /** Confidence at the last graduation pass; live value comes from candidateConfidence. */

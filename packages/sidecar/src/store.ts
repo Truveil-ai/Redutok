@@ -167,6 +167,18 @@ export class Store {
     }));
   }
 
+  /**
+   * Latest served path whose recorded content equals the given text. Lets
+   * the graduation miner resolve file paths for historic file-skeleton
+   * artifacts stored before meta.filePath existed.
+   */
+  servedPathByContent(content: string): string | undefined {
+    const row = this.db
+      .prepare('SELECT path FROM served_files WHERE content = ? ORDER BY served_at DESC LIMIT 1')
+      .get(content) as { path: string } | undefined;
+    return row?.path;
+  }
+
   getServedFile(sessionId: string, filePath: string): ServedFileRecord | undefined {
     const row = this.db
       .prepare('SELECT * FROM served_files WHERE session_id = ? AND path = ?')
