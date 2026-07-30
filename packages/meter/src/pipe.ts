@@ -21,10 +21,13 @@ import { sidecarRequest, type SidecarTarget } from '@redutok/sidecar/client';
  * The wrapped command's exit code is never altered.
  */
 
-/** Mirrors the MCP dcp__run profile selection (packages/mcp/src/server.ts). */
+/** Mirrors the MCP dcp__run profile selection (packages/mcp/src/server.ts).
+ * verify/check cover the test-or-verify-shaped node scripts the allowlist's
+ * node-script rule rewrites (s02 regression): their output is a test verdict,
+ * and generic-stdout has no verdict gate for the miner to read. */
 export function selectProfile(command: string): string {
   if (/\b(tsc|build)\b/.test(command)) return 'build-log';
-  if (/\b(vitest|jest|test)\b/.test(command)) return 'test-output';
+  if (/\b(vitest|jest|test|verify|check)\b/.test(command)) return 'test-output';
   return 'generic-stdout';
 }
 

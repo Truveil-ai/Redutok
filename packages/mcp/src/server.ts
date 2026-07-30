@@ -183,7 +183,7 @@ async function toolRun(deps: McpDeps, args: Record<string, unknown>): Promise<st
   }
   const profile = /\b(tsc|build)\b/.test(command)
     ? 'build-log'
-    : /\b(vitest|jest|test)\b/.test(command)
+    : /\b(vitest|jest|test|verify|check)\b/.test(command)
       ? 'test-output'
       : 'generic-stdout';
   return distillViaSidecar(deps, raw, profile);

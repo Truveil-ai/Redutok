@@ -9,13 +9,21 @@ rules:
     config: { pattern: 'FAIL|failed|AssertionError|expected|Expected|Received|→|×', maxLines: 60 }
   - kind: summary-lines
     config: { pattern: 'Test Files|Tests +\d|Duration' }
+# Verdict vocabulary covers runner summaries (vitest/jest shapes) and the
+# fail-fast verify-script convention the bench fixtures use (s02 starvation
+# regression, 2026-07-30): a failing case prints a line starting `FAIL`, a
+# fully passing run ends with a column-0 `<subject> verified` summary line.
+# The pass marker is anchored to column 0 so an indented runner line that
+# merely ends in the word (a vitest test title) cannot flip a failing run
+# inconclusive. Both extractions must stay conclusive on those shapes or the
+# error-fix miner goes hungry.
 gates:
   entityPreservationMinRatio: 1
-  relevantLinePattern: 'FAIL |AssertionError'
+  relevantLinePattern: 'FAIL[ :]|AssertionError'
   verdict:
-    primaryPass: ['Tests {2,}\d+ passed \(\d+\)$']
-    primaryFail: ['\b\d+ failed\b']
-    secondaryFail: ['FAIL ', 'AssertionError']
+    primaryPass: ['Tests {2,}\d+ passed \(\d+\)$', '^\w[\w -]* verified\r?$']
+    primaryFail: ['\b\d+ failed\b', '^FAIL\b']
+    secondaryFail: ['FAIL ', 'AssertionError', '^FAIL\b']
     secondaryPassIfNoFail: true
   minOutputBytes: 12
 llm:
