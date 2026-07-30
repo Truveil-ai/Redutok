@@ -76,7 +76,7 @@ describe('pipe distiller end-to-end (zero API cost)', () => {
       );
       expect(pre.hookSpecificOutput?.permissionDecision).toBe('allow');
       expect((pre.hookSpecificOutput?.updatedInput as { command: string }).command).toBe(
-        `redutok-pipe -c '${BUILD_CMD}'`,
+        `node .claude/redutok/pipe.mjs -c '${BUILD_CMD}'`,
       );
 
       // Reference: a vanilla run of the same command.

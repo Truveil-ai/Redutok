@@ -76,6 +76,8 @@ describe('initRepo', () => {
     );
     expect(JSON.stringify(settings)).toContain('echo mine');
     expect(JSON.stringify(settings.hooks.PreToolUse)).toContain('.claude/redutok/hook.mjs');
+    // PowerShell is matched alongside Bash (rep-1 bypass, 2026-07-30).
+    expect(JSON.stringify(settings.hooks.PreToolUse)).toContain('PowerShell');
     expect(settings.hooks.SessionStart).toBeDefined();
     const mcp = JSON.parse(readFileSync(path.join(repo, '.mcp.json'), 'utf8'));
     expect(mcp.mcpServers.redutok.command).toBe('node');
@@ -85,6 +87,7 @@ describe('initRepo', () => {
     expect(mcp.mcpServers.redutok.env.REDUTOK_DCP_DIR).toBe('.dcp');
     expect(existsSync(path.join(repo, '.claude', 'redutok', 'hook.mjs'))).toBe(true);
     expect(existsSync(path.join(repo, '.claude', 'redutok', 'mcp.mjs'))).toBe(true);
+    expect(existsSync(path.join(repo, '.claude', 'redutok', 'pipe.mjs'))).toBe(true);
     expect(existsSync(path.join(repo, '.dcp', 'config.json'))).toBe(true);
     const scout = readFileSync(path.join(repo, '.claude', 'agents', 'scout.md'), 'utf8');
     expect(scout).toContain('name: scout');
@@ -140,6 +143,7 @@ describe('portability', () => {
       '.claude/settings.local.json',
       '.claude/redutok/hook.mjs',
       '.claude/redutok/mcp.mjs',
+      '.claude/redutok/pipe.mjs',
       '.claude/agents/scout.md',
       '.mcp.json',
       'CLAUDE.md',
@@ -165,6 +169,8 @@ describe('launcher resolution', () => {
     expect(existsSync(fromMeter.resolve('@redutok/mcp/main'))).toBe(true);
     expect(existsSync(fromMeter.resolve('@redutok/hooks/hook-main'))).toBe(true);
     expect(existsSync(fromMeter.resolve('@redutok/sidecar/package.json'))).toBe(true);
+    // The pipe launcher's chain (self-referencing 'redutok/pipe' export).
+    expect(existsSync(fromMeter.resolve('redutok/pipe'))).toBe(true);
   });
 
   it('generated mcp.mjs starts and answers an initialize handshake', async () => {

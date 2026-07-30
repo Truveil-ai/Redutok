@@ -19,9 +19,13 @@ export const SHIPPED_ALLOWLIST_YAML = `# Redutok pipe allowlist (v3 pillar A). C
 # chains, deletes, installs, VCS mutations). Patterns are JavaScript regular
 # expressions, tested case-insensitively against the raw command string.
 version: 1
-# Prefix that invokes the pipe binary. Override per-repo when the bin is not on
-# PATH for the tool shell, e.g. invoke: pnpm exec redutok-pipe
-invoke: redutok-pipe
+# Prefix that invokes the pipe. The committed launcher resolves the installed
+# package through the repo's dependency chain (REDUTOK_HOME override honored)
+# and fails open by running the wrapped command raw — no PATH assumptions.
+# The 2026-07-30 rep-1 run proved the old \`redutok-pipe\` bin form exits 127
+# in any repo where the bin is not linked. Override per-repo via
+# .dcp/pipe-allowlist.yaml if a different invocation is ever needed.
+invoke: node .claude/redutok/pipe.mjs
 allow:
   - rule: typecheck
     pattern: '\\btsc\\b'
@@ -65,9 +69,13 @@ function toRules(arr: unknown): AllowlistRule[] {
     );
 }
 
+/** Fallback invoke for an override that omits one: the same portable
+ * launcher form the shipped list uses, never a PATH-dependent bin name. */
+export const DEFAULT_PIPE_INVOKE = 'node .claude/redutok/pipe.mjs';
+
 export function parseAllowlist(yamlText: string): PipeAllowlist {
   const doc = (parseYaml(yamlText) ?? {}) as { invoke?: unknown; allow?: unknown; deny?: unknown };
-  const invoke = typeof doc.invoke === 'string' && doc.invoke !== '' ? doc.invoke : 'redutok-pipe';
+  const invoke = typeof doc.invoke === 'string' && doc.invoke !== '' ? doc.invoke : DEFAULT_PIPE_INVOKE;
   return { invoke, allow: toRules(doc.allow), deny: toRules(doc.deny) };
 }
 
@@ -88,6 +96,16 @@ export function loadAllowlist(dcpDir: string): PipeAllowlist {
 export function shellQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`;
 }
+
+/** Single-quote for PowerShell, whose literal strings escape ' by doubling. */
+export function shellQuotePowerShell(s: string): string {
+  return `'${s.replace(/'/g, `''`)}'`;
+}
+
+/** The shell dialect the rewritten command will be parsed by; picks the
+ * quoting only — allow and deny rules apply to the command string
+ * identically (the rep-1 PowerShell escape ran the same verify script). */
+export type RewriteShell = 'posix' | 'powershell';
 
 export interface RewriteDecision {
   /** The matched allow-rule name, recorded in the audit trail. */
@@ -115,6 +133,7 @@ const CD_PREFIX = /^\s*cd\s+(?:"[^"]*"|'[^']*'|[^\s&|;<>"']+)\s*&&\s*/;
 export function decideRewrite(
   command: string,
   allowlist: PipeAllowlist = SHIPPED,
+  shell: RewriteShell = 'posix',
 ): RewriteDecision | undefined {
   // Never double-wrap: a command already routed through the pipe would recurse.
   if (command.includes('redutok-pipe') || command.includes(allowlist.invoke)) return undefined;
@@ -128,5 +147,6 @@ export function decideRewrite(
   if (allowlist.deny.some((r) => new RegExp(r.pattern, 'i').test(denyProbe))) return undefined;
   const matched = allowlist.allow.find((r) => new RegExp(r.pattern, 'i').test(tail));
   if (matched === undefined) return undefined;
-  return { rule: matched.rule, command: `${prefix}${allowlist.invoke} -c ${shellQuote(tail)}` };
+  const quote = shell === 'powershell' ? shellQuotePowerShell : shellQuote;
+  return { rule: matched.rule, command: `${prefix}${allowlist.invoke} -c ${quote(tail)}` };
 }

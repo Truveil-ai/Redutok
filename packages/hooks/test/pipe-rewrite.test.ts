@@ -46,7 +46,7 @@ describe('allowlist matching', () => {
     for (const [command, rule] of cases) {
       const decision = decideRewrite(command, list);
       expect(decision?.rule).toBe(rule);
-      expect(decision?.command).toBe(`redutok-pipe -c ${shellQuote(command)}`);
+      expect(decision?.command).toBe(`node .claude/redutok/pipe.mjs -c ${shellQuote(command)}`);
     }
   });
 
@@ -58,7 +58,8 @@ describe('allowlist matching', () => {
       'pnpm install', // side effect
       'git commit -am wip', // VCS mutation
       'ls -la', // not allowlisted
-      "redutok-pipe -c 'pnpm build'", // already wrapped
+      "redutok-pipe -c 'pnpm build'", // already wrapped (legacy bin form)
+      "node .claude/redutok/pipe.mjs -c 'pnpm build'", // already wrapped (launcher form)
     ]) {
       expect(decideRewrite(command, list)).toBeUndefined();
     }
@@ -76,7 +77,7 @@ describe('allowlist matching', () => {
     ] as const) {
       const decision = decideRewrite(command, list);
       expect(decision?.rule, command).toBe(rule);
-      expect(decision?.command).toBe(`redutok-pipe -c ${shellQuote(command)}`);
+      expect(decision?.command).toBe(`node .claude/redutok/pipe.mjs -c ${shellQuote(command)}`);
     }
   });
 
@@ -112,15 +113,39 @@ describe('allowlist matching', () => {
     // The cd prefix stays outside the wrap so the pipe inherits the right cwd.
     expect(decideRewrite(exact1, list)?.command).toBe(
       'cd "C:\\Users\\Karan\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-1" && ' +
-        `redutok-pipe -c ${shellQuote('node scripts/verify-url-assembly.mjs')}`,
+        `node .claude/redutok/pipe.mjs -c ${shellQuote('node scripts/verify-url-assembly.mjs')}`,
     );
     expect(decideRewrite(exact3, list)?.command).toBe(
       'cd "C:\\Users\\Karan\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-3" && ' +
-        `redutok-pipe -c ${shellQuote('node scripts/verify-url-assembly.mjs 2>&1')}`,
+        `node .claude/redutok/pipe.mjs -c ${shellQuote('node scripts/verify-url-assembly.mjs 2>&1')}`,
     );
     // Without a cd prefix the shape still rewrites.
     expect(decideRewrite('node scripts/verify-url-assembly.mjs', list)?.rule).toBe('node-script');
     expect(decideRewrite('node test/check-exports.cjs', list)?.rule).toBe('node-script');
+  });
+
+  it('rewrites PowerShell commands with the same ladder and PowerShell-safe quoting', () => {
+    // The rep-1 escape hatch (2026-07-30): after the broken Bash rewrite,
+    // the model ran the verify script through the PowerShell tool, which the
+    // PreToolUse matcher did not cover, and the raw output entered context
+    // ungoverned. This is the exact escape command from that transcript.
+    const escape = decideRewrite('node scripts/verify-url-assembly.mjs', list, 'powershell');
+    expect(escape?.rule).toBe('node-script');
+    expect(escape?.command).toBe(
+      "node .claude/redutok/pipe.mjs -c 'node scripts/verify-url-assembly.mjs'",
+    );
+    // PowerShell escapes a single quote by doubling it, not backslashing it.
+    expect(decideRewrite("pnpm vitest run -t it's", list, 'powershell')?.command).toBe(
+      "node .claude/redutok/pipe.mjs -c 'pnpm vitest run -t it''s'",
+    );
+    // Deny rules apply to the command string identically.
+    for (const command of [
+      'node scripts/verify-x.mjs > out.txt',
+      'node scripts/verify-x.mjs | Select-Object -First 5',
+      'Remove-Item dist; node scripts/verify-x.mjs',
+    ]) {
+      expect(decideRewrite(command, list, 'powershell'), command).toBeUndefined();
+    }
   });
 
   it('masks only one leading cd prefix and keeps every deny rule intact behind it', () => {
@@ -141,7 +166,9 @@ describe('allowlist matching', () => {
 describe('loadAllowlist override', () => {
   it('uses a .dcp override when present and falls back to shipped defaults when malformed', () => {
     const dir = tempDcp();
-    expect(loadAllowlist(dir).invoke).toBe('redutok-pipe');
+    // The default invoke is the committed launcher, never a PATH-dependent
+    // bin name (the 2026-07-30 rep-1 127 regression).
+    expect(loadAllowlist(dir).invoke).toBe('node .claude/redutok/pipe.mjs');
     writeFileSync(
       path.join(dir, 'pipe-allowlist.yaml'),
       'version: 1\ninvoke: pnpm exec redutok-pipe\nallow:\n  - rule: build\n    pattern: \\bbuild\\b\ndeny: []\n',
@@ -151,7 +178,7 @@ describe('loadAllowlist override', () => {
     expect(decideRewrite('pnpm run build', overridden)?.command).toContain('pnpm exec redutok-pipe -c');
     // A malformed override must not disable the backstop.
     writeFileSync(path.join(dir, 'pipe-allowlist.yaml'), ': : not yaml : :\n  - [');
-    expect(loadAllowlist(dir).invoke).toBe('redutok-pipe');
+    expect(loadAllowlist(dir).invoke).toBe('node .claude/redutok/pipe.mjs');
   });
 });
 
@@ -168,13 +195,28 @@ describe('handlePreToolUse rewrite with a live sidecar', () => {
       );
       expect(out.hookSpecificOutput?.permissionDecision).toBe('allow');
       const rewritten = (out.hookSpecificOutput?.updatedInput as { command: string }).command;
-      expect(rewritten).toBe("redutok-pipe -c 'pnpm run build'");
+      expect(rewritten).toBe("node .claude/redutok/pipe.mjs -c 'pnpm run build'");
 
       const audit = readAuditFile(path.join(dcpDir, 'audit.jsonl'), 's-rw');
       const rewrite = audit.events.find((e) => e.action === 'rewrite');
       expect(rewrite).toBeDefined();
       expect(rewrite?.details?.['rule']).toBe('build');
       expect(rewrite?.details?.['command']).toBe('pnpm run build');
+
+      // The PowerShell tool rides the same ladder: the exact rep-1 escape
+      // command rewrites instead of slipping past the hook.
+      const ps = await handlePreToolUse(
+        {
+          tool_name: 'PowerShell',
+          tool_input: { command: 'node scripts/verify-url-assembly.mjs' },
+          session_id: 's-rw',
+        },
+        deps,
+      );
+      expect(ps.hookSpecificOutput?.permissionDecision).toBe('allow');
+      expect((ps.hookSpecificOutput?.updatedInput as { command: string }).command).toBe(
+        "node .claude/redutok/pipe.mjs -c 'node scripts/verify-url-assembly.mjs'",
+      );
     } finally {
       await daemon.close();
     }
