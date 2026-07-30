@@ -30,6 +30,22 @@ export interface SuccessCheck {
   variant?: Variant | 'both';
 }
 
+/**
+ * A harness-applied edit to the task's working copy, applied after the copy
+ * (and, for a slope sequence, after the inter-task boundary) but before the
+ * session starts and before baselines are captured. This is how a slope task
+ * can re-introduce a defect into the persistent working tree — the only way
+ * the same failure signature can legitimately recur across sessions, which
+ * is what the error-fix miner's occurrence count measures. Applied
+ * identically in both variants; `find` must occur exactly once or the run
+ * aborts as not-run rather than measuring a mis-seeded task.
+ */
+export interface TaskSeedEdit {
+  path: string;
+  find: string;
+  replace: string;
+}
+
 export interface BenchTask {
   id: string;
   tier: 'small' | 'medium' | 'large' | 'heavy' | 'slope';
@@ -37,6 +53,7 @@ export interface BenchTask {
   prompt: string;
   success: SuccessCheck[];
   fixtureLogs: Record<Variant, string>;
+  seed?: TaskSeedEdit[];
 }
 
 export function loadBenchTasks(dir: string): BenchTask[] {
@@ -49,9 +66,49 @@ export function loadBenchTasks(dir: string): BenchTask[] {
     if (raw.repo.url === undefined || raw.repo.commit === undefined) {
       throw new Error(`${file}: repo pin requires url and commit`);
     }
+    if (raw.seed !== undefined) {
+      if (!Array.isArray(raw.seed)) throw new Error(`${file}: seed must be a list of edits`);
+      for (const edit of raw.seed) {
+        if (
+          typeof edit?.path !== 'string' ||
+          edit.path === '' ||
+          typeof edit?.find !== 'string' ||
+          edit.find === '' ||
+          typeof edit?.replace !== 'string'
+        ) {
+          throw new Error(`${file}: every seed edit needs a path, a non-empty find, and a replace`);
+        }
+      }
+    }
     tasks.push(raw);
   }
   return tasks;
+}
+
+/**
+ * Applies a task's seed edits to its working copy. Each `find` must occur
+ * exactly once in the target file — zero means the tree drifted from what the
+ * seed was authored against (e.g. a model fixed the area differently than
+ * expected), more than one means the edit is ambiguous; either way the run
+ * must abort rather than measure a mis-seeded task. Returns one description
+ * per applied edit for the runner's log.
+ */
+export function applyTaskSeed(task: BenchTask, workDir: string): string[] {
+  const applied: string[] = [];
+  for (const edit of task.seed ?? []) {
+    const file = path.join(workDir, edit.path);
+    if (!existsSync(file)) throw new Error(`seed for ${task.id}: ${edit.path} does not exist in the copy`);
+    const content = readFileSync(file, 'utf8');
+    const occurrences = content.split(edit.find).length - 1;
+    if (occurrences !== 1) {
+      throw new Error(
+        `seed for ${task.id}: find string occurs ${occurrences} times in ${edit.path}, expected exactly 1`,
+      );
+    }
+    writeFileSync(file, content.replace(edit.find, edit.replace), 'utf8');
+    applied.push(`${edit.path}: seeded (${edit.find.length}B find -> ${edit.replace.length}B replace)`);
+  }
+  return applied;
 }
 
 /**
@@ -136,6 +193,11 @@ export interface SlopeAttribution {
   /** Graduated learned entries actually injected at this session's
    * SessionStart, from the posture audit event's injectedLearned refs. */
   learnedInjected: number;
+  /** Graduated pitfalls entries injected at SessionStart (injectedPitfalls
+   * refs). An error-fix lesson graduates into pitfalls, not learned, so a
+   * counter blind to these demotes the sequence's deterministic graduation
+   * path to MET-UNATTRIBUTED (N=3 diagnosis, 2026-07-30). */
+  pitfallsInjected: number;
 }
 
 /**
@@ -153,11 +215,17 @@ export function countSlopeAttribution(events: readonly AuditEventLike[], session
     const candidate = e.details?.['enrichmentCandidate'];
     return typeof candidate === 'string' && candidate !== '';
   }).length;
-  const learnedInjected = mine.reduce((n, e) => {
-    const injected = e.details?.['injectedLearned'];
-    return n + (Array.isArray(injected) ? injected.length : 0);
-  }, 0);
-  return { zoomBacks, enrichmentServes, learnedInjected };
+  const injectedCount = (key: string): number =>
+    mine.reduce((n, e) => {
+      const injected = e.details?.[key];
+      return n + (Array.isArray(injected) ? injected.length : 0);
+    }, 0);
+  return {
+    zoomBacks,
+    enrichmentServes,
+    learnedInjected: injectedCount('injectedLearned'),
+    pitfallsInjected: injectedCount('injectedPitfalls'),
+  };
 }
 
 /** True when the graduation miner has audited a completed mining run for the
@@ -586,12 +654,13 @@ export function evaluateSlope(tier: SlopeTier, measurements: LiveRunMeasurement[
   }
   // Mechanism engagement: the idle-posture incident produced a numerically
   // MET slope with zero attribution — a slope from nowhere. Zoom-backs are
-  // usage, not learning, so only enrichment serves and learned injections
-  // count as the mechanism.
+  // usage, not learning, so only enrichment serves and graduated-knowledge
+  // injections (learned and pitfalls sections both) count as the mechanism.
   const attributed = measurements.filter((m) => m.variant === 'redutok' && m.attribution !== undefined);
   const serves = attributed.reduce((n, m) => n + (m.attribution?.enrichmentServes ?? 0), 0);
   const injections = attributed.reduce((n, m) => n + (m.attribution?.learnedInjected ?? 0), 0);
-  const mechanismEngaged = serves + injections > 0;
+  const pitfalls = attributed.reduce((n, m) => n + (m.attribution?.pitfallsInjected ?? 0), 0);
+  const mechanismEngaged = serves + injections + pitfalls > 0;
   criteria.push({
     id: 'mechanism-engaged',
     description: descriptionOf('mechanism-engaged'),
@@ -599,7 +668,7 @@ export function evaluateSlope(tier: SlopeTier, measurements: LiveRunMeasurement[
     detail:
       attributed.length === 0
         ? 'attribution unavailable: no redutok run carried audit counts (recovered from logs?)'
-        : `${serves} enrichment serves, ${injections} learned injections across the redutok sequence`,
+        : `${serves} enrichment serves, ${injections} learned injections, ${pitfalls} pitfall injection(s) across the redutok sequence`,
   });
   return { sequenceId: tier.id, variants, headlineTokenRatio, mechanismEngaged, criteria };
 }
@@ -613,8 +682,8 @@ function slopeSection(tier: SlopeTier, measurements: LiveRunMeasurement[], repor
     '',
     'Sequenced runs on one fixture repo: the redutok variant carries its .dcp state (candidates, codex, mirror) across the sequence with a graduation pass between tasks; vanilla starts cold each task. Zoom-backs and enrichment serves come from each redutok copy’s .dcp/audit.jsonl attribution counts (vanilla has no .dcp; runs recovered from committed logs have no audit file and show —).',
     '',
-    '| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | learned injected | success |',
-    '| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |',
+    '| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | learned injected | pitfalls injected | success |',
+    '| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |',
   ];
   tier.sequence.forEach((taskId, index) => {
     for (const variant of ['vanilla', 'redutok'] as Variant[]) {
@@ -624,7 +693,7 @@ function slopeSection(tier: SlopeTier, measurements: LiveRunMeasurement[], repor
       const cell = (pick: (t: SlopeAttribution) => number): string =>
         withAttribution.length === 0 ? '—' : fmt(median(withAttribution.map((r) => pick(r.attribution as SlopeAttribution))));
       lines.push(
-        `| ${taskId} | ${index + 1} | ${variant} | ${fmt(median(runs.map((r) => r.totalTokens)))} | ${fmt(median(runs.map((r) => turnsOf(r.ledger))))} | ${cell((t) => t.zoomBacks)} | ${cell((t) => t.enrichmentServes)} | ${cell((t) => t.learnedInjected)} | ${runs.filter((r) => r.success).length}/${runs.length} |`,
+        `| ${taskId} | ${index + 1} | ${variant} | ${fmt(median(runs.map((r) => r.totalTokens)))} | ${fmt(median(runs.map((r) => turnsOf(r.ledger))))} | ${cell((t) => t.zoomBacks)} | ${cell((t) => t.enrichmentServes)} | ${cell((t) => t.learnedInjected)} | ${cell((t) => t.pitfallsInjected)} | ${runs.filter((r) => r.success).length}/${runs.length} |`,
       );
     }
   });

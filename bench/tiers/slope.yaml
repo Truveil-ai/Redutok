@@ -1,14 +1,20 @@
-# Slope tier (v4 sessions 4-5): the tier that measures compounding.
+# Slope tier (v4 sessions 4-6): the tier that measures compounding.
 #
-# Rewritten for realism after the 2026-07-30 idle-posture diagnosis: the
-# chalk fixture sat below the governance thresholds, redutok disengaged,
-# and a numerically MET slope arrived with zero attribution. This sequence
-# runs on the vendored axios fixture (fixtures/repos/axios, 156 indexable
-# files / ~494 KB — assesses full posture legitimately) with three
-# related-but-distinct tasks in the URL-assembly neighborhood
-# (buildFullPath / isAbsoluteURL / combineURLs): s01 read-shaped, s02
-# fix-shaped against a real failing command (the error-fix mining shape),
-# s03 feature-shaped. No task's answer is copyable from a prior task's.
+# Rewritten for realism after the 2026-07-30 idle-posture diagnosis (chalk
+# sat below the governance thresholds; a numerically MET slope arrived with
+# zero attribution), then extended to five tasks after the same day's N=3
+# pipe diagnosis: with three tasks, the first lesson was arithmetically
+# unreachable — an error-fix mined at s02 (occurrences 1, confidence 0.2929)
+# has no later task that can re-observe its key, so nothing could reach
+# GRADUATE_MIN_CONFIDENCE (0.5 at occurrences 2) before the sequence ended.
+# The five-task sequence runs on the vendored axios fixture
+# (fixtures/repos/axios, full posture legitimately) in the URL-assembly
+# neighborhood: s01 read-shaped, s02 fix-shaped (the error-fix mining
+# shape), s03 feature-shaped, s04 fix-shaped recurrence (a harness seed
+# re-fails s02's assertion with a different root cause, raising the s02
+# candidate to occurrences 2 so it graduates at s04's session end), s05
+# feature-shaped spec-driven (the position an injected pitfall can pay at).
+# No task's answer is copyable from a prior task's.
 #
 # Both variants run the sequence in order in fresh sessions per task; the
 # redutok variant carries its .dcp state (candidates, codex, mirror)
@@ -16,27 +22,32 @@
 # graduation pass required to complete between tasks; vanilla starts cold
 # each task. That asymmetry is the product claim under test.
 #
-# The criteria below were written before any run of this tier against this
-# fixture existed and are the only criteria the harness will evaluate
-# (loadSlopeTier refuses any other id). House rule: no bar movement after
-# the fact. The first two are unchanged in substance from the original
-# pre-registration; mechanism-engaged is the check the idle-posture
-# diagnosis exposed a need for: a MET with zero attribution renders as
+# The criteria below are re-anchored from s3 to s5 as part of the five-task
+# extension, pre-registered before any five-task run of this tier exists
+# (the three-task N=3 runs preceded this file's re-anchoring and are
+# reported as NOT MET / starved). Wording is unchanged in substance: the
+# same two numeric bars at the sequence's last position, and the same
+# mechanism-engaged rule — with pitfall injections named explicitly, since
+# an error-fix lesson graduates into the pitfalls section and its injection
+# is the sequence's deterministic attribution path. House rule: no bar
+# movement after the fact; loadSlopeTier refuses any criterion not
+# pre-registered in the harness. A MET with zero attribution renders as
 # MET-UNATTRIBUTED and is not citable.
 tier: slope
 id: slope-axios
-sequence: [s01, s02, s03]
+sequence: [s01, s02, s03, s04, s05]
 criteria:
   - id: slope-exists
     description: >-
-      redutok s3 must show fewer median total tokens AND fewer median turns
+      redutok s5 must show fewer median total tokens AND fewer median turns
       than redutok s1 — the learning slope exists
   - id: learning-pays
     description: >-
-      redutok s3 must beat vanilla s3 on median total tokens, with redutok s3
-      success rate at least vanilla s3's — the learning pays at parity
+      redutok s5 must beat vanilla s5 on median total tokens, with redutok s5
+      success rate at least vanilla s5's — the learning pays at parity
   - id: mechanism-engaged
     description: >-
-      at least one nonzero attribution counter (enrichment serve or learned
-      injection) must appear across the redutok sequence by s3; numeric bars
-      met with zero attribution are MET-UNATTRIBUTED and not citable
+      at least one nonzero attribution counter (enrichment serve, learned
+      injection, or graduated-pitfall injection) must appear across the
+      redutok sequence by s5; numeric bars met with zero attribution are
+      MET-UNATTRIBUTED and not citable

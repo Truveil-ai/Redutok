@@ -31,6 +31,13 @@ allow:
     pattern: '\\b(?:vitest|jest|pytest|mocha|ava|(?:pnpm|npm|yarn|bun)(?: run)? test)\\b'
   - rule: lint
     pattern: '\\b(?:eslint|tslint|(?:pnpm|npm|yarn|bun)(?: run)? lint)\\b'
+  # Plain node invocations of test-or-verify-shaped scripts (s02 regression,
+  # 2026-07-30 N=3): a repo's own \`node scripts/verify-*.mjs\` check is a
+  # read-only, verdict-producing command exactly like a test runner, but no
+  # runner name appears in it. The filename must start with verify, test, or
+  # check so arbitrary node scripts (side-effectful by default) stay untouched.
+  - rule: node-script
+    pattern: '\\bnode\\s+(?:[\\w.\\\\/-]+[\\\\/])?(?:verify|test|check)[\\w.-]*\\.[cm]?js\\b'
 deny:
   - rule: shell-composition
     pattern: '[><;|]|&&|\\|\\||\\$\\(|\\x60'
@@ -90,6 +97,17 @@ export interface RewriteDecision {
 }
 
 /**
+ * A single leading `cd <dir> && ` prefix. Like the descriptor-merge masking
+ * below, this is not composition in the deny rules' sense: it only positions
+ * the one read-only invocation that follows, and the s02 bench sessions
+ * (2026-07-30 N=3) showed models reaching for exactly this shape in temp
+ * working copies. Only one prefix is recognized — a second `cd` or any other
+ * chain segment in the tail still trips the shell-composition deny — and the
+ * prefix stays outside the wrap so the pipe binary inherits the intended cwd.
+ */
+const CD_PREFIX = /^\s*cd\s+(?:"[^"]*"|'[^']*'|[^\s&|;<>"']+)\s*&&\s*/;
+
+/**
  * Decides whether a Bash command should be rewritten through the pipe. Returns
  * undefined (leave untouched) when the command is already wrapped, matches a
  * deny rule (side effects / composition), or matches no allow rule.
@@ -100,13 +118,15 @@ export function decideRewrite(
 ): RewriteDecision | undefined {
   // Never double-wrap: a command already routed through the pipe would recurse.
   if (command.includes('redutok-pipe') || command.includes(allowlist.invoke)) return undefined;
+  const prefix = CD_PREFIX.exec(command)?.[0] ?? '';
+  const tail = command.slice(prefix.length);
   // A descriptor merge (`2>&1`, `1>&2`, `>&2`) only re-routes stderr into the
   // same capture the pipe already reads; it is not a file redirect, pipe, or
   // chain, so it is masked before deny testing. Digits are required after the
   // `&` so a `>&file` redirect still trips the deny rule.
-  const denyProbe = command.replace(/\d*>&\d+/g, ' ');
+  const denyProbe = tail.replace(/\d*>&\d+/g, ' ');
   if (allowlist.deny.some((r) => new RegExp(r.pattern, 'i').test(denyProbe))) return undefined;
-  const matched = allowlist.allow.find((r) => new RegExp(r.pattern, 'i').test(command));
+  const matched = allowlist.allow.find((r) => new RegExp(r.pattern, 'i').test(tail));
   if (matched === undefined) return undefined;
-  return { rule: matched.rule, command: `${allowlist.invoke} -c ${shellQuote(command)}` };
+  return { rule: matched.rule, command: `${prefix}${allowlist.invoke} -c ${shellQuote(tail)}` };
 }

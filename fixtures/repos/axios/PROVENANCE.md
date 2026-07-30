@@ -36,5 +36,23 @@ posture walk anyway.
   `node scripts/verify-url-assembly.mjs` fails on exactly this case; the
   s02 bench task is to diagnose and fix it. Upstream's correct line is the
   single-character-class strip `/^\/+/`.
+- **Added** `scripts/verify-joint-collapse.mjs` (v4 session 6): spec for
+  `lib/helpers/normalizeJoin.js`, a helper the fixture deliberately does
+  not ship. The s05 bench task is to implement it, so until then the
+  script fails on its own import in every variant. Same conventions as
+  verify-url-assembly (`ok:`/`FAIL:` lines, fail-fast, a column-0
+  `... verified` summary line).
+- **Boundary seed for s04** (applied by the bench runner, not vendored;
+  declared in `bench/tasks/s04.yaml`): at the s04 task boundary the
+  harness replaces `baseURL.replace(/\/?\/$/, '') + '/' + relativeURL`
+  with `baseURL + '/' + relativeURL` in `lib/helpers/combineURLs.js` —
+  dropping the base side's trailing-slash strip so the verify script's
+  first assertion fails again with the same signature as s02 but a
+  different root cause. The find string deliberately excludes the
+  leading-slash strip s02's fix touches, so it applies whether or not
+  that fix happened; an exact-once mismatch aborts the rep. This
+  harness-applied recurrence is disclosed here because it is the only
+  way the same failure can legitimately recur in a persistent working
+  tree, which is what the graduation miner's occurrence count measures.
 
 Everything else is byte-identical to the pinned upstream commit.

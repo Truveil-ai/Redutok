@@ -37,6 +37,16 @@ describe('selectProfile', () => {
     expect(selectProfile('eslint .')).toBe('generic-stdout');
     expect(selectProfile('git status')).toBe('generic-stdout');
   });
+
+  it('routes verify- and check-shaped node scripts to test-output, the s02 regression shape', () => {
+    // Their output is a test verdict; generic-stdout has no verdict gate,
+    // so routing them there starves the error-fix miner even when the pipe
+    // rewrite fires.
+    expect(selectProfile('node scripts/verify-url-assembly.mjs')).toBe('test-output');
+    expect(selectProfile('node scripts/verify-url-assembly.mjs 2>&1')).toBe('test-output');
+    expect(selectProfile('node test/check-exports.cjs')).toBe('test-output');
+    expect(selectProfile('node scripts/helper.mjs')).toBe('generic-stdout');
+  });
 });
 
 describe('runPipe fail-open passthrough', () => {

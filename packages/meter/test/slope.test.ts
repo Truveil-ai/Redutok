@@ -1,9 +1,10 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  applyTaskSeed,
   countSlopeAttribution,
   dryRunMatrix,
   evaluateSlope,
@@ -123,9 +124,9 @@ function learningRun(rep: number): LiveRunMeasurement[] {
     synthMeasurement('s01', 'vanilla', rep, 100_000, 20),
     synthMeasurement('s02', 'vanilla', rep, 98_000, 19),
     synthMeasurement('s03', 'vanilla', rep, 96_000, 20),
-    synthMeasurement('s01', 'redutok', rep, 50_000, 15, { attribution: { zoomBacks: 4, enrichmentServes: 0, learnedInjected: 0 } }),
-    synthMeasurement('s02', 'redutok', rep, 40_000, 12, { attribution: { zoomBacks: 2, enrichmentServes: 3, learnedInjected: 2 } }),
-    synthMeasurement('s03', 'redutok', rep, 30_000, 9, { attribution: { zoomBacks: 1, enrichmentServes: 5, learnedInjected: 4 } }),
+    synthMeasurement('s01', 'redutok', rep, 50_000, 15, { attribution: { zoomBacks: 4, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: 0 } }),
+    synthMeasurement('s02', 'redutok', rep, 40_000, 12, { attribution: { zoomBacks: 2, enrichmentServes: 3, learnedInjected: 2, pitfallsInjected: 0 } }),
+    synthMeasurement('s03', 'redutok', rep, 30_000, 9, { attribution: { zoomBacks: 1, enrichmentServes: 5, learnedInjected: 4, pitfallsInjected: 1 } }),
   ];
 }
 
@@ -175,6 +176,47 @@ describe('loadSlopeTier', () => {
   });
 });
 
+// ------------------------------------------------------------------- seeds
+
+describe('applyTaskSeed', () => {
+  const seededTask = (seed: BenchTask['seed']): BenchTask => slopeTask('s04', { seed });
+
+  function copyDir(): string {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'redutok-seed-'));
+    writeFileSync(path.join(dir, 'target.js'), "return a.replace(/x/, '') + '/' + b;\n");
+    return dir;
+  }
+
+  it('applies an exact-once edit and reports it; a task with no seed is a no-op', () => {
+    const dir = copyDir();
+    const applied = applyTaskSeed(
+      seededTask([{ path: 'target.js', find: "a.replace(/x/, '') + '/' + b", replace: "a + '/' + b" }]),
+      dir,
+    );
+    expect(applied).toHaveLength(1);
+    expect(readFileSync(path.join(dir, 'target.js'), 'utf8')).toBe("return a + '/' + b;\n");
+    expect(applyTaskSeed(slopeTask('s01'), dir)).toEqual([]);
+  });
+
+  it('aborts on a drifted tree (find absent) instead of measuring a mis-seeded task', () => {
+    const dir = copyDir();
+    expect(() =>
+      applyTaskSeed(seededTask([{ path: 'target.js', find: 'not in the file', replace: 'x' }]), dir),
+    ).toThrow(/0 times/);
+  });
+
+  it('aborts on an ambiguous find (more than one occurrence) and on a missing file', () => {
+    const dir = copyDir();
+    writeFileSync(path.join(dir, 'target.js'), 'dup dup\n');
+    expect(() => applyTaskSeed(seededTask([{ path: 'target.js', find: 'dup', replace: 'x' }]), dir)).toThrow(
+      /2 times/,
+    );
+    expect(() => applyTaskSeed(seededTask([{ path: 'gone.js', find: 'a', replace: 'b' }]), dir)).toThrow(
+      /does not exist/,
+    );
+  });
+});
+
 // ------------------------------------------------------------- attribution
 
 describe('countSlopeAttribution', () => {
@@ -186,14 +228,14 @@ describe('countSlopeAttribution', () => {
     { action: 'rewrite', sessionId: 'a', module: 'hooks.pretooluse', details: { enrichmentCandidate: 'cand-2' } },
     { action: 'rewrite', sessionId: 'b', module: 'hooks.pretooluse', details: { enrichmentCandidate: 'cand-2' } },
     { action: 'rewrite', sessionId: 'a', module: 'hooks.pretooluse', details: { rule: 'read-mirror' } },
-    { action: 'posture', sessionId: 'a', module: 'hooks.session-start', details: { injectedLearned: ['cand-1', 'cand-3'], excludedLearned: ['cand-9'] } },
+    { action: 'posture', sessionId: 'a', module: 'hooks.session-start', details: { injectedLearned: ['cand-1', 'cand-3'], excludedLearned: ['cand-9'], injectedPitfalls: ['cand-7'] } },
     { action: 'posture', sessionId: 'b', module: 'hooks.session-start', details: { injectedLearned: [] } },
   ];
 
-  it('counts zoom-backs, enrichment serves, and learned injections attributed to the session, ignoring other sessions', () => {
-    expect(countSlopeAttribution(events, 'a')).toEqual({ zoomBacks: 2, enrichmentServes: 2, learnedInjected: 2 });
-    expect(countSlopeAttribution(events, 'b')).toEqual({ zoomBacks: 1, enrichmentServes: 1, learnedInjected: 0 });
-    expect(countSlopeAttribution(events, 'c')).toEqual({ zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0 });
+  it('counts zoom-backs, enrichment serves, and learned and pitfall injections attributed to the session, ignoring other sessions', () => {
+    expect(countSlopeAttribution(events, 'a')).toEqual({ zoomBacks: 2, enrichmentServes: 2, learnedInjected: 2, pitfallsInjected: 1 });
+    expect(countSlopeAttribution(events, 'b')).toEqual({ zoomBacks: 1, enrichmentServes: 1, learnedInjected: 0, pitfallsInjected: 0 });
+    expect(countSlopeAttribution(events, 'c')).toEqual({ zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: 0 });
   });
 
   it('does not count an empty or missing enrichmentCandidate as a serve, nor excluded refs as injections', () => {
@@ -202,7 +244,7 @@ describe('countSlopeAttribution', () => {
       { action: 'distill', sessionId: 'a', details: {} },
       { action: 'posture', sessionId: 'a', details: { excludedLearned: ['cand-1'] } },
     ];
-    expect(countSlopeAttribution(noise, 'a')).toEqual({ zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0 });
+    expect(countSlopeAttribution(noise, 'a')).toEqual({ zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: 0 });
   });
 });
 
@@ -251,7 +293,7 @@ describe('evaluateSlope', () => {
 
   it('fails mechanism-engaged when every redutok attribution counter is zero: the slope came from nowhere', () => {
     const runs = learningRun(1).map((m) =>
-      m.variant === 'redutok' ? { ...m, attribution: { zoomBacks: 3, enrichmentServes: 0, learnedInjected: 0 } } : m,
+      m.variant === 'redutok' ? { ...m, attribution: { zoomBacks: 3, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: 0 } } : m,
     );
     const report = evaluateSlope(tier, runs);
     const verdict = report.criteria.find((c) => c.id === 'mechanism-engaged');
@@ -260,6 +302,23 @@ describe('evaluateSlope', () => {
     // Zoom-backs alone are usage, not learning attribution: they must not
     // count as engagement.
     expect(verdict?.detail).toMatch(/0 enrichment serves/);
+  });
+
+  it('passes mechanism-engaged on pitfall injections alone: an error-fix lesson graduates into pitfalls, not learned', () => {
+    // The N=3 diagnosis (2026-07-30): the deterministic graduation path for
+    // the slope sequence is an error-fix, which lands in the codex pitfalls
+    // section and is recorded under injectedPitfalls. A counter blind to it
+    // would demote a genuinely earned injection to MET-UNATTRIBUTED.
+    const runs = learningRun(1).map((m) =>
+      m.variant === 'redutok'
+        ? { ...m, attribution: { zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: m.taskId === 's03' ? 1 : 0 } }
+        : m,
+    );
+    const report = evaluateSlope(tier, runs);
+    const verdict = report.criteria.find((c) => c.id === 'mechanism-engaged');
+    expect(verdict?.pass).toBe(true);
+    expect(report.mechanismEngaged).toBe(true);
+    expect(verdict?.detail).toMatch(/1 pitfall injection/);
   });
 
   it('fails mechanism-engaged when attribution is unavailable (recovered runs) rather than passing silently', () => {
@@ -320,11 +379,11 @@ describe('generateLiveResults slope section', () => {
       slope: tier,
     });
     expect(summary.markdown).toContain('## Slope (sequence slope-axios)');
-    expect(summary.markdown).toContain('| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | learned injected | success |');
+    expect(summary.markdown).toContain('| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | learned injected | pitfalls injected | success |');
     // s02 redutok row carries its attribution counts.
-    expect(summary.markdown).toMatch(/\| s02 \| 2 \| redutok \|[^|]+\|[^|]+\| 2 \| 3 \| 2 \|/);
+    expect(summary.markdown).toMatch(/\| s02 \| 2 \| redutok \|[^|]+\|[^|]+\| 2 \| 3 \| 2 \| 0 \|/);
     // Vanilla rows have no .dcp, so attribution renders as an em dash.
-    expect(summary.markdown).toMatch(/\| s02 \| 2 \| vanilla \|[^|]+\|[^|]+\| — \| — \| — \|/);
+    expect(summary.markdown).toMatch(/\| s02 \| 2 \| vanilla \|[^|]+\|[^|]+\| — \| — \| — \| — \|/);
     expect(summary.markdown).toContain('redutok slope (s3/s1): tokens 0.60x, turns 0.60x');
     expect(summary.markdown).toContain('headline: vanilla s3 over redutok s3: 3.2x tokens');
     expect(summary.markdown).toContain('### Pre-registered criteria');
@@ -337,7 +396,7 @@ describe('generateLiveResults slope section', () => {
 
   it('renders MET-UNATTRIBUTED and marks the result not citable when the bars pass with zero attribution', () => {
     const runs = learningRun(1).map((m) =>
-      m.variant === 'redutok' ? { ...m, attribution: { zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0 } } : m,
+      m.variant === 'redutok' ? { ...m, attribution: { zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: 0 } } : m,
     );
     const summary = generateLiveResults(runs, [], { model: 'claude-sonnet-5', n: 1, done: true, slope: tier });
     // The numeric bars still pass, but without mechanism they are demoted.
@@ -390,23 +449,52 @@ describe('dryRunMatrix with a slope tier', () => {
 // -------------------------------------------------- repo tier file (data)
 
 describe('the pre-registered tier file in bench/tiers', () => {
-  it('loads against the real task set: three axios tasks on a full-posture fixture, all criteria pinned before any run', () => {
+  it('loads against the real task set: five axios tasks on a full-posture fixture, all criteria pinned before any run', () => {
     const tasks = loadBenchTasks(path.join(repoRoot, 'bench', 'tasks'));
     const loaded = loadSlopeTier(path.join(repoRoot, 'bench', 'tiers', 'slope.yaml'), tasks);
-    expect(loaded.sequence).toEqual(['s01', 's02', 's03']);
+    expect(loaded.sequence).toEqual(['s01', 's02', 's03', 's04', 's05']);
     expect(loaded.criteria.map((c) => c.id)).toEqual(['slope-exists', 'learning-pays', 'mechanism-engaged']);
+    // Criteria are anchored to the sequence's last position.
+    expect(loaded.criteria.find((c) => c.id === 'slope-exists')?.description).toMatch(/s5/);
+    expect(loaded.criteria.find((c) => c.id === 'learning-pays')?.description).toMatch(/s5/);
     const sequenceTasks = loaded.sequence.map((id) => tasks.find((t) => t.id === id));
     for (const task of sequenceTasks) {
       expect(task?.tier).toBe('slope');
       expect(task?.repo.localPath).toBe('fixtures/repos/axios');
     }
-    // Related but distinct: the three prompts must not repeat each other.
-    expect(new Set(sequenceTasks.map((t) => t?.prompt)).size).toBe(3);
-    // Mixed read-and-fix shapes: at least one answer-graded task and at
-    // least one command-graded fix, so error-fix candidates can arise.
+    // Related but distinct: the five prompts must not repeat each other.
+    expect(new Set(sequenceTasks.map((t) => t?.prompt)).size).toBe(5);
+    // Mixed shapes: at least one answer-graded task, command-graded fixes,
+    // and a spec-driven feature graded on a new file, so error-fix
+    // candidates can arise and an injected lesson has a position to pay at.
     const kinds = sequenceTasks.flatMap((t) => t?.success.map((c) => c.kind) ?? []);
     expect(kinds).toContain('answer-contains');
     expect(kinds).toContain('command-succeeds');
     expect(kinds).toContain('file-changed');
+    expect(kinds).toContain('file-exists');
+  });
+
+  it('s04 declares the recurrence seed against the exact fixture joint expression, and s05 declares none', () => {
+    const tasks = loadBenchTasks(path.join(repoRoot, 'bench', 'tasks'));
+    const s04 = tasks.find((t) => t.id === 's04');
+    expect(s04?.seed).toHaveLength(1);
+    expect(s04?.seed?.[0]?.path).toBe('lib/helpers/combineURLs.js');
+    // The find string must apply to the pristine fixture (vanilla cold copy)
+    // and must not overlap the leading-slash strip that s02's fix touches,
+    // so it also applies to a carried tree whatever that fix looked like.
+    const fixture = readFileSync(
+      path.join(repoRoot, 'fixtures', 'repos', 'axios', 'lib', 'helpers', 'combineURLs.js'),
+      'utf8',
+    );
+    const find = s04?.seed?.[0]?.find ?? '';
+    expect(fixture.split(find).length - 1).toBe(1);
+    expect(find).not.toContain('/^\\/');
+    const s05 = tasks.find((t) => t.id === 's05');
+    expect(s05?.seed).toBeUndefined();
+    // s05's spec target must not ship with the fixture: the deterministic
+    // starting failure in both variants is the import itself.
+    expect(
+      existsSync(path.join(repoRoot, 'fixtures', 'repos', 'axios', 'lib', 'helpers', 'normalizeJoin.js')),
+    ).toBe(false);
   });
 });
