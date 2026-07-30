@@ -119,6 +119,15 @@ importers:
         specifier: ^7.0.0
         version: 7.0.2
 
+  packages/vault:
+    dependencies:
+      '@redutok/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@redutok/sidecar':
+        specifier: workspace:*
+        version: link:../sidecar
+
 packages:
 
   '@esbuild/aix-ppc64@0.21.5':
