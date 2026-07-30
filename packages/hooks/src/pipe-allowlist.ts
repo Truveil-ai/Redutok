@@ -19,9 +19,13 @@ export const SHIPPED_ALLOWLIST_YAML = `# Redutok pipe allowlist (v3 pillar A). C
 # chains, deletes, installs, VCS mutations). Patterns are JavaScript regular
 # expressions, tested case-insensitively against the raw command string.
 version: 1
-# Prefix that invokes the pipe binary. Override per-repo when the bin is not on
-# PATH for the tool shell, e.g. invoke: pnpm exec redutok-pipe
-invoke: redutok-pipe
+# Prefix that invokes the pipe. The committed launcher resolves the installed
+# package through the repo's dependency chain (REDUTOK_HOME override honored)
+# and fails open by running the wrapped command raw — no PATH assumptions.
+# The 2026-07-30 rep-1 run proved the old \`redutok-pipe\` bin form exits 127
+# in any repo where the bin is not linked. Override per-repo via
+# .dcp/pipe-allowlist.yaml if a different invocation is ever needed.
+invoke: node .claude/redutok/pipe.mjs
 allow:
   - rule: typecheck
     pattern: '\\btsc\\b'
@@ -65,9 +69,13 @@ function toRules(arr: unknown): AllowlistRule[] {
     );
 }
 
+/** Fallback invoke for an override that omits one: the same portable
+ * launcher form the shipped list uses, never a PATH-dependent bin name. */
+export const DEFAULT_PIPE_INVOKE = 'node .claude/redutok/pipe.mjs';
+
 export function parseAllowlist(yamlText: string): PipeAllowlist {
   const doc = (parseYaml(yamlText) ?? {}) as { invoke?: unknown; allow?: unknown; deny?: unknown };
-  const invoke = typeof doc.invoke === 'string' && doc.invoke !== '' ? doc.invoke : 'redutok-pipe';
+  const invoke = typeof doc.invoke === 'string' && doc.invoke !== '' ? doc.invoke : DEFAULT_PIPE_INVOKE;
   return { invoke, allow: toRules(doc.allow), deny: toRules(doc.deny) };
 }
 

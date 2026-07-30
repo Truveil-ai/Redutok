@@ -265,7 +265,7 @@ describe('handlePreToolUse with a live sidecar', () => {
       );
       expect(bash.hookSpecificOutput?.permissionDecision).toBe('allow');
       const rewritten = (bash.hookSpecificOutput?.updatedInput as { command: string }).command;
-      expect(rewritten).toContain('redutok-pipe -c');
+      expect(rewritten).toContain('node .claude/redutok/pipe.mjs -c');
       expect(rewritten).toContain('pnpm vitest run');
 
       const cheapBash = await handlePreToolUse(

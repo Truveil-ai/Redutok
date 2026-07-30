@@ -9,6 +9,7 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./pipe": "./dist/pipe.js",
     "./package.json": "./package.json"
   },
   "bin": {
