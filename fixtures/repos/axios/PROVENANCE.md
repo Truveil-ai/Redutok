@@ -44,15 +44,21 @@ posture walk anyway.
   `... verified` summary line).
 - **Boundary seed for s04** (applied by the bench runner, not vendored;
   declared in `bench/tasks/s04.yaml`): at the s04 task boundary the
-  harness replaces `baseURL.replace(/\/?\/$/, '') + '/' + relativeURL`
-  with `baseURL + '/' + relativeURL` in `lib/helpers/combineURLs.js` —
-  dropping the base side's trailing-slash strip so the verify script's
+  harness overwrites `lib/helpers/combineURLs.js` wholesale with a
+  canonical seeded version whose base side keeps every trailing slash
+  (`baseURL + '/' + …`, no strip) while the relative side carries
+  upstream's correct leading strip `/^\/+/` — so the verify script's
   first assertion fails again with the same signature as s02 but a
-  different root cause. The find string deliberately excludes the
-  leading-slash strip s02's fix touches, so it applies whether or not
-  that fix happened; an exact-once mismatch aborts the rep. This
-  harness-applied recurrence is disclosed here because it is the only
-  way the same failure can legitimately recur in a persistent working
-  tree, which is what the graduation miner's occurrence count measures.
+  different root cause, and s02's answer is not pasteable. The seed is a
+  deterministic content-write, not a find/replace: the 2026-07-30 rep-1
+  run aborted when the s02 session's fix rewrote both halves of the
+  joint line and a find string matched 0 times. The write lands
+  identically on the redutok carried tree (whatever the s02 fix looked
+  like) and on the vanilla cold copy (replacing the still-unfixed
+  vendored defect), so both variants face the exact same file at s04.
+  This harness-applied recurrence is disclosed here because it is the
+  only way the same failure can legitimately recur in a persistent
+  working tree, which is what the graduation miner's occurrence count
+  measures.
 
 Everything else is byte-identical to the pinned upstream commit.

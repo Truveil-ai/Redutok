@@ -5,15 +5,22 @@ tier: slope
 # re-introducing a joint regression into lib/helpers/combineURLs.js — this
 # time on the base side of the joint (the trailing-slash strip is dropped),
 # a different root cause than s02's leading-slash defect, so no line of
-# s02's answer is pasteable. The verify script fails on the same first
+# s02's answer is pasteable (the seeded file already carries upstream's
+# correct leading strip). The verify script fails on the same first
 # assertion as s02 ("combineURLs strips the duplicate slash at the joint"),
 # which is the point: the same error signature failing in a second session
 # raises the s02 error-fix candidate to occurrences 2 (confidence 0.5 =
 # GRADUATE_MIN_CONFIDENCE), graduating it at this session's end so it is
-# injectable from s05. The seed applies identically in both variants; in
-# the vanilla cold copy it lands on top of the still-unfixed s02 defect —
-# vanilla re-paying earlier work is the persistence asymmetry under test.
-# Seed provenance: fixtures/repos/axios/PROVENANCE.md.
+# injectable from s05.
+#
+# The seed is a deterministic content-write of the whole (single-function)
+# file, not a find/replace: the 2026-07-30 rep-1 abort proved a find string
+# cannot survive a prior session's fix — the s02 session rewrote both
+# halves of the joint line and the seed matched 0 times, invalidating the
+# rep. The write lands identically on the redutok carried tree (whatever
+# the s02 fix looked like) and on the vanilla cold copy (replacing the
+# still-unfixed vendored defect), so at s04 both variants face the exact
+# same file. Seed provenance: fixtures/repos/axios/PROVENANCE.md.
 repo:
   url: https://github.com/axios/axios
   commit: b2cb45d5a533a5465c99559b16987e4d5fc08cbc
@@ -21,8 +28,22 @@ repo:
 prompt: 'The URL-assembly check `node scripts/verify-url-assembly.mjs` is failing in this repo. Diagnose the failure, fix its root cause in the library source (not in the script), and rerun the script until it passes.'
 seed:
   - path: lib/helpers/combineURLs.js
-    find: "baseURL.replace(/\\/?\\/$/, '') + '/' + relativeURL"
-    replace: "baseURL + '/' + relativeURL"
+    write: |
+      'use strict';
+
+      /**
+       * Creates a new URL by combining the specified URLs
+       *
+       * @param {string} baseURL The base URL
+       * @param {string} relativeURL The relative URL
+       *
+       * @returns {string} The combined URL
+       */
+      export default function combineURLs(baseURL, relativeURL) {
+        return relativeURL
+          ? baseURL + '/' + relativeURL.replace(/^\/+/, '')
+          : baseURL;
+      }
 success:
   - kind: command-succeeds
     command: 'node scripts/verify-url-assembly.mjs'
