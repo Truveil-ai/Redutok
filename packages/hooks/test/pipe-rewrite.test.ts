@@ -124,6 +124,30 @@ describe('allowlist matching', () => {
     expect(decideRewrite('node test/check-exports.cjs', list)?.rule).toBe('node-script');
   });
 
+  it('rewrites PowerShell commands with the same ladder and PowerShell-safe quoting', () => {
+    // The rep-1 escape hatch (2026-07-30): after the broken Bash rewrite,
+    // the model ran the verify script through the PowerShell tool, which the
+    // PreToolUse matcher did not cover, and the raw output entered context
+    // ungoverned. This is the exact escape command from that transcript.
+    const escape = decideRewrite('node scripts/verify-url-assembly.mjs', list, 'powershell');
+    expect(escape?.rule).toBe('node-script');
+    expect(escape?.command).toBe(
+      "node .claude/redutok/pipe.mjs -c 'node scripts/verify-url-assembly.mjs'",
+    );
+    // PowerShell escapes a single quote by doubling it, not backslashing it.
+    expect(decideRewrite("pnpm vitest run -t it's", list, 'powershell')?.command).toBe(
+      "node .claude/redutok/pipe.mjs -c 'pnpm vitest run -t it''s'",
+    );
+    // Deny rules apply to the command string identically.
+    for (const command of [
+      'node scripts/verify-x.mjs > out.txt',
+      'node scripts/verify-x.mjs | Select-Object -First 5',
+      'Remove-Item dist; node scripts/verify-x.mjs',
+    ]) {
+      expect(decideRewrite(command, list, 'powershell'), command).toBeUndefined();
+    }
+  });
+
   it('masks only one leading cd prefix and keeps every deny rule intact behind it', () => {
     for (const command of [
       'cd a && cd b && node scripts/verify-x.mjs', // second chain segment is still composition
@@ -178,6 +202,21 @@ describe('handlePreToolUse rewrite with a live sidecar', () => {
       expect(rewrite).toBeDefined();
       expect(rewrite?.details?.['rule']).toBe('build');
       expect(rewrite?.details?.['command']).toBe('pnpm run build');
+
+      // The PowerShell tool rides the same ladder: the exact rep-1 escape
+      // command rewrites instead of slipping past the hook.
+      const ps = await handlePreToolUse(
+        {
+          tool_name: 'PowerShell',
+          tool_input: { command: 'node scripts/verify-url-assembly.mjs' },
+          session_id: 's-rw',
+        },
+        deps,
+      );
+      expect(ps.hookSpecificOutput?.permissionDecision).toBe('allow');
+      expect((ps.hookSpecificOutput?.updatedInput as { command: string }).command).toBe(
+        "node .claude/redutok/pipe.mjs -c 'node scripts/verify-url-assembly.mjs'",
+      );
     } finally {
       await daemon.close();
     }

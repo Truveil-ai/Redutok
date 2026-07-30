@@ -97,6 +97,16 @@ export function shellQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`;
 }
 
+/** Single-quote for PowerShell, whose literal strings escape ' by doubling. */
+export function shellQuotePowerShell(s: string): string {
+  return `'${s.replace(/'/g, `''`)}'`;
+}
+
+/** The shell dialect the rewritten command will be parsed by; picks the
+ * quoting only — allow and deny rules apply to the command string
+ * identically (the rep-1 PowerShell escape ran the same verify script). */
+export type RewriteShell = 'posix' | 'powershell';
+
 export interface RewriteDecision {
   /** The matched allow-rule name, recorded in the audit trail. */
   rule: string;
@@ -123,6 +133,7 @@ const CD_PREFIX = /^\s*cd\s+(?:"[^"]*"|'[^']*'|[^\s&|;<>"']+)\s*&&\s*/;
 export function decideRewrite(
   command: string,
   allowlist: PipeAllowlist = SHIPPED,
+  shell: RewriteShell = 'posix',
 ): RewriteDecision | undefined {
   // Never double-wrap: a command already routed through the pipe would recurse.
   if (command.includes('redutok-pipe') || command.includes(allowlist.invoke)) return undefined;
@@ -136,5 +147,6 @@ export function decideRewrite(
   if (allowlist.deny.some((r) => new RegExp(r.pattern, 'i').test(denyProbe))) return undefined;
   const matched = allowlist.allow.find((r) => new RegExp(r.pattern, 'i').test(tail));
   if (matched === undefined) return undefined;
-  return { rule: matched.rule, command: `${prefix}${allowlist.invoke} -c ${shellQuote(tail)}` };
+  const quote = shell === 'powershell' ? shellQuotePowerShell : shellQuote;
+  return { rule: matched.rule, command: `${prefix}${allowlist.invoke} -c ${quote(tail)}` };
 }

@@ -33,8 +33,10 @@ const MANAGED = [
 import { HOOK_EVENT_NAMES } from './claude-compat.js';
 
 // Event names come from the compat shim; matchers are redutok's own scoping.
+// PowerShell is matched alongside Bash: the 2026-07-30 rep-1 session ran the
+// verify command through the PowerShell tool and bypassed governance entirely.
 const HOOK_MATCHERS: Record<string, string> = {
-  PreToolUse: 'Read|Bash|Grep|Glob|Write',
+  PreToolUse: 'Read|Bash|PowerShell|Grep|Glob|Write',
   PostToolUse: 'Read|Bash|Edit|Write',
 };
 const HOOK_EVENTS: { event: string; matcher?: string }[] = HOOK_EVENT_NAMES.map((event) => ({

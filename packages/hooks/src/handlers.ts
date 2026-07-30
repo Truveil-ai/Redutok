@@ -280,17 +280,24 @@ export async function handlePreToolUse(
       }
       return {};
     }
-    if (tool === 'Bash') {
+    if (tool === 'Bash' || tool === 'PowerShell') {
       // v3 pillar A, the design law "never add a turn, only transform a turn
       // that already exists": an allowlisted read-only, log-producing command
       // is rewritten in place to run through redutok-pipe, which distills its
       // output. The model sees the distilled verdict plus a zoom handle in the
       // same tool result, without a second turn. Side-effecting, composed, or
       // non-allowlisted commands are left untouched, and nothing is rewritten
-      // when the sidecar is down.
+      // when the sidecar is down. PowerShell rides the same ladder — the
+      // 2026-07-30 rep-1 session escaped a broken Bash rewrite through the
+      // then-unmatched PowerShell tool and its raw output entered context —
+      // with the shell dialect picking only the quoting of the wrap.
       const command = String(args['command'] ?? '');
       if (command === '') return {};
-      const decision = decideRewrite(command, loadAllowlist(deps.dcpDir));
+      const decision = decideRewrite(
+        command,
+        loadAllowlist(deps.dcpDir),
+        tool === 'PowerShell' ? 'powershell' : 'posix',
+      );
       if (decision === undefined) return {};
       if (!(await sidecarUp(deps))) return {};
       // Record the rewrite decision (with the matched rule) in the audit trail,

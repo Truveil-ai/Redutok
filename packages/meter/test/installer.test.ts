@@ -76,6 +76,8 @@ describe('initRepo', () => {
     );
     expect(JSON.stringify(settings)).toContain('echo mine');
     expect(JSON.stringify(settings.hooks.PreToolUse)).toContain('.claude/redutok/hook.mjs');
+    // PowerShell is matched alongside Bash (rep-1 bypass, 2026-07-30).
+    expect(JSON.stringify(settings.hooks.PreToolUse)).toContain('PowerShell');
     expect(settings.hooks.SessionStart).toBeDefined();
     const mcp = JSON.parse(readFileSync(path.join(repo, '.mcp.json'), 'utf8'));
     expect(mcp.mcpServers.redutok.command).toBe('node');
