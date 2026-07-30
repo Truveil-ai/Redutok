@@ -13,6 +13,7 @@ import {
   hasGraduationEvent,
   loadBenchTasks,
   loadSlopeTier,
+  preserveAbortedDcp,
   turnsOf,
   type BenchTask,
   type LiveRunMeasurement,
@@ -264,6 +265,42 @@ describe('applyTaskSeed', () => {
       /exactly one/,
     );
     expect(() => load(['  - path: a.js'])).toThrow(/exactly one/);
+  });
+});
+
+// ---------------------------------------------------------- abort evidence
+
+describe('preserveAbortedDcp', () => {
+  it('copies the whole .dcp tree next to the run logs and leaves the original for teardown', () => {
+    // The 2026-07-30 rep-1 abort teardown removed the persistent copy, so
+    // the diagnosis had to be reconstructed from transcripts alone. On abort
+    // the runner now preserves the audit trail before removeDir.
+    const workDir = mkdtempSync(path.join(os.tmpdir(), 'redutok-abort-work-'));
+    const runsDir = mkdtempSync(path.join(os.tmpdir(), 'redutok-abort-runs-'));
+    mkdirSync(path.join(workDir, '.dcp', 'mirror'), { recursive: true });
+    writeFileSync(path.join(workDir, '.dcp', 'audit.jsonl'), '{"id":"e1"}\n');
+    writeFileSync(path.join(workDir, '.dcp', 'mirror', 'index.json'), '{}\n');
+    const dest = preserveAbortedDcp(workDir, runsDir, 'slope-axios-redutok-rep1');
+    expect(dest).toBe(path.join(runsDir, 'slope-axios-redutok-rep1-aborted-dcp'));
+    expect(readFileSync(path.join(dest ?? '', 'audit.jsonl'), 'utf8')).toBe('{"id":"e1"}\n');
+    expect(existsSync(path.join(dest ?? '', 'mirror', 'index.json'))).toBe(true);
+    // The original stays for the normal teardown path to remove.
+    expect(existsSync(path.join(workDir, '.dcp', 'audit.jsonl'))).toBe(true);
+  });
+
+  it('replaces a stale preservation from an earlier abort and no-ops without a .dcp', () => {
+    const workDir = mkdtempSync(path.join(os.tmpdir(), 'redutok-abort-work-'));
+    const runsDir = mkdtempSync(path.join(os.tmpdir(), 'redutok-abort-runs-'));
+    mkdirSync(path.join(runsDir, 'rep1-aborted-dcp'), { recursive: true });
+    writeFileSync(path.join(runsDir, 'rep1-aborted-dcp', 'stale.txt'), 'old');
+    mkdirSync(path.join(workDir, '.dcp'), { recursive: true });
+    writeFileSync(path.join(workDir, '.dcp', 'audit.jsonl'), 'fresh\n');
+    const dest = preserveAbortedDcp(workDir, runsDir, 'rep1');
+    expect(existsSync(path.join(dest ?? '', 'stale.txt'))).toBe(false);
+    expect(readFileSync(path.join(dest ?? '', 'audit.jsonl'), 'utf8')).toBe('fresh\n');
+    // A workDir that never grew a .dcp (abort before init) preserves nothing.
+    const bare = mkdtempSync(path.join(os.tmpdir(), 'redutok-abort-bare-'));
+    expect(preserveAbortedDcp(bare, runsDir, 'rep2')).toBeUndefined();
   });
 });
 

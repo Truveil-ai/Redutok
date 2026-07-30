@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
@@ -464,6 +464,25 @@ export async function replayTask(task: BenchTask, repoRoot: string): Promise<Run
     });
   }
   return out;
+}
+
+/**
+ * Preserves an aborted slope rep's `.dcp` (audit trail, candidates, codex,
+ * sqlite store) next to the run logs before the runner tears the persistent
+ * copy down. The 2026-07-30 rep-1 abort removed the copy with the only
+ * audit-level evidence in it, forcing a transcript-only diagnosis. Copies
+ * (never renames — the temp copy usually lives on another drive) and leaves
+ * the original for the normal teardown; a prior preservation under the same
+ * label is replaced. Returns the destination, or undefined when the copy
+ * never grew a `.dcp` (abort before init).
+ */
+export function preserveAbortedDcp(workDir: string, runsDir: string, label: string): string | undefined {
+  const src = path.join(workDir, '.dcp');
+  if (!existsSync(src)) return undefined;
+  const dest = path.join(runsDir, `${label}-aborted-dcp`);
+  rmSync(dest, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+  cpSync(src, dest, { recursive: true });
+  return dest;
 }
 
 export function dryRunMatrix(tasks: BenchTask[], n: number, model: string, slope?: SlopeTier): string[] {

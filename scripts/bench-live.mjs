@@ -65,6 +65,7 @@ const {
   buildLedger,
   buildLivePrompt,
   captureBaselines,
+  preserveAbortedDcp,
   computeSessionCost,
   computeSessionEnergy,
   countSlopeAttribution,
@@ -809,6 +810,7 @@ async function runRedutokSequence(rep) {
   }
   const workDir = path.join(os.tmpdir(), `redutok-bench-slope-${slopeTier.id}-redutok-${rep}`);
   let brokenAt;
+  let aborted = false;
   try {
     copyRepo(sequenceTasks[0], workDir);
     const port = initRedutok(workDir);
@@ -865,6 +867,7 @@ async function runRedutokSequence(rep) {
       betweenSlopeTasks(workDir);
     }
   } catch (err) {
+    aborted = true;
     const reason = err instanceof Error ? err.message : String(err);
     // The sequence is atomic: a failure at any position invalidates every
     // task of the rep that has not already been measured.
@@ -882,6 +885,17 @@ async function runRedutokSequence(rep) {
     console.error(`  slope redutok rep ${rep}: NOT RUN from ${brokenAt} (${reason})`);
   } finally {
     await downRedutok(workDir);
+    // Abort evidence (rep-1, 2026-07-30): teardown used to remove the only
+    // audit-level record of what the rep did. Preserved after the daemon is
+    // down (sqlite handles closed), before the copy goes.
+    if (aborted) {
+      try {
+        const preserved = preserveAbortedDcp(workDir, runsDir, `slope-${slopeTier.id}-redutok-rep${rep}`);
+        if (preserved !== undefined) console.error(`  aborted rep ${rep}: .dcp preserved at ${preserved}`);
+      } catch (err) {
+        console.warn(`  aborted rep ${rep}: could not preserve .dcp (${err instanceof Error ? err.message : err})`);
+      }
+    }
     removeDir(workDir);
   }
 }
