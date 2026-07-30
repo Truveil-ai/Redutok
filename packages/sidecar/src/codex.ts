@@ -9,6 +9,7 @@ import {
   LIMITS,
   type CodexFile,
   type CodexLock,
+  type LearnedEntry,
 } from '@redutok/shared';
 import { estimateTokens } from './distill.js';
 import { refreshMirror, type RefreshMirrorOptions, type SkeletonEnrichment } from './mirror.js';
@@ -23,6 +24,9 @@ import { fileSkeleton, languageForPath } from './skeleton.js';
 
 const SOURCE_EXT = new Set(['.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs', '.py']);
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.dcp', '.claude', 'coverage', 'backup']);
+/** Shared with the posture assessment (posture.ts) so both walk the same universe. */
+export const INDEXABLE_EXT: ReadonlySet<string> = SOURCE_EXT;
+export const INDEX_SKIP_DIRS: ReadonlySet<string> = SKIP_DIRS;
 
 export function listSourceFiles(root: string): string[] {
   const out: string[] = [];
@@ -254,7 +258,11 @@ export async function refreshFiles(
 
 /** The mirror-facing view of the codex learned section (docs/GRADUATION.md). */
 export function enrichmentDirectives(codex: CodexFile | undefined): SkeletonEnrichment[] {
-  return (codex?.learned ?? []).map((entry) => ({ path: entry.path, symbols: entry.symbols }));
+  return (codex?.learned ?? []).map((entry) => ({
+    path: entry.path,
+    symbols: entry.symbols,
+    candidate: entry.candidate,
+  }));
 }
 
 /** Injection, architecture 3.4: codex minus the files index, trust preamble, hard 3k budget. */
@@ -269,48 +277,127 @@ export const TRUST_PREAMBLE =
  */
 export const DEGRADE_ORDER = ['glossary', 'conventions', 'importGraph', 'learned', 'interfaces', 'keySymbols'] as const;
 
-export function buildCodexInjection(codex: CodexFile, maxTokens = 3000): string {
-  const slim: Record<string, unknown> = { ...codex };
+/** Light-posture preamble (docs/POSTURE.md): summary plus graduated knowledge only. */
+export const LIGHT_PREAMBLE =
+  'Redutok light posture: codex summary and graduated knowledge only at this repo size. Use dcp tools to read code.';
+
+export type InjectionPosture = 'full' | 'light';
+
+export interface CodexInjection {
+  text: string;
+  posture: InjectionPosture;
+  /** Candidate refs of learned entries present in the injected text. */
+  injectedLearned: string[];
+  /** Candidate refs excluded by the learned-section budget, lowest confidence first. */
+  excludedLearned: string[];
+  /** Candidate refs of graduated pitfalls entries present in the injected text. */
+  injectedPitfalls: string[];
+  /** Sections still dropped after the restore pass, in degrade order. */
+  droppedSections: string[];
+}
+
+export function buildInjection(
+  codex: CodexFile,
+  options: { maxTokens?: number; posture?: InjectionPosture } = {},
+): CodexInjection {
+  const maxTokens = options.maxTokens ?? LIMITS.INJECTION.CODEX_MAX_TOKENS;
+  const posture = options.posture ?? 'full';
+  const slim: Record<string, unknown> =
+    posture === 'light'
+      ? {
+          project: codex.project,
+          ...(codex.summary === undefined ? {} : { summary: codex.summary }),
+          ...(codex.pitfalls.length === 0 ? {} : { pitfalls: codex.pitfalls }),
+        }
+      : { ...codex };
   delete slim['files'];
   // Hard per-section budget for learned (docs/GRADUATION.md): when over,
   // the lowest-confidence directives are excluded first until it fits.
-  let learnedExcluded = 0;
+  const excluded: LearnedEntry[] = [];
+  let keptLearned: LearnedEntry[] = [];
   if (codex.learned.length > 0) {
     const entries = [...codex.learned].sort((a, b) => b.confidence - a.confidence);
     while (
       entries.length > 0 &&
       estimateTokens(stringifyYaml({ learned: entries })) > LIMITS.GRADUATION.LEARNED_SECTION_MAX_TOKENS
     ) {
-      entries.pop();
-      learnedExcluded += 1;
+      const popped = entries.pop();
+      if (popped !== undefined) excluded.push(popped);
     }
+    keptLearned = entries;
     slim['learned'] = entries;
   }
   const dropped: string[] = [];
   const render = (): string => {
     const learnedNote =
-      learnedExcluded > 0 && !dropped.includes('learned')
-        ? `\n[${learnedExcluded} learned entries excluded to fit the learned budget]`
+      excluded.length > 0 && !dropped.includes('learned')
+        ? `\n[${excluded.length} learned entries excluded to fit the learned budget]`
         : '';
     const note =
       dropped.length > 0 ? `\n[codex sections dropped to fit the budget: ${dropped.join(', ')}]` : '';
-    return `${TRUST_PREAMBLE}\n\n${stringifyYaml(slim)}${learnedNote}${note}`;
+    const preamble = posture === 'light' ? LIGHT_PREAMBLE : TRUST_PREAMBLE;
+    return `${preamble}\n\n${stringifyYaml(slim)}${learnedNote}${note}`;
   };
-  let text = render();
-  for (const section of DEGRADE_ORDER) {
-    if (estimateTokens(text) <= maxTokens) break;
+  const saved: Record<string, unknown> = {};
+  const drop = (section: string): void => {
     if (section === 'keySymbols') {
+      saved[section] = slim['map'];
       slim['map'] = (slim['map'] as { path: string; role: string }[]).map((m) => ({
         path: m.path,
         role: m.role,
       }));
     } else {
+      saved[section] = slim[section];
       delete slim[section];
     }
     dropped.push(section);
+  };
+  const restore = (section: string): void => {
+    slim[section === 'keySymbols' ? 'map' : section] = saved[section];
+    dropped.splice(dropped.indexOf(section), 1);
+  };
+  let text = render();
+  for (const section of DEGRADE_ORDER) {
+    if (estimateTokens(text) <= maxTokens) break;
+    // Light posture carries a subset of sections; only real ones can drop.
+    if (section === 'keySymbols' ? !Array.isArray(slim['map']) : !(section in slim)) continue;
+    drop(section);
     text = render();
   }
-  return text;
+  // Restore pass: the degrade order is a priority ranking, not a death list.
+  // A section dropped on the way to a later, larger one (learned before the
+  // 8k-token interfaces section is the observed case on this repository) is
+  // restored, most-protected first, when the final budget has room for it.
+  for (const section of [...DEGRADE_ORDER].reverse()) {
+    if (!dropped.includes(section)) continue;
+    restore(section);
+    const candidate = render();
+    if (estimateTokens(candidate) <= maxTokens) {
+      text = candidate;
+    } else {
+      drop(section);
+      // Re-dropping appends out of order; keep the note in degrade order.
+      dropped.sort((a, b) => DEGRADE_ORDER.indexOf(a as never) - DEGRADE_ORDER.indexOf(b as never));
+      text = render();
+    }
+  }
+  const learnedInjected = dropped.includes('learned') ? [] : keptLearned;
+  const pitfallsInjected =
+    'pitfalls' in slim || posture === 'full'
+      ? codex.pitfalls.filter((p) => p.source === 'graduated' && p.candidate !== undefined)
+      : [];
+  return {
+    text,
+    posture,
+    injectedLearned: learnedInjected.map((e) => e.candidate),
+    excludedLearned: excluded.map((e) => e.candidate),
+    injectedPitfalls: pitfallsInjected.map((p) => p.candidate as string),
+    droppedSections: dropped,
+  };
+}
+
+export function buildCodexInjection(codex: CodexFile, maxTokens = 3000): string {
+  return buildInjection(codex, { maxTokens }).text;
 }
 
 /** Ollama client for the semantic pass. Never throws; null means fall back to rules. */

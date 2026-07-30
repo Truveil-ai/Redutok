@@ -122,4 +122,42 @@ describe('renderReceiptBlock', () => {
     expect(text).not.toContain('avoided  0 tokens');
     expect(text).not.toContain('top distillations');
   });
+
+  it('prints the posture line when a matching posture record exists (docs/POSTURE.md)', async () => {
+    const auditPath = writeAudit([
+      { id: 'e1', sessionId: 's-small', action: 'distill', bytesIn: 9216, bytesOut: 1096, profile: 'build-log', inputRef: 'a1' },
+    ]);
+    const posturePath = path.join(path.dirname(auditPath), 'session-posture.json');
+    writeFileSync(
+      posturePath,
+      JSON.stringify({
+        sessionId: 's-small',
+        posture: 'full',
+        pinned: false,
+        files: 156,
+        sourceBytes: 2_970_000,
+        learnedEntries: 19,
+        pitfallEntries: 0,
+        capped: true,
+        decidedAt: '2026-07-29T00:00:00.000Z',
+      }),
+    );
+    const text = renderReceiptBlock(
+      buildSessionReceipt(await smallLedger(), { auditPath, posturePath }),
+    );
+    expect(text).toContain('posture  full (156 files, 2,900 KB source, 19 learned)');
+    expect(text).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);
+  });
+
+  it('a foreign session posture record is ignored', async () => {
+    const auditPath = writeAudit([
+      { id: 'e1', sessionId: 's-small', action: 'distill', bytesIn: 9216, bytesOut: 1096, profile: 'build-log', inputRef: 'a1' },
+    ]);
+    const posturePath = path.join(path.dirname(auditPath), 'session-posture.json');
+    writeFileSync(posturePath, JSON.stringify({ sessionId: 's-other', posture: 'idle' }));
+    const text = renderReceiptBlock(
+      buildSessionReceipt(await smallLedger(), { auditPath, posturePath }),
+    );
+    expect(text).not.toContain('posture');
+  });
 });

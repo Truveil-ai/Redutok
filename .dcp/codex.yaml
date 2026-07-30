@@ -1,6 +1,6 @@
 version: "1"
 project: Redutok - Token Optimisation
-generatedAt: 2026-07-19T12:33:31.216Z
+generatedAt: 2026-07-28T21:54:18.292Z
 architecture: []
 map:
   - path: .
@@ -21,6 +21,124 @@ map:
       - total
       - Ledger
       - __init__
+    locked: false
+  - path: fixtures/repos/chalk-heavy-build/scripts
+    role: maintenance scripts
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/chalk-heavy-build/source
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - Options
+      - Chalk
+      - ChalkInstance
+      - chalkStderr
+      - stringReplaceAll
+      - stringEncaseCRLFWithFirstIndex
+    locked: false
+  - path: fixtures/repos/chalk-heavy-build/source/vendor/ansi-styles
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - CSPair
+      - ColorBase
+      - Modifier
+      - modifierNames
+      - foregroundColorNames
+      - backgroundColorNames
+    locked: false
+  - path: fixtures/repos/chalk-heavy-build/source/vendor/supports-color
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - Options
+      - ColorSupportLevel
+      - ColorSupport
+      - createSupportsColor
+    locked: false
+  - path: fixtures/repos/chalk-heavy-build/test
+    role: tests
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/chalk-heavy-test/source
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - Options
+      - Chalk
+      - ChalkInstance
+      - chalkStderr
+      - stringReplaceAll
+      - stringEncaseCRLFWithFirstIndex
+    locked: false
+  - path: fixtures/repos/chalk-heavy-test/source/vendor/ansi-styles
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - CSPair
+      - ColorBase
+      - Modifier
+      - modifierNames
+      - foregroundColorNames
+      - backgroundColorNames
+    locked: false
+  - path: fixtures/repos/chalk-heavy-test/source/vendor/supports-color
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - Options
+      - ColorSupportLevel
+      - ColorSupport
+      - createSupportsColor
+    locked: false
+  - path: fixtures/repos/chalk-heavy-test/test
+    role: tests
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/chalk/source
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - Options
+      - Chalk
+      - ChalkInstance
+      - chalkStderr
+      - stringReplaceAll
+      - stringEncaseCRLFWithFirstIndex
+    locked: false
+  - path: fixtures/repos/chalk/source/vendor/ansi-styles
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - CSPair
+      - ColorBase
+      - Modifier
+      - modifierNames
+      - foregroundColorNames
+      - backgroundColorNames
+    locked: false
+  - path: fixtures/repos/chalk/source/vendor/supports-color
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - Options
+      - ColorSupportLevel
+      - ColorSupport
+      - createSupportsColor
+    locked: false
+  - path: fixtures/repos/chalk/test
+    role: tests
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/failing-tsc-build/scripts
+    role: maintenance scripts
+    roleSource: rules
+    keySymbols: []
     locked: false
   - path: fixtures/repos/repo-a/src
     role: This module manages token value calculations and storage in project
@@ -58,6 +176,9 @@ map:
       - HookOutput
       - SMALL_READ_BYTES
       - PACKAGE_NAME
+      - SHIPPED_ALLOWLIST_YAML
+      - AllowlistRule
+      - PipeAllowlist
     locked: false
   - path: packages/hooks/test
     role: This module serves to test the token optimisation hooks within the Redutok
@@ -70,6 +191,8 @@ map:
       optimization within the Redutok framework.
     roleSource: llm
     keySymbols:
+      - DEFAULT_SIDECAR_PORT
+      - resolveSidecarPort
       - PACKAGE_NAME
       - JsonRpcRequest
       - JsonRpcResponse
@@ -108,18 +231,19 @@ map:
     keySymbols:
       - AuditFileResult
       - readAuditFile
+      - CandidatesFileResult
+      - readCandidatesFile
+      - candidateConfidence
+      - isEligibleForGraduation
+      - isBelowWithdrawal
       - LIMITS
-      - Limits
-      - TokenTallySchema
-      - TokenTally
-      - LedgerEntrySchema
-      - PriceRowSchema
     locked: false
   - path: packages/shared/test
     role: This module provides test utilities and fixtures for testing token
       optimisation logic within the Redutok project.
     roleSource: llm
-    keySymbols: []
+    keySymbols:
+      - sampleCandidate
     locked: false
   - path: packages/sidecar/src
     role: This module handles audit writing and sidecar communication for token
@@ -149,6 +273,251 @@ map:
     locked: false
 conventions: []
 pitfalls: []
+learned:
+  - kind: skeleton-enrichment
+    candidate: cand-b1c70f4d
+    path: packages/sidecar/src/daemon.ts
+    symbols:
+      - handler
+      - dcp__run
+      - run
+      - command
+      - exec
+      - stdout
+      - stderr
+      - exitCode
+      - distillArtifact
+      - session
+      - audit
+    confidence: 0.6464
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.526Z
+  - kind: skeleton-enrichment
+    candidate: cand-76acd792
+    path: packages/mcp/src/server.ts
+    symbols:
+      - toolRun
+      - distillViaSidecar
+      - toolZoom
+      - text
+      - NOTICE
+      - sidecarRequest
+    confidence: 0.6464
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.527Z
+  - kind: skeleton-enrichment
+    candidate: cand-16a4f20e
+    path: packages/meter/src/scoring.ts
+    symbols:
+      - contextEfficiency
+      - serves
+      - count
+      - detail
+    confidence: 0.6464
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.528Z
+  - kind: skeleton-enrichment
+    candidate: cand-5fa5830f
+    path: packages/meter/src/report.ts
+    symbols:
+      - audit
+      - buildReport
+      - renderText
+    confidence: 0.6464
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.529Z
+  - kind: skeleton-enrichment
+    candidate: cand-3d6767b7
+    path: packages/hooks/src/handlers.ts
+    symbols:
+      - handleStop
+      - full
+      - body
+      - HookDeps
+      - HookOutput
+      - imports
+    confidence: 0.5
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.530Z
+  - kind: skeleton-enrichment
+    candidate: cand-304f175c
+    path: packages/sidecar/src/audit.ts
+    symbols:
+      - nothing
+    confidence: 0.75
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.530Z
+  - kind: skeleton-enrichment
+    candidate: cand-5ca6d2ec
+    path: packages/meter/src/audit-render.ts
+    symbols:
+      - buildAuditReport
+      - readAuditFile
+      - session
+      - filter
+      - missing
+      - file
+    confidence: 0.5
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.531Z
+  - kind: skeleton-enrichment
+    candidate: cand-51094ad1
+    path: packages/shared/src/schemas.ts
+    symbols:
+      - AuditEventSchema
+      - AuditActionSchema
+      - AuditEvent
+      - id
+      - sessionId
+      - timestamp
+      - module
+      - action
+      - reason
+      - inputRef
+      - bytesIn
+      - bytesOut
+    confidence: 0.6464
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.531Z
+  - kind: skeleton-enrichment
+    candidate: cand-90daf5be
+    path: packages/sidecar/src/serve.ts
+    symbols:
+      - serveFile
+    confidence: 0.5
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.532Z
+  - kind: skeleton-enrichment
+    candidate: cand-b81317d9
+    path: packages/sidecar/src/distill.ts
+    symbols:
+      - distillArtifact
+      - zoom
+      - audit
+      - sessionId
+      - estimateTokens
+      - event
+      - bytesIn
+      - bytesOut
+      - inputRef
+      - outputRef
+      - runProfile
+      - makeHandle
+    confidence: 0.75
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.533Z
+  - kind: skeleton-enrichment
+    candidate: cand-459077fb
+    path: packages/meter/src/bench.ts
+    symbols:
+      - loadBenchTasks
+      - BenchTask
+      - needsAnswerFile
+      - runLiveChecks
+    confidence: 0.5
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.533Z
+  - kind: skeleton-enrichment
+    candidate: cand-83f00c25
+    path: source/utilities.js
+    symbols:
+      - stringEncaseCRLFWithFirstIndex
+      - full
+      - body
+    confidence: 0.6464
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.534Z
+  - kind: skeleton-enrichment
+    candidate: cand-738b96b2
+    path: test/chalk.js
+    symbols:
+      - level
+      - "0"
+      - plain
+      - string
+      - test
+    confidence: 0.6464
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.534Z
+  - kind: skeleton-enrichment
+    candidate: cand-08dcd2ec
+    path: packages/sidecar/src/store.ts
+    symbols:
+      - insertAuditEvent
+      - ArtifactRecord
+      - insertArtifact
+      - getArtifact
+      - AuditEvent
+    confidence: 0.6464
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.535Z
+  - kind: skeleton-enrichment
+    candidate: cand-8d956e03
+    path: packages/sidecar/src/redact.ts
+    symbols:
+      - storeRedactedArtifact
+    confidence: 0.5
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.535Z
+  - kind: skeleton-enrichment
+    candidate: cand-30f4251e
+    path: scripts/bench-live.mjs
+    symbols:
+      - copyRepo
+      - initRedutok
+      - PREP_CHECK
+      - localPath
+      - repo
+      - url
+      - clone
+    confidence: 0.5
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.536Z
+  - kind: skeleton-enrichment
+    candidate: cand-e72c9c15
+    path: source/index.js
+    symbols:
+      - levelMapping
+      - applyOptions
+      - applyStyle
+      - level
+      - gating
+      - open
+      - close
+      - createStyler
+      - createBuilder
+      - proto
+    confidence: 0.6464
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.536Z
+  - kind: skeleton-enrichment
+    candidate: cand-4daf00d6
+    path: source/vendor/ansi-styles/index.js
+    symbols:
+      - assembleStyles
+      - wrapAnsi16
+      - wrapAnsi256
+      - wrapAnsi16m
+      - color
+      - definitions
+    confidence: 0.5
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.537Z
+  - kind: skeleton-enrichment
+    candidate: cand-af5adbd4
+    path: source/vendor/supports-color/index.js
+    symbols:
+      - createSupportsColor
+      - default
+      - level
+      - when
+      - no
+      - options
+      - stream
+      - translateLevel
+    confidence: 0.5
+    source: graduated
+    addedAt: 2026-07-28T21:46:54.537Z
 glossary: []
 interfaces:
   - name: buildReport
@@ -175,6 +544,207 @@ interfaces:
   - name: total
     signature: "def total(self) -> int:"
     file: fixtures/artifacts/sample.py
+  - name: Chalk
+    signature: "export const Chalk: new (options?: Options) => ChalkInstance;"
+    file: fixtures/repos/chalk-heavy-build/source/index.d.ts
+  - name: ChalkInstance
+    signature: export interface ChalkInstance
+    file: fixtures/repos/chalk-heavy-build/source/index.d.ts
+  - name: Options
+    signature: export interface Options
+    file: fixtures/repos/chalk-heavy-build/source/index.d.ts
+  - name: supportsColor
+    signature: "export const supportsColor: ColorInfo;"
+    file: fixtures/repos/chalk-heavy-build/source/index.d.ts
+  - name: Chalk
+    signature: export class Chalk
+    file: fixtures/repos/chalk-heavy-build/source/index.js
+  - name: chalkStderr
+    signature: "export const chalkStderr = createChalk({level: stderrColor ?
+      stderrColor.level : 0});"
+    file: fixtures/repos/chalk-heavy-build/source/index.js
+  - name: stringEncaseCRLFWithFirstIndex
+    signature: export function stringEncaseCRLFWithFirstIndex(string, prefix,
+      postfix, index)
+    file: fixtures/repos/chalk-heavy-build/source/utilities.js
+  - name: stringReplaceAll
+    signature: export function stringReplaceAll(string, substring, replacer)
+    file: fixtures/repos/chalk-heavy-build/source/utilities.js
+  - name: ColorBase
+    signature: export interface ColorBase
+    file: fixtures/repos/chalk-heavy-build/source/vendor/ansi-styles/index.d.ts
+  - name: CSPair
+    signature: export interface CSPair { // eslint-disable-line
+      @typescript-eslint/naming-convention
+    file: fixtures/repos/chalk-heavy-build/source/vendor/ansi-styles/index.d.ts
+  - name: ForegroundColor
+    signature: export interface ForegroundColor
+    file: fixtures/repos/chalk-heavy-build/source/vendor/ansi-styles/index.d.ts
+  - name: Modifier
+    signature: export interface Modifier
+    file: fixtures/repos/chalk-heavy-build/source/vendor/ansi-styles/index.d.ts
+  - name: backgroundColorNames
+    signature: export const backgroundColorNames = Object.keys(styles.bgColor);
+    file: fixtures/repos/chalk-heavy-build/source/vendor/ansi-styles/index.js
+  - name: colorNames
+    signature: export const colorNames = [...foregroundColorNames,
+      ...backgroundColorNames];
+    file: fixtures/repos/chalk-heavy-build/source/vendor/ansi-styles/index.js
+  - name: foregroundColorNames
+    signature: export const foregroundColorNames = Object.keys(styles.color);
+    file: fixtures/repos/chalk-heavy-build/source/vendor/ansi-styles/index.js
+  - name: modifierNames
+    signature: export const modifierNames = Object.keys(styles.modifier);
+    file: fixtures/repos/chalk-heavy-build/source/vendor/ansi-styles/index.js
+  - name: ColorInfo
+    signature: export type ColorInfo = ColorSupport | false;
+    file: fixtures/repos/chalk-heavy-build/source/vendor/supports-color/index.d.ts
+  - name: ColorSupport
+    signature: export type ColorSupport =
+    file: fixtures/repos/chalk-heavy-build/source/vendor/supports-color/index.d.ts
+  - name: ColorSupportLevel
+    signature: export type ColorSupportLevel = 0 | 1 | 2 | 3;
+    file: fixtures/repos/chalk-heavy-build/source/vendor/supports-color/index.d.ts
+  - name: Options
+    signature: export type Options =
+    file: fixtures/repos/chalk-heavy-build/source/vendor/supports-color/index.d.ts
+  - name: createSupportsColor
+    signature: export function createSupportsColor(stream, options = {})
+    file: fixtures/repos/chalk-heavy-build/source/vendor/supports-color/index.js
+  - name: Chalk
+    signature: "export const Chalk: new (options?: Options) => ChalkInstance;"
+    file: fixtures/repos/chalk-heavy-test/source/index.d.ts
+  - name: ChalkInstance
+    signature: export interface ChalkInstance
+    file: fixtures/repos/chalk-heavy-test/source/index.d.ts
+  - name: Options
+    signature: export interface Options
+    file: fixtures/repos/chalk-heavy-test/source/index.d.ts
+  - name: supportsColor
+    signature: "export const supportsColor: ColorInfo;"
+    file: fixtures/repos/chalk-heavy-test/source/index.d.ts
+  - name: Chalk
+    signature: export class Chalk
+    file: fixtures/repos/chalk-heavy-test/source/index.js
+  - name: chalkStderr
+    signature: "export const chalkStderr = createChalk({level: stderrColor ?
+      stderrColor.level : 0});"
+    file: fixtures/repos/chalk-heavy-test/source/index.js
+  - name: stringEncaseCRLFWithFirstIndex
+    signature: export function stringEncaseCRLFWithFirstIndex(string, prefix,
+      postfix, index)
+    file: fixtures/repos/chalk-heavy-test/source/utilities.js
+  - name: stringReplaceAll
+    signature: export function stringReplaceAll(string, substring, replacer)
+    file: fixtures/repos/chalk-heavy-test/source/utilities.js
+  - name: ColorBase
+    signature: export interface ColorBase
+    file: fixtures/repos/chalk-heavy-test/source/vendor/ansi-styles/index.d.ts
+  - name: CSPair
+    signature: export interface CSPair { // eslint-disable-line
+      @typescript-eslint/naming-convention
+    file: fixtures/repos/chalk-heavy-test/source/vendor/ansi-styles/index.d.ts
+  - name: ForegroundColor
+    signature: export interface ForegroundColor
+    file: fixtures/repos/chalk-heavy-test/source/vendor/ansi-styles/index.d.ts
+  - name: Modifier
+    signature: export interface Modifier
+    file: fixtures/repos/chalk-heavy-test/source/vendor/ansi-styles/index.d.ts
+  - name: backgroundColorNames
+    signature: export const backgroundColorNames = Object.keys(styles.bgColor);
+    file: fixtures/repos/chalk-heavy-test/source/vendor/ansi-styles/index.js
+  - name: colorNames
+    signature: export const colorNames = [...foregroundColorNames,
+      ...backgroundColorNames];
+    file: fixtures/repos/chalk-heavy-test/source/vendor/ansi-styles/index.js
+  - name: foregroundColorNames
+    signature: export const foregroundColorNames = Object.keys(styles.color);
+    file: fixtures/repos/chalk-heavy-test/source/vendor/ansi-styles/index.js
+  - name: modifierNames
+    signature: export const modifierNames = Object.keys(styles.modifier);
+    file: fixtures/repos/chalk-heavy-test/source/vendor/ansi-styles/index.js
+  - name: ColorInfo
+    signature: export type ColorInfo = ColorSupport | false;
+    file: fixtures/repos/chalk-heavy-test/source/vendor/supports-color/index.d.ts
+  - name: ColorSupport
+    signature: export type ColorSupport =
+    file: fixtures/repos/chalk-heavy-test/source/vendor/supports-color/index.d.ts
+  - name: ColorSupportLevel
+    signature: export type ColorSupportLevel = 0 | 1 | 2 | 3;
+    file: fixtures/repos/chalk-heavy-test/source/vendor/supports-color/index.d.ts
+  - name: Options
+    signature: export type Options =
+    file: fixtures/repos/chalk-heavy-test/source/vendor/supports-color/index.d.ts
+  - name: createSupportsColor
+    signature: export function createSupportsColor(stream, options = {})
+    file: fixtures/repos/chalk-heavy-test/source/vendor/supports-color/index.js
+  - name: Chalk
+    signature: "export const Chalk: new (options?: Options) => ChalkInstance;"
+    file: fixtures/repos/chalk/source/index.d.ts
+  - name: ChalkInstance
+    signature: export interface ChalkInstance
+    file: fixtures/repos/chalk/source/index.d.ts
+  - name: Options
+    signature: export interface Options
+    file: fixtures/repos/chalk/source/index.d.ts
+  - name: supportsColor
+    signature: "export const supportsColor: ColorInfo;"
+    file: fixtures/repos/chalk/source/index.d.ts
+  - name: Chalk
+    signature: export class Chalk
+    file: fixtures/repos/chalk/source/index.js
+  - name: chalkStderr
+    signature: "export const chalkStderr = createChalk({level: stderrColor ?
+      stderrColor.level : 0});"
+    file: fixtures/repos/chalk/source/index.js
+  - name: stringEncaseCRLFWithFirstIndex
+    signature: export function stringEncaseCRLFWithFirstIndex(string, prefix,
+      postfix, index)
+    file: fixtures/repos/chalk/source/utilities.js
+  - name: stringReplaceAll
+    signature: export function stringReplaceAll(string, substring, replacer)
+    file: fixtures/repos/chalk/source/utilities.js
+  - name: ColorBase
+    signature: export interface ColorBase
+    file: fixtures/repos/chalk/source/vendor/ansi-styles/index.d.ts
+  - name: CSPair
+    signature: export interface CSPair { // eslint-disable-line
+      @typescript-eslint/naming-convention
+    file: fixtures/repos/chalk/source/vendor/ansi-styles/index.d.ts
+  - name: ForegroundColor
+    signature: export interface ForegroundColor
+    file: fixtures/repos/chalk/source/vendor/ansi-styles/index.d.ts
+  - name: Modifier
+    signature: export interface Modifier
+    file: fixtures/repos/chalk/source/vendor/ansi-styles/index.d.ts
+  - name: backgroundColorNames
+    signature: export const backgroundColorNames = Object.keys(styles.bgColor);
+    file: fixtures/repos/chalk/source/vendor/ansi-styles/index.js
+  - name: colorNames
+    signature: export const colorNames = [...foregroundColorNames,
+      ...backgroundColorNames];
+    file: fixtures/repos/chalk/source/vendor/ansi-styles/index.js
+  - name: foregroundColorNames
+    signature: export const foregroundColorNames = Object.keys(styles.color);
+    file: fixtures/repos/chalk/source/vendor/ansi-styles/index.js
+  - name: modifierNames
+    signature: export const modifierNames = Object.keys(styles.modifier);
+    file: fixtures/repos/chalk/source/vendor/ansi-styles/index.js
+  - name: ColorInfo
+    signature: export type ColorInfo = ColorSupport | false;
+    file: fixtures/repos/chalk/source/vendor/supports-color/index.d.ts
+  - name: ColorSupport
+    signature: export type ColorSupport =
+    file: fixtures/repos/chalk/source/vendor/supports-color/index.d.ts
+  - name: ColorSupportLevel
+    signature: export type ColorSupportLevel = 0 | 1 | 2 | 3;
+    file: fixtures/repos/chalk/source/vendor/supports-color/index.d.ts
+  - name: Options
+    signature: export type Options =
+    file: fixtures/repos/chalk/source/vendor/supports-color/index.d.ts
+  - name: createSupportsColor
+    signature: export function createSupportsColor(stream, options = {})
+    file: fixtures/repos/chalk/source/vendor/supports-color/index.js
   - name: seed
     signature: "export function seed(store: MemoryStore, rows: Row[]): void"
     file: fixtures/repos/repo-a/src/service.ts
@@ -220,6 +790,25 @@ interfaces:
   - name: PACKAGE_NAME
     signature: export const PACKAGE_NAME = '@redutok/hooks';
     file: packages/hooks/src/index.ts
+  - name: AllowlistRule
+    signature: export interface AllowlistRule
+    file: packages/hooks/src/pipe-allowlist.ts
+  - name: parseAllowlist
+    signature: "export function parseAllowlist(yamlText: string): PipeAllowlist"
+    file: packages/hooks/src/pipe-allowlist.ts
+  - name: PipeAllowlist
+    signature: export interface PipeAllowlist
+    file: packages/hooks/src/pipe-allowlist.ts
+  - name: SHIPPED_ALLOWLIST_YAML
+    signature: export const SHIPPED_ALLOWLIST_YAML = `# Redutok pipe allowlist (v3
+      pillar A). Command shapes matched by an \`allow\`
+    file: packages/hooks/src/pipe-allowlist.ts
+  - name: DEFAULT_SIDECAR_PORT
+    signature: export const DEFAULT_SIDECAR_PORT = 48642;
+    file: packages/mcp/src/config.ts
+  - name: resolveSidecarPort
+    signature: export function resolveSidecarPort(
+    file: packages/mcp/src/config.ts
   - name: PACKAGE_NAME
     signature: export const PACKAGE_NAME = '@redutok/mcp';
     file: packages/mcp/src/index.ts
@@ -264,6 +853,18 @@ interfaces:
   - name: Variant
     signature: export type Variant = 'vanilla' | 'redutok';
     file: packages/meter/src/bench.ts
+  - name: buildCandidatesReport
+    signature: "export function buildCandidatesReport(filePath?: string):
+      CandidatesFileResult"
+    file: packages/meter/src/candidates-render.ts
+  - name: defaultCandidatesPath
+    signature: "export function defaultCandidatesPath(cwd: string = process.cwd()):
+      string"
+    file: packages/meter/src/candidates-render.ts
+  - name: renderCandidatesText
+    signature: "export function renderCandidatesText(result: CandidatesFileResult,
+      now: Date = new Date()): string"
+    file: packages/meter/src/candidates-render.ts
   - name: HOOK_EVENT_NAMES
     signature: export const HOOK_EVENT_NAMES = [
     file: packages/meter/src/claude-compat.ts
@@ -334,6 +935,12 @@ interfaces:
   - name: DEFAULT_SIDECAR_PORT
     signature: export const DEFAULT_SIDECAR_PORT = 48642;
     file: packages/meter/src/installer.ts
+  - name: extractDcpBlock
+    signature: "export function extractDcpBlock(text: string): string | undefined"
+    file: packages/meter/src/installer.ts
+  - name: shippedProtocolBlock
+    signature: "export function shippedProtocolBlock(): string"
+    file: packages/meter/src/installer.ts
   - name: buildLedger
     signature: "export function buildLedger(parsed: ParsedSession, sessionIdFallback
       = 'unknown'): SessionLedger"
@@ -360,6 +967,19 @@ interfaces:
     signature: "export function parseSessionJsonl(content: string, sourceRef?:
       string): ParsedSession"
     file: packages/meter/src/parser.ts
+  - name: PipeOptions
+    signature: export interface PipeOptions
+    file: packages/meter/src/pipe.ts
+  - name: PipeResult
+    signature: export interface PipeResult
+    file: packages/meter/src/pipe.ts
+  - name: runPipe
+    signature: "export async function runPipe(command: string, opts: PipeOptions):
+      Promise<PipeResult>"
+    file: packages/meter/src/pipe.ts
+  - name: selectProfile
+    signature: "export function selectProfile(command: string): string"
+    file: packages/meter/src/pipe.ts
   - name: buildSessionReceipt
     signature: export function buildSessionReceipt(
     file: packages/meter/src/receipt.ts
@@ -384,6 +1004,19 @@ interfaces:
   - name: Report
     signature: export interface Report
     file: packages/meter/src/report.ts
+  - name: ResolvedExecutable
+    signature: export interface ResolvedExecutable
+    file: packages/meter/src/safe-spawn.ts
+  - name: resolveExecutable
+    signature: export function resolveExecutable(
+    file: packages/meter/src/safe-spawn.ts
+  - name: spawnSafely
+    signature: export function spawnSafely(
+    file: packages/meter/src/safe-spawn.ts
+  - name: unwrapCmdShim
+    signature: "export function unwrapCmdShim(shimPath: string, contents: string):
+      string | undefined"
+    file: packages/meter/src/safe-spawn.ts
   - name: CompositeScore
     signature: export interface CompositeScore
     file: packages/meter/src/scoring.ts
@@ -415,6 +1048,25 @@ interfaces:
     signature: "export function readAuditFile(filePath: string, sessionId?: string):
       AuditFileResult"
     file: packages/shared/src/audit-file.ts
+  - name: CandidatesFileResult
+    signature: export interface CandidatesFileResult
+    file: packages/shared/src/candidates-file.ts
+  - name: readCandidatesFile
+    signature: "export function readCandidatesFile(filePath: string):
+      CandidatesFileResult"
+    file: packages/shared/src/candidates-file.ts
+  - name: candidateConfidence
+    signature: "export function candidateConfidence(record: CandidateRecord, now:
+      Date): number"
+    file: packages/shared/src/confidence.ts
+  - name: isBelowWithdrawal
+    signature: "export function isBelowWithdrawal(record: CandidateRecord, now:
+      Date): boolean"
+    file: packages/shared/src/confidence.ts
+  - name: isEligibleForGraduation
+    signature: "export function isEligibleForGraduation(record: CandidateRecord,
+      now: Date): boolean"
+    file: packages/shared/src/confidence.ts
   - name: Limits
     signature: export type Limits = typeof LIMITS;
     file: packages/shared/src/limits.ts
@@ -431,7 +1083,7 @@ interfaces:
     signature: export type TokenTally = z.infer<typeof TokenTallySchema>;
     file: packages/shared/src/schemas.ts
   - name: TokenTallySchema
-    signature: export const TokenTallySchema = z.object(
+    signature: export const TokenTallySchema = z
     file: packages/shared/src/schemas.ts
   - name: PriceRow
     signature: export type PriceRow = z.infer<typeof PriceRowSchema>;
@@ -445,6 +1097,10 @@ interfaces:
   - name: PricesFileSchema
     signature: export const PricesFileSchema = z.object(
     file: packages/shared/src/yaml.ts
+  - name: sampleCandidate
+    signature: "export function sampleCandidate(overrides: Partial<CandidateRecord>
+      = {}): CandidateRecord"
+    file: packages/shared/test/candidates-file.test.ts
   - name: AuditWriter
     signature: export class AuditWriter
     file: packages/sidecar/src/audit.ts
@@ -492,6 +1148,18 @@ interfaces:
   - name: runProfile
     signature: export async function runProfile(
     file: packages/sidecar/src/distill.ts
+  - name: Dossier
+    signature: export interface Dossier
+    file: packages/sidecar/src/explore.ts
+  - name: DossierEvidence
+    signature: export interface DossierEvidence
+    file: packages/sidecar/src/explore.ts
+  - name: ExploreBudget
+    signature: export type ExploreBudget = 'quick' | 'standard' | 'thorough';
+    file: packages/sidecar/src/explore.ts
+  - name: ExploreRequest
+    signature: export interface ExploreRequest
+    file: packages/sidecar/src/explore.ts
   - name: EntityGateConfig
     signature: export interface EntityGateConfig
     file: packages/sidecar/src/gates.ts
@@ -504,6 +1172,18 @@ interfaces:
   - name: VerdictGateConfig
     signature: export interface VerdictGateConfig
     file: packages/sidecar/src/gates.ts
+  - name: ArtifactLookup
+    signature: export type ArtifactLookup = (
+    file: packages/sidecar/src/graduation.ts
+  - name: MinedCandidate
+    signature: export interface MinedCandidate
+    file: packages/sidecar/src/graduation.ts
+  - name: MineOptions
+    signature: export interface MineOptions
+    file: packages/sidecar/src/graduation.ts
+  - name: normalizeSignature
+    signature: "export function normalizeSignature(line: string): string"
+    file: packages/sidecar/src/graduation.ts
   - name: PACKAGE_NAME
     signature: export const PACKAGE_NAME = '@redutok/sidecar';
     file: packages/sidecar/src/index.ts
@@ -525,6 +1205,18 @@ interfaces:
   - name: LogLevel
     signature: export type LogLevel = 'info' | 'warn' | 'error';
     file: packages/sidecar/src/log.ts
+  - name: mirrorDir
+    signature: "export function mirrorDir(root: string): string"
+    file: packages/sidecar/src/mirror.ts
+  - name: mirrorHash
+    signature: "export const mirrorHash = (text: string): string =>"
+    file: packages/sidecar/src/mirror.ts
+  - name: MirrorIndex
+    signature: export interface MirrorIndex
+    file: packages/sidecar/src/mirror.ts
+  - name: MirrorIndexEntry
+    signature: export interface MirrorIndexEntry
+    file: packages/sidecar/src/mirror.ts
   - name: redact
     signature: "export function redact(input: string): RedactionResult"
     file: packages/sidecar/src/redact.ts
@@ -547,8 +1239,7 @@ interfaces:
     signature: export interface ServeResult
     file: packages/sidecar/src/serve.ts
   - name: fileSkeleton
-    signature: "export async function fileSkeleton(source: string, lang:
-      SkeletonLanguage): Promise<string>"
+    signature: export async function fileSkeleton(
     file: packages/sidecar/src/skeleton.ts
   - name: languageForPath
     signature: "export function languageForPath(filePath: string): SkeletonLanguage
@@ -584,18 +1275,42 @@ importGraph:
     - ./energy.js
     - ./ledger.js
     - ./parser.js
+  fixtures/repos/chalk-heavy-build/source/index.d.ts:
+    - ./vendor/supports-color/index.js
+  fixtures/repos/chalk-heavy-build/test/chalk.js:
+    - ../source/index.js
+  fixtures/repos/chalk-heavy-test/source/index.d.ts:
+    - ./vendor/supports-color/index.js
+  fixtures/repos/chalk-heavy-test/test/heavy.test.mjs:
+    - ../source/index.js
+  fixtures/repos/chalk/source/index.d.ts:
+    - ./vendor/supports-color/index.js
+  fixtures/repos/chalk/test/chalk.js:
+    - ../source/index.js
   fixtures/repos/repo-a/src/service.ts:
     - ./store.js
   fixtures/repos/repo-a/test/service.test.ts:
     - ../src/store.js
     - ../src/service.js
+  packages/hooks/src/handlers.ts:
+    - ./pipe-allowlist.js
   packages/hooks/test/index.test.ts:
     - ../src/index.js
+  packages/hooks/test/pipe-rewrite.test.ts:
+    - ../src/handlers.js
   packages/mcp/src/main.ts:
+    - ./config.js
     - ./server.js
+  packages/mcp/test/config.test.ts:
+    - ../src/config.js
   packages/mcp/test/index.test.ts:
     - ../src/index.js
+  packages/mcp/test/port-isolation.test.ts:
+    - ../src/config.js
+    - ../src/server.js
   packages/mcp/test/server.test.ts:
+    - ../src/server.js
+  packages/mcp/test/zoom-handle.test.ts:
     - ../src/server.js
   packages/meter/src/badge.ts:
     - ./report.js
@@ -625,6 +1340,11 @@ importGraph:
     - ./parser.js
   packages/meter/src/parser.ts:
     - ./claude-compat.js
+  packages/meter/src/receipt.ts:
+    - ./cost.js
+    - ./energy.js
+    - ./ledger.js
+    - ./scoring.js
   packages/meter/src/report.ts:
     - ./audit-render.js
     - ./claude-compat.js
@@ -643,7 +1363,16 @@ importGraph:
     - ../src/badge.js
     - ../src/report.js
   packages/meter/test/bench.test.ts:
-    - ../src/bench.js
+    - ../src/cost.js
+    - ../src/energy.js
+    - ../src/ledger.js
+    - ../src/parser.js
+    - ../src/scoring.js
+  packages/meter/test/candidates-render.test.ts:
+    - ../src/candidates-render.js
+    - ../src/cli.js
+  packages/meter/test/cli-args.test.ts:
+    - ../src/cli.js
   packages/meter/test/cost.test.ts:
     - ../src/cost.js
     - ../src/ledger.js
@@ -666,10 +1395,20 @@ importGraph:
   packages/meter/test/ledger.test.ts:
     - ../src/ledger.js
     - ../src/parser.js
+  packages/meter/test/mirror-e2e.test.ts:
+    - ../src/installer.js
   packages/meter/test/parser.test.ts:
     - ../src/parser.js
+  packages/meter/test/pipe.test.ts:
+    - ../src/pipe.js
+  packages/meter/test/receipt.test.ts:
+    - ../src/ledger.js
+    - ../src/parser.js
+    - ../src/receipt.js
   packages/meter/test/report.test.ts:
     - ../src/report.js
+  packages/meter/test/safe-spawn.test.ts:
+    - ../src/safe-spawn.js
   packages/meter/test/scoring.test.ts:
     - ../src/energy.js
     - ../src/ledger.js
@@ -679,19 +1418,29 @@ importGraph:
     - ../src/sidecar-cli.js
   packages/shared/src/audit-file.ts:
     - ./schemas.js
+  packages/shared/src/candidates-file.ts:
+    - ./schemas.js
+  packages/shared/src/confidence.ts:
+    - ./limits.js
+    - ./schemas.js
   packages/shared/test/limits.test.ts:
     - ../src/index.js
   packages/shared/test/yaml.test.ts:
     - ../src/index.js
   packages/sidecar/src/codex.ts:
     - ./distill.js
+    - ./mirror.js
     - ./skeleton.js
   packages/sidecar/src/daemon-main.ts:
     - ./daemon.js
   packages/sidecar/src/daemon.ts:
     - ./audit.js
     - ./codex.js
+    - ./mirror.js
     - ./distill.js
+    - ./explore.js
+    - ./graduation.js
+    - ./llm.js
     - ./serve.js
     - ./state.js
     - ./log.js
@@ -701,7 +1450,20 @@ importGraph:
     - ./gates.js
     - ./skeleton.js
     - ./redact.js
+    - ./serve.js
     - ./store.js
+  packages/sidecar/src/explore.ts:
+    - ./audit.js
+    - ./distill.js
+    - ./llm.js
+    - ./store.js
+  packages/sidecar/src/graduation.ts:
+    - ./audit.js
+    - ./codex.js
+    - ./mirror.js
+    - ./llm.js
+  packages/sidecar/src/mirror.ts:
+    - ./skeleton.js
   packages/sidecar/src/redact.ts:
     - ./audit.js
     - ./store.js
@@ -714,9 +1476,19 @@ importGraph:
     - ./redact.js
   packages/sidecar/test/audit.test.ts:
     - ../src/audit.js
+  packages/sidecar/test/build-log-verdict.test.ts:
+    - ../src/audit.js
+    - ../src/distill.js
+    - ../src/store.js
   packages/sidecar/test/codex.test.ts:
     - ../src/distill.js
   packages/sidecar/test/daemon-distill.test.ts:
+    - ../src/client.js
+    - ../src/daemon.js
+  packages/sidecar/test/daemon-explore.test.ts:
+    - ../src/client.js
+    - ../src/daemon.js
+  packages/sidecar/test/daemon-isolation.test.ts:
     - ../src/client.js
     - ../src/daemon.js
   packages/sidecar/test/daemon.test.ts:
@@ -726,8 +1498,32 @@ importGraph:
     - ../src/audit.js
     - ../src/distill.js
     - ../src/store.js
+  packages/sidecar/test/enrichment.test.ts:
+    - ../src/codex.js
+    - ../src/distill.js
+    - ../src/skeleton.js
+  packages/sidecar/test/explore.test.ts:
+    - ../src/audit.js
+    - ../src/explore.js
+    - ../src/distill.js
+    - ../src/llm.js
+    - ../src/store.js
+  packages/sidecar/test/graduation-pass.test.ts:
+    - ../src/codex.js
+    - ../src/graduation.js
+    - ../src/mirror.js
+  packages/sidecar/test/graduation-trigger.test.ts:
+    - ../src/client.js
+    - ../src/daemon.js
+  packages/sidecar/test/graduation.test.ts:
+    - ../src/llm.js
   packages/sidecar/test/index.test.ts:
     - ../src/index.js
+  packages/sidecar/test/injection-budget.test.ts:
+    - ../src/codex.js
+    - ../src/distill.js
+  packages/sidecar/test/mirror.test.ts:
+    - ../src/codex.js
   packages/sidecar/test/redact.test.ts:
     - ../src/audit.js
     - ../src/redact.js
@@ -736,35 +1532,81 @@ importGraph:
     - ../src/audit.js
     - ../src/serve.js
     - ../src/store.js
+  packages/sidecar/test/session-attribution.test.ts:
+    - ../src/client.js
+    - ../src/daemon.js
   packages/sidecar/test/state.test.ts:
     - ../src/distill.js
     - ../src/llm.js
     - ../src/state.js
   packages/sidecar/test/store.test.ts:
     - ../src/store.js
+  packages/sidecar/test/zoom-file-ref.test.ts:
+    - ../src/audit.js
+    - ../src/distill.js
+    - ../src/serve.js
+    - ../src/store.js
   scripts/canary.mjs:
     - ../packages/meter/dist/claude-compat.js
-  packages/sidecar/test/session-attribution.test.ts:
-    - ../src/client.js
-    - ../src/daemon.js
-  packages/meter/test/cli-args.test.ts:
-    - ../src/cli.js
-  packages/meter/src/receipt.ts:
-    - ./cost.js
-    - ./energy.js
-    - ./ledger.js
-    - ./scoring.js
-  packages/meter/test/receipt.test.ts:
-    - ../src/ledger.js
-    - ../src/parser.js
-    - ../src/receipt.js
 files:
   - path: eslint.config.js
-    hash: 4b9c39e50d3c1b74
+    hash: ff9ca3c2bc7f22b4
   - path: fixtures/artifacts/large-source.ts
     hash: 2afa34ee065cd028
   - path: fixtures/artifacts/sample.py
     hash: 9259cad19b669da6
+  - path: fixtures/repos/chalk-heavy-build/scripts/verbose-build.mjs
+    hash: d5c27b336bf2ca41
+  - path: fixtures/repos/chalk-heavy-build/source/index.d.ts
+    hash: f3f76db6e76bc76d
+  - path: fixtures/repos/chalk-heavy-build/source/index.js
+    hash: 64b22b1c442e6d46
+  - path: fixtures/repos/chalk-heavy-build/source/utilities.js
+    hash: 9435436ccc01b0d3
+  - path: fixtures/repos/chalk-heavy-build/source/vendor/ansi-styles/index.d.ts
+    hash: acfed6cc001e7f7f
+  - path: fixtures/repos/chalk-heavy-build/source/vendor/ansi-styles/index.js
+    hash: 92efdc3e5203d02d
+  - path: fixtures/repos/chalk-heavy-build/source/vendor/supports-color/index.d.ts
+    hash: f61a4dc92450609c
+  - path: fixtures/repos/chalk-heavy-build/source/vendor/supports-color/index.js
+    hash: e82368a5f05d145e
+  - path: fixtures/repos/chalk-heavy-build/test/chalk.js
+    hash: eb15d65d84f303af
+  - path: fixtures/repos/chalk-heavy-test/source/index.d.ts
+    hash: 59c1372edd7f055a
+  - path: fixtures/repos/chalk-heavy-test/source/index.js
+    hash: d953987ff7952177
+  - path: fixtures/repos/chalk-heavy-test/source/utilities.js
+    hash: 5c57cf3a06cc0912
+  - path: fixtures/repos/chalk-heavy-test/source/vendor/ansi-styles/index.d.ts
+    hash: cc3a3d4964f88fd9
+  - path: fixtures/repos/chalk-heavy-test/source/vendor/ansi-styles/index.js
+    hash: 55a6b8b22bedb3f3
+  - path: fixtures/repos/chalk-heavy-test/source/vendor/supports-color/index.d.ts
+    hash: e2903ef033046be9
+  - path: fixtures/repos/chalk-heavy-test/source/vendor/supports-color/index.js
+    hash: 84cf711ce62f2c24
+  - path: fixtures/repos/chalk-heavy-test/test/heavy.test.mjs
+    hash: c3840ba00b2bc707
+  - path: fixtures/repos/chalk/source/index.d.ts
+    hash: f3f76db6e76bc76d
+  - path: fixtures/repos/chalk/source/index.js
+    hash: 64b22b1c442e6d46
+  - path: fixtures/repos/chalk/source/utilities.js
+    hash: 698ce3cb21b00b57
+  - path: fixtures/repos/chalk/source/vendor/ansi-styles/index.d.ts
+    hash: acfed6cc001e7f7f
+  - path: fixtures/repos/chalk/source/vendor/ansi-styles/index.js
+    hash: 92efdc3e5203d02d
+  - path: fixtures/repos/chalk/source/vendor/supports-color/index.d.ts
+    hash: f61a4dc92450609c
+  - path: fixtures/repos/chalk/source/vendor/supports-color/index.js
+    hash: e82368a5f05d145e
+  - path: fixtures/repos/chalk/test/chalk.js
+    hash: eb15d65d84f303af
+  - path: fixtures/repos/failing-tsc-build/scripts/build.mjs
+    hash: 845e9711a6a26d03
   - path: fixtures/repos/repo-a/src/service.ts
     hash: 2a9e080f30151f31
   - path: fixtures/repos/repo-a/src/store.ts
@@ -776,37 +1618,51 @@ files:
   - path: fixtures/repos/repo-b/pkg/report.js
     hash: 9ef17dd209d93deb
   - path: packages/hooks/src/handlers.ts
-    hash: 70cd6beef926b74c
+    hash: ed8170740eabc04c
   - path: packages/hooks/src/hook-main.ts
-    hash: 6a279e00bff42580
+    hash: 432e72e07d5120a8
   - path: packages/hooks/src/index.ts
     hash: 232377ed88807c47
+  - path: packages/hooks/src/pipe-allowlist.ts
+    hash: f84c766af4f72577
   - path: packages/hooks/test/handlers.test.ts
-    hash: 1c633421bde3840a
+    hash: c81e04e4560bf834
   - path: packages/hooks/test/index.test.ts
     hash: 258fb0dedd59857e
+  - path: packages/hooks/test/pipe-rewrite.test.ts
+    hash: 92295ba4a112c1a6
+  - path: packages/mcp/src/config.ts
+    hash: 12d87e34f23efc44
   - path: packages/mcp/src/index.ts
-    hash: b4a2b1356425a1b3
+    hash: 3ba4a35350c124a7
   - path: packages/mcp/src/main.ts
-    hash: 3a7d66647ac9427f
+    hash: 703b6c3b71e2e2a5
   - path: packages/mcp/src/server.ts
-    hash: 145974b3cfce190f
+    hash: f7fbcb0edd644f8e
+  - path: packages/mcp/test/config.test.ts
+    hash: 278566beb85a0356
   - path: packages/mcp/test/index.test.ts
     hash: 11c5c109167c3e04
+  - path: packages/mcp/test/port-isolation.test.ts
+    hash: 05b8fc746ae736be
   - path: packages/mcp/test/server.test.ts
-    hash: dac09b0976ae85bc
+    hash: cd9342a76eecd434
+  - path: packages/mcp/test/zoom-handle.test.ts
+    hash: ee434dda45b10d49
   - path: packages/meter/src/audit-render.ts
     hash: 069761d8f6148343
   - path: packages/meter/src/badge.ts
     hash: 449db0096ba2a961
   - path: packages/meter/src/bench.ts
-    hash: 39c8804d2edcb47a
+    hash: fd4db3cd88076967
+  - path: packages/meter/src/candidates-render.ts
+    hash: 41fbe441370e9ef4
   - path: packages/meter/src/claude-compat.ts
     hash: d26fc4ed04fe7849
   - path: packages/meter/src/cli.ts
-    hash: da65e28e185663c1
+    hash: 435c54cf0c0df150
   - path: packages/meter/src/cost.ts
-    hash: 44b677a23512d310
+    hash: 21e3b608ec2a18a5
   - path: packages/meter/src/discipline.ts
     hash: 7fa68a459239f57f
   - path: packages/meter/src/doctor.ts
@@ -814,15 +1670,21 @@ files:
   - path: packages/meter/src/energy.ts
     hash: 9c7ae872c20fce6c
   - path: packages/meter/src/index.ts
-    hash: 111adcee5e81f05d
+    hash: 8b24bdb4fdbd1116
   - path: packages/meter/src/installer.ts
-    hash: c87d7db47ce0e2ad
+    hash: f57021247c395a11
   - path: packages/meter/src/ledger.ts
     hash: cfb870cec5663f95
   - path: packages/meter/src/parser.ts
-    hash: b8817f40da20f2db
+    hash: 57340641b4b80b81
+  - path: packages/meter/src/pipe.ts
+    hash: 397e2ab840c338bb
+  - path: packages/meter/src/receipt.ts
+    hash: f8ebc64eb75f7a24
   - path: packages/meter/src/report.ts
-    hash: bbc9082d3a1c77eb
+    hash: 547bc38e89547938
+  - path: packages/meter/src/safe-spawn.ts
+    hash: 2f1cdd8481bf537d
   - path: packages/meter/src/scoring.ts
     hash: 5c6a5d6a125cc78c
   - path: packages/meter/src/sidecar-cli.ts
@@ -832,33 +1694,47 @@ files:
   - path: packages/meter/test/badge.test.ts
     hash: a65f8a991e800ea9
   - path: packages/meter/test/bench.test.ts
-    hash: fe30586704bdc33e
+    hash: 71b8af75217aea0c
   - path: packages/meter/test/bin.test.ts
     hash: 65bc4a5a3044f073
+  - path: packages/meter/test/candidates-render.test.ts
+    hash: 309a1eecdbccbd65
+  - path: packages/meter/test/cli-args.test.ts
+    hash: ef0f60fc6bdea2c7
   - path: packages/meter/test/cost.test.ts
-    hash: 7e63c69f65fee16c
+    hash: 362fbd5f1b15aec3
   - path: packages/meter/test/discipline.test.ts
     hash: aa4f484012d2225a
   - path: packages/meter/test/doctor.test.ts
     hash: 2740ecd6337fd50d
   - path: packages/meter/test/e2e-smoke.test.ts
-    hash: e6d5667132f3f15e
+    hash: fb97b31d3802d725
   - path: packages/meter/test/energy.test.ts
     hash: defce14488bad12a
   - path: packages/meter/test/index.test.ts
     hash: 2978912d3fb5fc60
   - path: packages/meter/test/installer.test.ts
-    hash: f3c32c22566a0f95
+    hash: 60d63182188ccb18
   - path: packages/meter/test/ledger.test.ts
-    hash: 524c4dfe9be58038
+    hash: 0fd0bf1e48185abe
+  - path: packages/meter/test/mirror-e2e.test.ts
+    hash: 033cf72fa138e786
   - path: packages/meter/test/pack.test.ts
     hash: ac0aa6a7e970a585
   - path: packages/meter/test/parser.test.ts
-    hash: d0c7b5d50c3f2384
+    hash: 06967a11e48d4947
+  - path: packages/meter/test/pipe-e2e.test.ts
+    hash: becb3ca24842ed98
+  - path: packages/meter/test/pipe.test.ts
+    hash: 940f833dbf3b5d04
   - path: packages/meter/test/readme.test.ts
     hash: 8caff42eb6f834c5
+  - path: packages/meter/test/receipt.test.ts
+    hash: 70f48d6c18c98362
   - path: packages/meter/test/report.test.ts
-    hash: 7e9ee5ad4099f402
+    hash: 4709054e95bec4f4
+  - path: packages/meter/test/safe-spawn.test.ts
+    hash: 16940e321bff2325
   - path: packages/meter/test/scoring.test.ts
     hash: 51a78b96de1aad3e
   - path: packages/meter/test/security.test.ts
@@ -867,76 +1743,116 @@ files:
     hash: 72072cf633543e7f
   - path: packages/shared/src/audit-file.ts
     hash: 13b4f1ab3be7c581
+  - path: packages/shared/src/candidates-file.ts
+    hash: c5f91415bc11abd7
+  - path: packages/shared/src/confidence.ts
+    hash: d630529fe8ada5ce
   - path: packages/shared/src/index.ts
-    hash: 03c2f01db0cd6557
+    hash: 40c1b3ef81d4a9f5
   - path: packages/shared/src/limits.ts
-    hash: d09955e7b34c53a5
+    hash: 139238d28bedd5ea
   - path: packages/shared/src/schemas.ts
-    hash: c684c08c02341b56
+    hash: a78754029e3b456d
   - path: packages/shared/src/yaml.ts
-    hash: 9288401111a74fa5
+    hash: bed7dde42f2b6f73
+  - path: packages/shared/test/candidates-file.test.ts
+    hash: d4d592e0667ee82b
+  - path: packages/shared/test/confidence.test.ts
+    hash: d8e162429e33d5d0
   - path: packages/shared/test/limits.test.ts
     hash: efa5d4473a2da8b1
   - path: packages/shared/test/schemas.test.ts
-    hash: d2aa218d43d7e505
+    hash: db03cc4261cd360f
   - path: packages/shared/test/yaml.test.ts
-    hash: d4766d3996ec0252
+    hash: df1a1a9d352ab0a4
   - path: packages/sidecar/src/audit.ts
     hash: 7befe5054daebfd9
   - path: packages/sidecar/src/client.ts
     hash: 5d6a5fe8aab33a73
   - path: packages/sidecar/src/codex.ts
-    hash: f481dfd0ade77d30
+    hash: e72de01463cbdce7
   - path: packages/sidecar/src/daemon-main.ts
     hash: 9059e2c1ed170d85
   - path: packages/sidecar/src/daemon.ts
-    hash: 98d7f1a188b7a85e
+    hash: 6fcbe1489b04486e
   - path: packages/sidecar/src/distill.ts
-    hash: 3dd44f0185b5258e
+    hash: c495b2bfef0e6f66
+  - path: packages/sidecar/src/explore.ts
+    hash: 5006942c3579c836
   - path: packages/sidecar/src/gates.ts
     hash: 07932b069c4e34cf
+  - path: packages/sidecar/src/graduation.ts
+    hash: 3dcc0a77e769105e
   - path: packages/sidecar/src/index.ts
-    hash: 80d20da08fc19991
+    hash: 0393dc0d0ebe2785
   - path: packages/sidecar/src/llm.ts
     hash: 34c91f059665933a
   - path: packages/sidecar/src/log.ts
     hash: 76c6b6a915a42baf
+  - path: packages/sidecar/src/mirror.ts
+    hash: c886d8660c7f8f85
   - path: packages/sidecar/src/redact.ts
     hash: 087f622d35b21373
   - path: packages/sidecar/src/serve.ts
     hash: 98f830d3ee17798b
   - path: packages/sidecar/src/skeleton.ts
-    hash: affeb3c4f1884236
+    hash: 4924d777d346a3a2
   - path: packages/sidecar/src/state.ts
     hash: 5bb5bf7075cb32f6
   - path: packages/sidecar/src/store.ts
-    hash: dc7de3924a91f092
+    hash: fe70ac18151d6c17
   - path: packages/sidecar/test/audit.test.ts
     hash: 31848081bf3b4ac9
+  - path: packages/sidecar/test/build-log-verdict.test.ts
+    hash: c4f5ccfe51f4c6f7
   - path: packages/sidecar/test/codex.test.ts
-    hash: 4a5c1e36c8a1549f
+    hash: f1d62a9dbbc26325
   - path: packages/sidecar/test/daemon-distill.test.ts
     hash: "490366e794763188"
+  - path: packages/sidecar/test/daemon-explore.test.ts
+    hash: 26f6dcce68115e3e
+  - path: packages/sidecar/test/daemon-isolation.test.ts
+    hash: 65e2b53f31b04b36
   - path: packages/sidecar/test/daemon.test.ts
     hash: 0eed3ead6f28fc46
   - path: packages/sidecar/test/distill.test.ts
-    hash: fad0576d6b45cd42
+    hash: 475bd8985690c57e
+  - path: packages/sidecar/test/enrichment.test.ts
+    hash: 50f68e68d2b7f8a7
+  - path: packages/sidecar/test/explore.test.ts
+    hash: d6e6e23f0b496235
   - path: packages/sidecar/test/gates.test.ts
     hash: cd2218a7afff6f2d
+  - path: packages/sidecar/test/graduation-pass.test.ts
+    hash: 21c205ee206b871d
+  - path: packages/sidecar/test/graduation-trigger.test.ts
+    hash: 2afa6ea9bd4747bb
+  - path: packages/sidecar/test/graduation.test.ts
+    hash: 2c1321ea7d2a7b5d
   - path: packages/sidecar/test/index.test.ts
     hash: 1fcb1e5abdfcba14
+  - path: packages/sidecar/test/injection-budget.test.ts
+    hash: 7a0bcd4dcac0bdec
+  - path: packages/sidecar/test/mirror.test.ts
+    hash: 212bf1d3bd3d1a17
   - path: packages/sidecar/test/redact.test.ts
     hash: 63a9ba3922f68c5e
   - path: packages/sidecar/test/serve.test.ts
     hash: f2e6c0b31bf53fc2
+  - path: packages/sidecar/test/session-attribution.test.ts
+    hash: b657e1897d907de8
   - path: packages/sidecar/test/state.test.ts
     hash: 09dd350adc6dcd05
   - path: packages/sidecar/test/store.test.ts
     hash: ed1efdba850f8452
+  - path: packages/sidecar/test/zoom-file-ref.test.ts
+    hash: 1b80ee4c654b1018
+  - path: scripts/bench-live.mjs
+    hash: 71cece0ae00c18a5
   - path: scripts/canary.mjs
     hash: dcd0e7035f265efb
   - path: scripts/gen-fixtures.mjs
-    hash: 7fd233480c4c9367
+    hash: e4041dd7bd930f62
   - path: scripts/measure-ratios.mjs
     hash: 079bdca601d0425f
   - path: scripts/prepublish-check.mjs
@@ -945,12 +1861,4 @@ files:
     hash: 3fd660811b659aad
   - path: vitest.workspace.ts
     hash: e7bfa39b80ce734c
-  - path: packages/sidecar/test/session-attribution.test.ts
-    hash: b657e1897d907de8
-  - path: packages/meter/test/cli-args.test.ts
-    hash: ef0f60fc6bdea2c7
-  - path: packages/meter/src/receipt.ts
-    hash: f8ebc64eb75f7a24
-  - path: packages/meter/test/receipt.test.ts
-    hash: 70f48d6c18c98362
 locked: []

@@ -87,6 +87,34 @@ export const LIMITS = {
    * seven-session entry takes three. Product tuning constants, not measured
    * claims.
    */
+  /**
+   * Session-posture thresholds, architecture-v2 pillar 4 (docs/POSTURE.md).
+   * Governance engages proportionally to what it can earn: at or below the
+   * IDLE bounds (and with no graduated knowledge to serve) the fixed
+   * per-session overhead cannot pay for itself — the h01/h03 bench sessions
+   * are the honest evidence — so the session runs effectively vanilla. Above
+   * the LIGHT bounds the full protocol engages. Between them, the session
+   * gets the cheap high-value injection only (summary, learned, pitfalls).
+   * Product tuning constants, not measured claims.
+   */
+  POSTURE: {
+    IDLE_MAX_FILES: 25,
+    IDLE_MAX_SOURCE_BYTES: 262_144,
+    LIGHT_MAX_FILES: 120,
+    LIGHT_MAX_SOURCE_BYTES: 2_097_152,
+  },
+  /**
+   * SessionStart injection budgets (docs/POSTURE.md). CODEX_MAX_TOKENS caps
+   * the rendered codex injection via the degrade-and-restore order in
+   * buildInjection; TOTAL_MAX_TOKENS is the documented ceiling for the whole
+   * SessionStart injection (protocol block plus codex plus learned), asserted
+   * against this repository's own mirror in injection-budget.test.ts. Product
+   * tuning constants, not measured claims.
+   */
+  INJECTION: {
+    CODEX_MAX_TOKENS: 3000,
+    TOTAL_MAX_TOKENS: 3500,
+  },
   GRADUATION: {
     /** Occurrence count at which the occurrence term reaches 0.5 (saturating toward 1). */
     OCCURRENCE_HALF_SATURATION: 2,

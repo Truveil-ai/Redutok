@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import {
   loadEnergyFactors,
   loadGridIntensity,
@@ -40,6 +41,9 @@ export interface SessionReceipt {
   avoidedTokens: number;
   /** Top three distill events by tokens avoided. */
   topDistillations: ReceiptDistillation[];
+  /** Session posture with its basis (docs/POSTURE.md), e.g. "full (156
+   * files, 2,900 KB source, 19 learned)". Undefined when no record matches. */
+  posture?: string;
 }
 
 /** Same 4-chars-per-token heuristic the sidecar uses for handle estimates. */
@@ -53,6 +57,30 @@ export interface SessionReceiptOptions {
   auditPath: string;
   pricesPath?: string;
   region?: string;
+  /** SessionStart's posture record, normally <dcpDir>/session-posture.json. */
+  posturePath?: string;
+}
+
+/** Formats the posture record for the receipt when it belongs to this
+ * session; local file only, like everything else the receipt reads. */
+function postureLineFor(posturePath: string | undefined, sessionId: string): string | undefined {
+  if (posturePath === undefined) return undefined;
+  try {
+    const record = JSON.parse(readFileSync(posturePath, 'utf8')) as {
+      sessionId?: string;
+      posture?: string;
+      pinned?: boolean;
+      files?: number;
+      sourceBytes?: number;
+      learnedEntries?: number;
+    };
+    if (typeof record.posture !== 'string' || record.sessionId !== sessionId) return undefined;
+    if (record.pinned === true) return `${record.posture} (pinned)`;
+    const kb = Math.round((record.sourceBytes ?? 0) / 1024);
+    return `${record.posture} (${fmt(record.files ?? 0)} files, ${fmt(kb)} KB source, ${fmt(record.learnedEntries ?? 0)} learned)`;
+  } catch {
+    return undefined;
+  }
 }
 
 export function buildSessionReceipt(
@@ -97,6 +125,7 @@ export function buildSessionReceipt(
     auditEvents: audit.length,
     avoidedTokens: measured.reduce((n, e) => n + avoidedFor(e), 0),
     topDistillations,
+    posture: postureLineFor(options.posturePath, ledger.sessionId),
   };
 }
 
@@ -111,6 +140,7 @@ export function renderReceiptBlock(receipt: SessionReceipt): string {
     `Redutok receipt for session ${receipt.sessionId}`,
     `  billed   ${fmt(receipt.billedTokens)} tokens across ${receipt.turns} turns, ${cost}`,
   ];
+  if (receipt.posture !== undefined) lines.push(`  posture  ${receipt.posture}`);
   if (receipt.topDistillations.length === 0) {
     lines.push('  no distillations this session');
   } else {

@@ -4,3 +4,4 @@ export * from './yaml.js';
 export * from './audit-file.js';
 export * from './candidates-file.js';
 export * from './confidence.js';
+export * from './posture.js';

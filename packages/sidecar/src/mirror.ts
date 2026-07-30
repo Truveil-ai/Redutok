@@ -95,6 +95,9 @@ export function buildMirrorHeader(
 export interface SkeletonEnrichment {
   path: string;
   symbols: string[];
+  /** Originating candidate ref, riding along for audit attribution
+   * (docs/POSTURE.md, per-lesson attribution). */
+  candidate?: string;
 }
 
 /**
