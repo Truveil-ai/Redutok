@@ -19,6 +19,15 @@
  * strip or init, sidecar up, health, down, cleanup) and never writes
  * RESULTS.md. Requires a prior pnpm build; runs claude with
  * --dangerously-skip-permissions inside the throwaway copies only.
+ *
+ * Slope tier (bench/tiers/slope.yaml): its tasks never enter the flat matrix.
+ * Both variants run the sequence in order in fresh sessions per task; vanilla
+ * starts cold each task, while redutok keeps one persistent copy per
+ * repetition whose .dcp state (candidates, codex, mirror) carries forward,
+ * with the post-session graduation pass required to complete between tasks.
+ * --prep-check additionally asserts that persistence and that a session-end
+ * produces a completed graduation pass. Naming any sequence task in --tasks
+ * selects the whole sequence.
  */
 import { execFileSync } from 'node:child_process';
 import {
@@ -56,10 +65,13 @@ const {
   captureBaselines,
   computeSessionCost,
   computeSessionEnergy,
+  countSlopeAttribution,
   extractDcpBlock,
   generateLiveResults,
   grandTotal,
+  hasGraduationEvent,
   loadBenchTasks,
+  loadSlopeTier,
   parseSessionFile,
   runLiveChecks,
   scoreSession,
@@ -87,7 +99,7 @@ const shared = await import(
     'file:///' + path.join(root, 'packages', 'shared', 'dist', 'index.js').replace(/\\/g, '/'),
   ).href
 );
-const { loadEnergyFactors, loadGridIntensity, loadPrices } = shared;
+const { loadEnergyFactors, loadGridIntensity, loadPrices, readAuditFile } = shared;
 
 // ---------------------------------------------------------------- arguments
 const argv = process.argv.slice(2);
@@ -240,6 +252,61 @@ async function downRedutok(workDir) {
   await waitForDaemonExit(workDir);
 }
 
+// ------------------------------------------------------- slope tier helpers
+/**
+ * The inter-task boundary of a redutok slope sequence. Deliberately minimal:
+ * .dcp (candidates, codex, mirror, audit, sqlite) and the working tree carry
+ * forward untouched — that persistence is the product claim under test — but
+ * the previous task's graded ANSWER.md deliverable must not leak into the
+ * next task's grading.
+ */
+function betweenSlopeTasks(workDir) {
+  rmSync(path.join(workDir, 'ANSWER.md'), { force: true });
+}
+
+/** POST a session-end notify to a copy's daemon, the same call the
+ * SessionEnd hook makes; fires the graduation miner. */
+function notifySessionEnd(port, sessionId) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { host: '127.0.0.1', port, path: '/notify', method: 'POST', timeout: 5000 },
+      (res) => {
+        res.resume();
+        res.on('end', () => resolve(res.statusCode === 200));
+      },
+    );
+    req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('notify timed out'));
+    });
+    req.end(JSON.stringify({ kind: 'session-end', sessionId }));
+  });
+}
+
+/**
+ * The graduation gate between slope tasks: mining runs post-session and
+ * asynchronously, so the runner must not start the next task (or tear the
+ * copy down) until the miner has audited a completed run for this session.
+ * Timing out is a hard failure — a sequence without the graduation pass
+ * between tasks does not measure the product claim.
+ */
+async function waitForGraduation(workDir, sessionId, timeoutMs = 90_000) {
+  const auditPath = path.join(workDir, '.dcp', 'audit.jsonl');
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (hasGraduationEvent(readAuditFile(auditPath).events, sessionId)) return;
+    await sleep(500);
+  }
+  throw new Error(`graduation pass did not run for session ${sessionId} within ${timeoutMs / 1000}s`);
+}
+
+/** Zoom-back and enrichment-serve counts for one session from the copy's
+ * audit trail, captured before the copy is torn down. */
+function readAttribution(workDir, sessionId) {
+  return countSlopeAttribution(readAuditFile(path.join(workDir, '.dcp', 'audit.jsonl')).events, sessionId);
+}
+
 // ------------------------------------------------------------- claude driver
 function runClaude(prompt, workDir, streamPath) {
   return new Promise((resolve) => {
@@ -364,18 +431,34 @@ function reportedCostFromStream(streamPath) {
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 
 function writeResults(measurements, notRun, done) {
-  const summary = generateLiveResults(measurements, notRun, { model: MODEL, n: N, done });
+  const summary = generateLiveResults(measurements, notRun, {
+    model: MODEL,
+    n: N,
+    done,
+    ...(slopeSelected ? { slope: slopeTier } : {}),
+  });
   writeFileSync(resultsPath, summary.markdown);
   return summary;
 }
 
 // -------------------------------------------------------------------- matrix
 const allTasks = loadBenchTasks(path.join(root, 'bench', 'tasks'));
-const tasks = ONLY.length > 0 ? allTasks.filter((t) => ONLY.includes(t.id)) : allTasks;
-if (tasks.length === 0) throw new Error('no tasks selected');
+const slopeTierPath = path.join(root, 'bench', 'tiers', 'slope.yaml');
+const slopeTier = existsSync(slopeTierPath) ? loadSlopeTier(slopeTierPath, allTasks) : undefined;
+// Slope tasks never enter the flat matrix: they only mean anything run in
+// sequence with carried .dcp state. Naming any of them in --tasks selects
+// the whole sequence — it is atomic by construction.
+const flatTasks = allTasks.filter((t) => t.tier !== 'slope');
+const tasks = ONLY.length > 0 ? flatTasks.filter((t) => ONLY.includes(t.id)) : flatTasks;
+const slopeSelected =
+  slopeTier !== undefined && (ONLY.length === 0 || ONLY.some((id) => slopeTier.sequence.includes(id)));
+const sequenceTasks = slopeSelected
+  ? slopeTier.sequence.map((id) => allTasks.find((t) => t.id === id))
+  : [];
+if (tasks.length === 0 && !slopeSelected) throw new Error('no tasks selected');
 
 if (PREP_CHECK) {
-  const task = tasks[0];
+  const task = tasks[0] ?? sequenceTasks[0];
   for (const variant of ['vanilla', 'redutok']) {
     const workDir = path.join(os.tmpdir(), `redutok-bench-prep-${task.id}-${variant}`);
     copyRepo(task, workDir);
@@ -414,99 +497,290 @@ if (PREP_CHECK) {
     console.log(`prep ${task.id} ${variant}: pre-run success checks (baseline): ${checks.detail.join('; ')}`);
     removeDir(workDir);
   }
-  process.exit(0);
+  if (slopeSelected) {
+    // Slope-tier prep: prove the two properties the sequence depends on
+    // before any live run — the persistent copy carries .dcp across the
+    // inter-task boundary, and a session-end actually produces a completed
+    // graduation pass (audit event plus a fresh candidates file).
+    const first = sequenceTasks[0];
+    const workDir = path.join(os.tmpdir(), `redutok-bench-prep-slope-${slopeTier.id}`);
+    copyRepo(first, workDir);
+    const port = initRedutok(workDir);
+    const up = await health(port);
+    const pidOf = () => {
+      try {
+        return JSON.parse(readFileSync(path.join(workDir, '.dcp', 'sidecar.pid.json'), 'utf8')).pid;
+      } catch {
+        return undefined;
+      }
+    };
+    const pidBefore = pidOf();
+    writeFileSync(path.join(workDir, 'ANSWER.md'), 'previous task deliverable');
+    betweenSlopeTasks(workDir);
+    const dcpSurvives = ['config.json', 'state.db', 'audit.jsonl'].filter(
+      (f) => !existsSync(path.join(workDir, '.dcp', f)),
+    );
+    const answerGone = !existsSync(path.join(workDir, 'ANSWER.md'));
+    const sameDaemon = pidBefore !== undefined && pidOf() === pidBefore && (await health(port));
+    const persistOk = up && dcpSurvives.length === 0 && answerGone && sameDaemon;
+    if (!persistOk) process.exitCode = 1;
+    console.log(
+      `prep slope ${slopeTier.id}: persistent copy carries .dcp across the boundary: ${persistOk ? 'ok' : `FAIL (missing: ${dcpSurvives.join(',') || 'none'}, answer removed: ${answerGone}, daemon survived: ${sameDaemon})`}`,
+    );
+    const before = Date.now();
+    let graduationOk = false;
+    let graduationDetail = '';
+    try {
+      await notifySessionEnd(port, 'prep-check-slope');
+      await waitForGraduation(workDir, 'prep-check-slope', 30_000);
+      const candidates = path.join(workDir, '.dcp', 'candidates.jsonl');
+      const fresh = existsSync(candidates) && statSync(candidates).mtimeMs >= before - 1000;
+      graduationOk = fresh;
+      graduationDetail = fresh
+        ? 'audit event present, candidates.jsonl mtime fresh'
+        : 'audit event present but candidates.jsonl missing or stale';
+    } catch (err) {
+      graduationDetail = err instanceof Error ? err.message : String(err);
+    }
+    if (!graduationOk) process.exitCode = 1;
+    console.log(`prep slope ${slopeTier.id}: graduation pass runs on session-end: ${graduationOk ? 'ok' : 'FAIL'} (${graduationDetail})`);
+    await downRedutok(workDir);
+    removeDir(workDir);
+  }
+  // An explicit exit(0) would override a failed assertion's exitCode.
+  process.exit(process.exitCode ?? 0);
 }
 
 const measurements = [];
 const notRun = [];
-for (const task of tasks) {
-  for (let rep = 1; rep <= N; rep += 1) {
-    for (const variant of ['vanilla', 'redutok']) {
-      const id = `${task.id}-${variant}-${rep}`;
-      const transcriptOut = path.join(runsDir, `${id}.jsonl`);
-      if (existsSync(transcriptOut)) {
-        console.log(`skip ${id}: transcript already captured`);
-        const parsed = await parseSessionFile(transcriptOut);
-        const ledger = buildLedger(parsed, id);
-        const energy = computeSessionEnergy(ledger, factors, grid);
-        measurements.push({
-          taskId: task.id,
-          tier: task.tier,
-          variant,
-          rep,
-          ledger,
-          totalTokens: grandTotal(ledger.totals),
-          costUsd: computeSessionCost(ledger, prices).totalUsd,
-          reportedCostUsd: reportedCostFromStream(path.join(runsDir, `${id}.stream.jsonl`)),
-          energy,
-          scores: scoreSession(ledger, energy, []),
-          wallMs: 0,
-          success: true,
-          successDetail: ['recovered from existing log; checks not re-run'],
-          model: ledger.entries[0]?.model ?? 'unknown',
-        });
-        continue;
-      }
-      const workDir = path.join(os.tmpdir(), `redutok-bench-${id}`);
-      let port;
-      try {
-        copyRepo(task, workDir);
-        if (variant === 'vanilla') stripRedutok(workDir);
-        else port = initRedutok(workDir);
-        // Baselines are captured after the repo is copied (and, for redutok,
-        // after init) but strictly before claude can touch anything, so
-        // file-changed checks compare against the true pre-run state.
-        const baselines = captureBaselines(task, workDir);
-        const streamPath = path.join(runsDir, `${id}.stream.jsonl`);
-        console.log(`run ${id} (cwd ${workDir}${port === undefined ? '' : `, sidecar :${port}`})`);
-        const run = await runClaude(buildLivePrompt(task), workDir, streamPath);
-        if (run.timedOut) throw new Error(`timed out after ${TIMEOUT_MS / 60000} minutes`);
-        if (run.result === undefined) {
-          throw new Error(`no result event (exit ${run.code}); stderr: ${run.stderr.slice(0, 300)}`);
-        }
-        if (run.result.is_error) throw new Error(`claude error result: ${String(run.result.result ?? run.result.subtype).slice(0, 300)}`);
-        const transcript = findTranscript(run.result.session_id);
-        if (transcript === undefined) throw new Error(`transcript for session ${run.result.session_id} not found`);
-        cpSync(transcript, transcriptOut);
-        const checks = runLiveChecks(task, variant, workDir, baselines);
-        const parsed = await parseSessionFile(transcriptOut);
-        const ledger = buildLedger(parsed, id);
-        const energy = computeSessionEnergy(ledger, factors, grid);
-        measurements.push({
-          taskId: task.id,
-          tier: task.tier,
-          variant,
-          rep,
-          ledger,
-          totalTokens: grandTotal(ledger.totals),
-          costUsd: computeSessionCost(ledger, prices).totalUsd,
-          reportedCostUsd: typeof run.result.total_cost_usd === 'number' ? run.result.total_cost_usd : undefined,
-          energy,
-          scores: scoreSession(ledger, energy, []),
-          wallMs: run.wallMs,
-          success: checks.passed,
-          successDetail: checks.detail,
-          model: ledger.entries[0]?.model ?? 'unknown',
-        });
-        console.log(`  ${id}: ${fmt(grandTotal(ledger.totals))} tokens, success ${checks.passed}`);
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
-        console.error(`  ${id}: NOT RUN (${reason})`);
-        notRun.push({ taskId: task.id, variant, rep, reason });
-      } finally {
-        if (variant === 'redutok') await downRedutok(workDir);
-        removeDir(workDir);
-      }
-    }
+
+/** One flat-matrix run in a fresh isolated copy: strip or init, one claude
+ * session, checks, measurement. Also serves the vanilla side of the slope
+ * sequence, which is by design exactly this cold-start path in order. */
+async function runSingle(task, variant, rep) {
+  const id = `${task.id}-${variant}-${rep}`;
+  const transcriptOut = path.join(runsDir, `${id}.jsonl`);
+  if (existsSync(transcriptOut)) {
+    console.log(`skip ${id}: transcript already captured`);
+    const parsed = await parseSessionFile(transcriptOut);
+    const ledger = buildLedger(parsed, id);
+    const energy = computeSessionEnergy(ledger, factors, grid);
+    measurements.push({
+      taskId: task.id,
+      tier: task.tier,
+      variant,
+      rep,
+      ledger,
+      totalTokens: grandTotal(ledger.totals),
+      costUsd: computeSessionCost(ledger, prices).totalUsd,
+      reportedCostUsd: reportedCostFromStream(path.join(runsDir, `${id}.stream.jsonl`)),
+      energy,
+      scores: scoreSession(ledger, energy, []),
+      wallMs: 0,
+      success: true,
+      successDetail: ['recovered from existing log; checks not re-run'],
+      model: ledger.entries[0]?.model ?? 'unknown',
+    });
+    return;
   }
+  const workDir = path.join(os.tmpdir(), `redutok-bench-${id}`);
+  let port;
+  try {
+    copyRepo(task, workDir);
+    if (variant === 'vanilla') stripRedutok(workDir);
+    else port = initRedutok(workDir);
+    // Baselines are captured after the repo is copied (and, for redutok,
+    // after init) but strictly before claude can touch anything, so
+    // file-changed checks compare against the true pre-run state.
+    const baselines = captureBaselines(task, workDir);
+    const streamPath = path.join(runsDir, `${id}.stream.jsonl`);
+    console.log(`run ${id} (cwd ${workDir}${port === undefined ? '' : `, sidecar :${port}`})`);
+    const run = await runClaude(buildLivePrompt(task), workDir, streamPath);
+    if (run.timedOut) throw new Error(`timed out after ${TIMEOUT_MS / 60000} minutes`);
+    if (run.result === undefined) {
+      throw new Error(`no result event (exit ${run.code}); stderr: ${run.stderr.slice(0, 300)}`);
+    }
+    if (run.result.is_error) throw new Error(`claude error result: ${String(run.result.result ?? run.result.subtype).slice(0, 300)}`);
+    const transcript = findTranscript(run.result.session_id);
+    if (transcript === undefined) throw new Error(`transcript for session ${run.result.session_id} not found`);
+    cpSync(transcript, transcriptOut);
+    const checks = runLiveChecks(task, variant, workDir, baselines);
+    const parsed = await parseSessionFile(transcriptOut);
+    const ledger = buildLedger(parsed, id);
+    const energy = computeSessionEnergy(ledger, factors, grid);
+    measurements.push({
+      taskId: task.id,
+      tier: task.tier,
+      variant,
+      rep,
+      ledger,
+      totalTokens: grandTotal(ledger.totals),
+      costUsd: computeSessionCost(ledger, prices).totalUsd,
+      reportedCostUsd: typeof run.result.total_cost_usd === 'number' ? run.result.total_cost_usd : undefined,
+      energy,
+      scores: scoreSession(ledger, energy, []),
+      wallMs: run.wallMs,
+      success: checks.passed,
+      successDetail: checks.detail,
+      model: ledger.entries[0]?.model ?? 'unknown',
+    });
+    console.log(`  ${id}: ${fmt(grandTotal(ledger.totals))} tokens, success ${checks.passed}`);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.error(`  ${id}: NOT RUN (${reason})`);
+    notRun.push({ taskId: task.id, variant, rep, reason });
+  } finally {
+    if (variant === 'redutok') await downRedutok(workDir);
+    removeDir(workDir);
+  }
+}
+
+function logCheckpoint(label) {
   const { medianTokenRatio, medianUsdRatio, medianNonCacheReadRatio, parity, spend } = writeResults(
     measurements,
     notRun,
     false,
   );
   console.log(
-    `checkpoint after ${task.id}: ${measurements.length} runs, median token reduction ${medianTokenRatio.toFixed(1)}x (USD ${medianUsdRatio.toFixed(1)}x, non-cache-read ${medianNonCacheReadRatio.toFixed(1)}x), parity ${(parity * 100).toFixed(0)}%, cumulative spend ${spend.toFixed(4)} USD`,
+    `checkpoint after ${label}: ${measurements.length} runs, median token reduction ${medianTokenRatio.toFixed(1)}x (USD ${medianUsdRatio.toFixed(1)}x, non-cache-read ${medianNonCacheReadRatio.toFixed(1)}x), parity ${(parity * 100).toFixed(0)}%, cumulative spend ${spend.toFixed(4)} USD`,
   );
+}
+
+for (const task of tasks) {
+  for (let rep = 1; rep <= N; rep += 1) {
+    for (const variant of ['vanilla', 'redutok']) {
+      await runSingle(task, variant, rep);
+    }
+  }
+  logCheckpoint(task.id);
+}
+
+/**
+ * The redutok side of the slope sequence (bench/tiers/slope.yaml): one
+ * persistent copy per repetition. Each task is a fresh claude session, but
+ * .dcp state (candidates, codex, mirror, audit, sqlite) carries forward, and
+ * the post-session graduation pass must complete before the next task starts
+ * — that asymmetry against vanilla's cold starts is the claim under test.
+ */
+async function runRedutokSequence(rep) {
+  const ids = sequenceTasks.map((t) => `${t.id}-redutok-${rep}`);
+  const captured = ids.filter((id) => existsSync(path.join(runsDir, `${id}.jsonl`)));
+  if (captured.length === ids.length) {
+    for (const [index, task] of sequenceTasks.entries()) {
+      const id = ids[index];
+      console.log(`skip ${id}: transcript already captured (sequence recovery; audit attribution unavailable)`);
+      const parsed = await parseSessionFile(path.join(runsDir, `${id}.jsonl`));
+      const ledger = buildLedger(parsed, id);
+      const energy = computeSessionEnergy(ledger, factors, grid);
+      measurements.push({
+        taskId: task.id,
+        tier: task.tier,
+        variant: 'redutok',
+        rep,
+        ledger,
+        totalTokens: grandTotal(ledger.totals),
+        costUsd: computeSessionCost(ledger, prices).totalUsd,
+        reportedCostUsd: reportedCostFromStream(path.join(runsDir, `${id}.stream.jsonl`)),
+        energy,
+        scores: scoreSession(ledger, energy, []),
+        wallMs: 0,
+        success: true,
+        successDetail: ['recovered from existing log; checks not re-run'],
+        model: ledger.entries[0]?.model ?? 'unknown',
+      });
+    }
+    return;
+  }
+  if (captured.length > 0) {
+    // A partial capture cannot be resumed: the temp copy that held the
+    // carried .dcp state is gone, so rerunning only the missing tasks would
+    // measure cold starts labeled as warm ones. The whole rep sits out.
+    const reason = `sequence rep partially captured (${captured.join(', ')}); clear those files under bench/runs to rerun the whole rep`;
+    for (const task of sequenceTasks) notRun.push({ taskId: task.id, variant: 'redutok', rep, reason });
+    console.error(`  slope redutok rep ${rep}: NOT RUN (${reason})`);
+    return;
+  }
+  const workDir = path.join(os.tmpdir(), `redutok-bench-slope-${slopeTier.id}-redutok-${rep}`);
+  let brokenAt;
+  try {
+    copyRepo(sequenceTasks[0], workDir);
+    const port = initRedutok(workDir);
+    for (const task of sequenceTasks) {
+      const id = `${task.id}-redutok-${rep}`;
+      brokenAt = task.id;
+      const transcriptOut = path.join(runsDir, `${id}.jsonl`);
+      const baselines = captureBaselines(task, workDir);
+      const streamPath = path.join(runsDir, `${id}.stream.jsonl`);
+      console.log(`run ${id} (sequence ${slopeTier.id}, cwd ${workDir}, sidecar :${port})`);
+      const run = await runClaude(buildLivePrompt(task), workDir, streamPath);
+      if (run.timedOut) throw new Error(`timed out after ${TIMEOUT_MS / 60000} minutes`);
+      if (run.result === undefined) {
+        throw new Error(`no result event (exit ${run.code}); stderr: ${run.stderr.slice(0, 300)}`);
+      }
+      if (run.result.is_error) throw new Error(`claude error result: ${String(run.result.result ?? run.result.subtype).slice(0, 300)}`);
+      const transcript = findTranscript(run.result.session_id);
+      if (transcript === undefined) throw new Error(`transcript for session ${run.result.session_id} not found`);
+      cpSync(transcript, transcriptOut);
+      const checks = runLiveChecks(task, 'redutok', workDir, baselines);
+      // The claim needs the pass, not just the carry: block until the miner
+      // has audited a completed graduation run for this session.
+      await waitForGraduation(workDir, run.result.session_id);
+      const attribution = readAttribution(workDir, run.result.session_id);
+      const parsed = await parseSessionFile(transcriptOut);
+      const ledger = buildLedger(parsed, id);
+      const energy = computeSessionEnergy(ledger, factors, grid);
+      measurements.push({
+        taskId: task.id,
+        tier: task.tier,
+        variant: 'redutok',
+        rep,
+        ledger,
+        totalTokens: grandTotal(ledger.totals),
+        costUsd: computeSessionCost(ledger, prices).totalUsd,
+        reportedCostUsd: typeof run.result.total_cost_usd === 'number' ? run.result.total_cost_usd : undefined,
+        energy,
+        scores: scoreSession(ledger, energy, []),
+        wallMs: run.wallMs,
+        success: checks.passed,
+        successDetail: checks.detail,
+        model: ledger.entries[0]?.model ?? 'unknown',
+        attribution,
+      });
+      console.log(
+        `  ${id}: ${fmt(grandTotal(ledger.totals))} tokens, success ${checks.passed}, zoom-backs ${attribution.zoomBacks}, enrichment serves ${attribution.enrichmentServes}`,
+      );
+      betweenSlopeTasks(workDir);
+    }
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    // The sequence is atomic: a failure at any position invalidates every
+    // task of the rep that has not already been measured.
+    for (const task of sequenceTasks) {
+      const done = measurements.some((m) => m.taskId === task.id && m.variant === 'redutok' && m.rep === rep);
+      if (!done) {
+        notRun.push({
+          taskId: task.id,
+          variant: 'redutok',
+          rep,
+          reason: task.id === brokenAt ? reason : `sequence rep broken at ${brokenAt}: ${reason}`,
+        });
+      }
+    }
+    console.error(`  slope redutok rep ${rep}: NOT RUN from ${brokenAt} (${reason})`);
+  } finally {
+    await downRedutok(workDir);
+    removeDir(workDir);
+  }
+}
+
+if (slopeSelected) {
+  for (let rep = 1; rep <= N; rep += 1) {
+    // Both variants run the sequence in order in fresh sessions per task;
+    // only redutok carries state between them.
+    for (const task of sequenceTasks) await runSingle(task, 'vanilla', rep);
+    await runRedutokSequence(rep);
+    logCheckpoint(`slope ${slopeTier.id} rep ${rep}`);
+  }
 }
 if (measurements.length > 0 || notRun.length > 0) {
   writeResults(measurements, notRun, true);
