@@ -121,7 +121,7 @@ export function loadSlopeTier(file: string, tasks: BenchTask[]): SlopeTier {
   return { tier: 'slope', id: raw.id, sequence: [...raw.sequence], criteria: raw.criteria.map((c) => ({ ...c })) };
 }
 
-/** The subset of an audit event the slope telemetry counters read; matches
+/** The subset of an audit event the slope attribution counters read; matches
  * @redutok/shared's AuditEvent without importing its zod machinery here. */
 export interface AuditEventLike {
   action?: string;
@@ -130,18 +130,18 @@ export interface AuditEventLike {
   details?: Record<string, unknown>;
 }
 
-export interface SlopeTelemetry {
+export interface SlopeAttribution {
   zoomBacks: number;
   enrichmentServes: number;
 }
 
 /**
- * Per-task attribution telemetry from a redutok copy's .dcp/audit.jsonl:
+ * Per-task attribution counts from a redutok copy's .dcp/audit.jsonl:
  * zoom-backs (the model went back for elided detail) and enrichment serves
  * (a served artifact carried a graduated lesson's candidate ref). Together
  * they show the mechanism behind a slope, not just the outcome.
  */
-export function countSlopeTelemetry(events: readonly AuditEventLike[], sessionId: string): SlopeTelemetry {
+export function countSlopeAttribution(events: readonly AuditEventLike[], sessionId: string): SlopeAttribution {
   const mine = events.filter((e) => e.sessionId === sessionId);
   const zoomBacks = mine.filter((e) => e.action === 'zoom').length;
   const enrichmentServes = mine.filter((e) => {
@@ -328,10 +328,10 @@ export interface LiveRunMeasurement extends RunMeasurement {
   rep: number;
   /** total_cost_usd from the claude CLI's own result event, when present. */
   reportedCostUsd?: number;
-  /** Slope-tier attribution telemetry, read from the run's .dcp/audit.jsonl
+  /** Slope-tier attribution counts, read from the run's .dcp/audit.jsonl
    * before the copy is torn down. Absent for vanilla runs (no .dcp) and for
    * runs recovered from committed logs, whose audit file is gone. */
-  telemetry?: SlopeTelemetry;
+  attribution?: SlopeAttribution;
 }
 
 export interface NotRunRecord {
@@ -575,13 +575,13 @@ export function evaluateSlope(tier: SlopeTier, measurements: LiveRunMeasurement[
 }
 
 /** The RESULTS.md slope section: per-task medians with the attribution
- * telemetry that shows the mechanism, then the slopes and the verdicts. */
+ * attribution that shows the mechanism, then the slopes and the verdicts. */
 function slopeSection(tier: SlopeTier, measurements: LiveRunMeasurement[], report: SlopeReport): string[] {
   const lines: string[] = [
     '',
     `## Slope (sequence ${tier.id})`,
     '',
-    'Sequenced runs on one fixture repo: the redutok variant carries its .dcp state (candidates, codex, mirror) across the sequence with a graduation pass between tasks; vanilla starts cold each task. Zoom-backs and enrichment serves come from each redutok copy’s .dcp/audit.jsonl attribution telemetry (vanilla has no .dcp; runs recovered from committed logs have no audit file and show —).',
+    'Sequenced runs on one fixture repo: the redutok variant carries its .dcp state (candidates, codex, mirror) across the sequence with a graduation pass between tasks; vanilla starts cold each task. Zoom-backs and enrichment serves come from each redutok copy’s .dcp/audit.jsonl attribution counts (vanilla has no .dcp; runs recovered from committed logs have no audit file and show —).',
     '',
     '| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | success |',
     '| --- | ---: | --- | ---: | ---: | ---: | ---: | --- |',
@@ -590,9 +590,9 @@ function slopeSection(tier: SlopeTier, measurements: LiveRunMeasurement[], repor
     for (const variant of ['vanilla', 'redutok'] as Variant[]) {
       const runs = measurements.filter((m) => m.taskId === taskId && m.variant === variant);
       if (runs.length === 0) continue;
-      const withTelemetry = runs.filter((r) => r.telemetry !== undefined);
-      const cell = (pick: (t: SlopeTelemetry) => number): string =>
-        withTelemetry.length === 0 ? '—' : fmt(median(withTelemetry.map((r) => pick(r.telemetry as SlopeTelemetry))));
+      const withAttribution = runs.filter((r) => r.attribution !== undefined);
+      const cell = (pick: (t: SlopeAttribution) => number): string =>
+        withAttribution.length === 0 ? '—' : fmt(median(withAttribution.map((r) => pick(r.attribution as SlopeAttribution))));
       lines.push(
         `| ${taskId} | ${index + 1} | ${variant} | ${fmt(median(runs.map((r) => r.totalTokens)))} | ${fmt(median(runs.map((r) => turnsOf(r.ledger))))} | ${cell((t) => t.zoomBacks)} | ${cell((t) => t.enrichmentServes)} | ${runs.filter((r) => r.success).length}/${runs.length} |`,
       );

@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  countSlopeTelemetry,
+  countSlopeAttribution,
   dryRunMatrix,
   evaluateSlope,
   generateLiveResults,
@@ -120,9 +120,9 @@ function learningRun(rep: number): LiveRunMeasurement[] {
     synthMeasurement('s01', 'vanilla', rep, 100_000, 20),
     synthMeasurement('s02', 'vanilla', rep, 98_000, 19),
     synthMeasurement('s03', 'vanilla', rep, 96_000, 20),
-    synthMeasurement('s01', 'redutok', rep, 50_000, 15, { telemetry: { zoomBacks: 4, enrichmentServes: 0 } }),
-    synthMeasurement('s02', 'redutok', rep, 40_000, 12, { telemetry: { zoomBacks: 2, enrichmentServes: 3 } }),
-    synthMeasurement('s03', 'redutok', rep, 30_000, 9, { telemetry: { zoomBacks: 1, enrichmentServes: 5 } }),
+    synthMeasurement('s01', 'redutok', rep, 50_000, 15, { attribution: { zoomBacks: 4, enrichmentServes: 0 } }),
+    synthMeasurement('s02', 'redutok', rep, 40_000, 12, { attribution: { zoomBacks: 2, enrichmentServes: 3 } }),
+    synthMeasurement('s03', 'redutok', rep, 30_000, 9, { attribution: { zoomBacks: 1, enrichmentServes: 5 } }),
   ];
 }
 
@@ -174,7 +174,7 @@ describe('loadSlopeTier', () => {
 
 // ------------------------------------------------------------- attribution
 
-describe('countSlopeTelemetry', () => {
+describe('countSlopeAttribution', () => {
   const events = [
     { action: 'zoom', sessionId: 'a', module: 'sidecar.distill' },
     { action: 'zoom', sessionId: 'a', module: 'sidecar.distill' },
@@ -186,9 +186,9 @@ describe('countSlopeTelemetry', () => {
   ];
 
   it('counts zoom-backs and enrichment serves attributed to the session, ignoring other sessions', () => {
-    expect(countSlopeTelemetry(events, 'a')).toEqual({ zoomBacks: 2, enrichmentServes: 2 });
-    expect(countSlopeTelemetry(events, 'b')).toEqual({ zoomBacks: 1, enrichmentServes: 1 });
-    expect(countSlopeTelemetry(events, 'c')).toEqual({ zoomBacks: 0, enrichmentServes: 0 });
+    expect(countSlopeAttribution(events, 'a')).toEqual({ zoomBacks: 2, enrichmentServes: 2 });
+    expect(countSlopeAttribution(events, 'b')).toEqual({ zoomBacks: 1, enrichmentServes: 1 });
+    expect(countSlopeAttribution(events, 'c')).toEqual({ zoomBacks: 0, enrichmentServes: 0 });
   });
 
   it('does not count an empty or missing enrichmentCandidate as a serve', () => {
@@ -196,7 +196,7 @@ describe('countSlopeTelemetry', () => {
       { action: 'distill', sessionId: 'a', details: { enrichmentCandidate: '' } },
       { action: 'distill', sessionId: 'a', details: {} },
     ];
-    expect(countSlopeTelemetry(noise, 'a')).toEqual({ zoomBacks: 0, enrichmentServes: 0 });
+    expect(countSlopeAttribution(noise, 'a')).toEqual({ zoomBacks: 0, enrichmentServes: 0 });
   });
 });
 
@@ -281,7 +281,7 @@ describe('evaluateSlope', () => {
 // --------------------------------------------------------------- reporting
 
 describe('generateLiveResults slope section', () => {
-  it('reports per-task telemetry, slopes, the headline, and the pre-registered verdicts', () => {
+  it('reports per-task attribution, slopes, the headline, and the pre-registered verdicts', () => {
     const summary = generateLiveResults(learningRun(1), [], {
       model: 'claude-sonnet-5',
       n: 1,
@@ -290,9 +290,9 @@ describe('generateLiveResults slope section', () => {
     });
     expect(summary.markdown).toContain('## Slope (sequence slope-chalk)');
     expect(summary.markdown).toContain('| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | success |');
-    // s02 redutok row carries its attribution telemetry.
+    // s02 redutok row carries its attribution counts.
     expect(summary.markdown).toMatch(/\| s02 \| 2 \| redutok \|[^|]+\|[^|]+\| 2 \| 3 \|/);
-    // Vanilla rows have no .dcp, so telemetry renders as an em dash.
+    // Vanilla rows have no .dcp, so attribution renders as an em dash.
     expect(summary.markdown).toMatch(/\| s02 \| 2 \| vanilla \|[^|]+\|[^|]+\| — \| — \|/);
     expect(summary.markdown).toContain('redutok slope (s3/s1): tokens 0.60x, turns 0.60x');
     expect(summary.markdown).toContain('headline: vanilla s3 over redutok s3: 3.2x tokens');
