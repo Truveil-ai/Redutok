@@ -32,7 +32,7 @@ export interface SuccessCheck {
 
 export interface BenchTask {
   id: string;
-  tier: 'small' | 'medium' | 'large';
+  tier: 'small' | 'medium' | 'large' | 'heavy' | 'slope';
   repo: { url: string; commit: string; localPath: string };
   prompt: string;
   success: SuccessCheck[];
@@ -53,6 +53,113 @@ export function loadBenchTasks(dir: string): BenchTask[] {
   }
   return tasks;
 }
+
+/**
+ * Slope tier (v4 session 4): a sequence of related-but-distinct tasks on one
+ * fixture repo, measuring whether carried .dcp state (candidates, codex,
+ * mirror) makes later tasks cheaper. The criteria below are the only ones the
+ * harness knows how to evaluate; the tier yaml must name exactly this set, so
+ * the pre-registered bar can neither be moved nor extended by a yaml edit
+ * after runs exist (house rule: no bar movement after the fact).
+ */
+export const SLOPE_CRITERION_IDS = ['slope-exists', 'learning-pays'] as const;
+export type SlopeCriterionId = (typeof SLOPE_CRITERION_IDS)[number];
+
+export interface SlopeCriterion {
+  id: SlopeCriterionId;
+  description: string;
+}
+
+export interface SlopeTier {
+  tier: 'slope';
+  id: string;
+  /** Task ids in execution order (s1 first). */
+  sequence: string[];
+  criteria: SlopeCriterion[];
+}
+
+export function loadSlopeTier(file: string, tasks: BenchTask[]): SlopeTier {
+  const raw = parseYaml(readFileSync(file, 'utf8')) as SlopeTier;
+  const name = path.basename(file);
+  if (raw.tier !== 'slope') throw new Error(`${name}: tier must be "slope", got ${String(raw.tier)}`);
+  if (typeof raw.id !== 'string' || raw.id === '') throw new Error(`${name}: missing tier id`);
+  if (!Array.isArray(raw.sequence) || raw.sequence.length < 2) {
+    throw new Error(`${name}: sequence must list at least two task ids in order`);
+  }
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const first = byId.get(raw.sequence[0] ?? '');
+  for (const id of raw.sequence) {
+    const task = byId.get(id);
+    if (task === undefined) throw new Error(`${name}: sequence names unknown task ${id}`);
+    if (task.tier !== 'slope') throw new Error(`${name}: sequence task ${id} has tier ${task.tier}, expected slope`);
+    if (
+      first !== undefined &&
+      (task.repo.url !== first.repo.url || task.repo.commit !== first.repo.commit || task.repo.localPath !== first.repo.localPath)
+    ) {
+      throw new Error(`${name}: sequence task ${id} pins a different repo; knowledge cannot carry across repos`);
+    }
+  }
+  for (const task of tasks) {
+    if (task.tier === 'slope' && !raw.sequence.includes(task.id)) {
+      throw new Error(`${name}: slope task ${task.id} is not claimed by the sequence; nothing may run outside it`);
+    }
+  }
+  if (!Array.isArray(raw.criteria)) throw new Error(`${name}: missing criteria`);
+  for (const criterion of raw.criteria) {
+    if (!(SLOPE_CRITERION_IDS as readonly string[]).includes(criterion.id)) {
+      throw new Error(`${name}: criterion ${String(criterion.id)} is not pre-registered in the harness`);
+    }
+    if (typeof criterion.description !== 'string' || criterion.description === '') {
+      throw new Error(`${name}: criterion ${criterion.id} needs a description`);
+    }
+  }
+  for (const id of SLOPE_CRITERION_IDS) {
+    if (!raw.criteria.some((c) => c.id === id)) {
+      throw new Error(`${name}: pre-registered criterion ${id} is missing from the tier file`);
+    }
+  }
+  return { tier: 'slope', id: raw.id, sequence: [...raw.sequence], criteria: raw.criteria.map((c) => ({ ...c })) };
+}
+
+/** The subset of an audit event the slope attribution counters read; matches
+ * @redutok/shared's AuditEvent without importing its zod machinery here. */
+export interface AuditEventLike {
+  action?: string;
+  module?: string;
+  sessionId?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface SlopeAttribution {
+  zoomBacks: number;
+  enrichmentServes: number;
+}
+
+/**
+ * Per-task attribution counts from a redutok copy's .dcp/audit.jsonl:
+ * zoom-backs (the model went back for elided detail) and enrichment serves
+ * (a served artifact carried a graduated lesson's candidate ref). Together
+ * they show the mechanism behind a slope, not just the outcome.
+ */
+export function countSlopeAttribution(events: readonly AuditEventLike[], sessionId: string): SlopeAttribution {
+  const mine = events.filter((e) => e.sessionId === sessionId);
+  const zoomBacks = mine.filter((e) => e.action === 'zoom').length;
+  const enrichmentServes = mine.filter((e) => {
+    const candidate = e.details?.['enrichmentCandidate'];
+    return typeof candidate === 'string' && candidate !== '';
+  }).length;
+  return { zoomBacks, enrichmentServes };
+}
+
+/** True when the graduation miner has audited a completed mining run for the
+ * given session (module sidecar.graduation, attributed to that session). */
+export function hasGraduationEvent(events: readonly AuditEventLike[], sessionId: string): boolean {
+  return events.some((e) => e.module === 'sidecar.graduation' && e.sessionId === sessionId);
+}
+
+/** Turn count of a session: the highest turn number in the ledger. */
+export const turnsOf = (ledger: SessionLedger): number =>
+  ledger.entries.reduce((n, e) => Math.max(n, e.turn), 0);
 
 /** Bench task prompts that require a written answer append this instruction
  * so an explain-style task has a graded artifact instead of only chat text. */
@@ -221,6 +328,10 @@ export interface LiveRunMeasurement extends RunMeasurement {
   rep: number;
   /** total_cost_usd from the claude CLI's own result event, when present. */
   reportedCostUsd?: number;
+  /** Slope-tier attribution counts, read from the run's .dcp/audit.jsonl
+   * before the copy is torn down. Absent for vanilla runs (no .dcp) and for
+   * runs recovered from committed logs, whose audit file is gone. */
+  attribution?: SlopeAttribution;
 }
 
 export interface NotRunRecord {
@@ -260,18 +371,34 @@ export async function replayTask(task: BenchTask, repoRoot: string): Promise<Run
   return out;
 }
 
-export function dryRunMatrix(tasks: BenchTask[], n: number, model: string): string[] {
+export function dryRunMatrix(tasks: BenchTask[], n: number, model: string, slope?: SlopeTier): string[] {
   if (!Number.isInteger(n) || n < 1) throw new Error(`repetition count must be a positive integer, got ${n}`);
   if (model === '') throw new Error('model must not be empty');
   const lines: string[] = [];
-  for (const task of tasks) {
+  const taskLine = (task: BenchTask, rep: number, variant: Variant, note: string): void => {
+    const logFile = `bench/runs/${task.id}-${variant}-${rep}.jsonl`;
+    lines.push(
+      `# ${task.id} rep ${rep} ${variant} (cwd ${task.repo.localPath}, pin ${task.repo.url}@${task.repo.commit})`,
+      `claude -p ${JSON.stringify(buildLivePrompt(task))} --model ${model} --output-format stream-json${note} > ${logFile}`,
+    );
+  };
+  for (const task of tasks.filter((t) => t.tier !== 'slope')) {
     for (let rep = 1; rep <= n; rep += 1) {
       for (const variant of ['vanilla', 'redutok'] as Variant[]) {
-        const logFile = `bench/runs/${task.id}-${variant}-${rep}.jsonl`;
-        lines.push(
-          `# ${task.id} rep ${rep} ${variant} (cwd ${task.repo.localPath}, pin ${task.repo.url}@${task.repo.commit})`,
-          `claude -p ${JSON.stringify(buildLivePrompt(task))} --model ${model} --output-format stream-json${variant === 'redutok' ? ' # after: redutok init . and redutok up' : ''} > ${logFile}`,
-        );
+        taskLine(task, rep, variant, variant === 'redutok' ? ' # after: redutok init . and redutok up' : '');
+      }
+    }
+  }
+  if (slope !== undefined) {
+    const sequenceTasks = slope.sequence.map((id) => tasks.find((t) => t.id === id)).filter((t): t is BenchTask => t !== undefined);
+    for (let rep = 1; rep <= n; rep += 1) {
+      lines.push(`# slope sequence ${slope.id} rep ${rep} vanilla: cold copy per task, fresh session per task, in order`);
+      for (const task of sequenceTasks) taskLine(task, rep, 'vanilla', '');
+      lines.push(
+        `# slope sequence ${slope.id} rep ${rep} redutok: one persistent copy, .dcp (candidates, codex, mirror) carried across the sequence, fresh session per task`,
+      );
+      for (const task of sequenceTasks) {
+        taskLine(task, rep, 'redutok', ' # persistent copy; graduation pass must complete before the next task');
       }
     }
   }
@@ -330,7 +457,9 @@ export function generateResults(measurements: RunMeasurement[], n: number): stri
 }
 
 export async function runReplay(repoRoot: string, tasksDir: string, outPath: string): Promise<string> {
-  const tasks = loadBenchTasks(tasksDir);
+  // Slope tasks only mean anything run in sequence with carried .dcp state;
+  // replaying them as independent fixture logs would measure nothing real.
+  const tasks = loadBenchTasks(tasksDir).filter((t) => t.tier !== 'slope');
   const measurements: RunMeasurement[] = [];
   for (const task of tasks) measurements.push(...(await replayTask(task, repoRoot)));
   const results = generateResults(measurements, 1);
@@ -353,12 +482,142 @@ const median = (xs: number[]): number => {
  * cache-read N times over even when each turn is otherwise cheap). */
 export const nonCacheReadTokens = (m: RunMeasurement): number => m.totalTokens - m.ledger.totals.cacheRead;
 
+export interface SlopeVariantReport {
+  variant: Variant;
+  s1Tokens: number;
+  s3Tokens: number;
+  /** s3 over s1: below 1 means the last task in the sequence came in cheaper. */
+  tokenRatio: number;
+  s1Turns: number;
+  s3Turns: number;
+  turnRatio: number;
+}
+
+export interface SlopeCriterionVerdict {
+  id: SlopeCriterionId;
+  description: string;
+  pass: boolean;
+  detail: string;
+}
+
+export interface SlopeReport {
+  sequenceId: string;
+  variants: SlopeVariantReport[];
+  /** vanilla s3 over redutok s3 (medians), the repo's reduction convention. */
+  headlineTokenRatio: number;
+  criteria: SlopeCriterionVerdict[];
+}
+
+/**
+ * The slope tier's arithmetic: per-variant s3-versus-s1 token and turn
+ * slopes from medians across repetitions, the headline redutok-s3-versus-
+ * vanilla-s3 ratio, and the two pre-registered criteria verdicts. Missing
+ * positions fail the criteria explicitly rather than passing vacuously.
+ */
+export function evaluateSlope(tier: SlopeTier, measurements: LiveRunMeasurement[]): SlopeReport {
+  const last = tier.sequence.length;
+  const runsAt = (variant: Variant, position: number): LiveRunMeasurement[] =>
+    measurements.filter((m) => m.variant === variant && m.taskId === tier.sequence[position - 1]);
+  const stats = (variant: Variant, position: number): { tokens: number; turns: number; passRate: number; count: number } => {
+    const runs = runsAt(variant, position);
+    return {
+      tokens: median(runs.map((r) => r.totalTokens)),
+      turns: median(runs.map((r) => turnsOf(r.ledger))),
+      passRate: runs.length === 0 ? 0 : runs.filter((r) => r.success).length / runs.length,
+      count: runs.length,
+    };
+  };
+  const variants: SlopeVariantReport[] = (['vanilla', 'redutok'] as Variant[]).map((variant) => {
+    const s1 = stats(variant, 1);
+    const s3 = stats(variant, last);
+    return {
+      variant,
+      s1Tokens: s1.tokens,
+      s3Tokens: s3.tokens,
+      tokenRatio: s1.tokens === 0 ? 0 : s3.tokens / s1.tokens,
+      s1Turns: s1.turns,
+      s3Turns: s3.turns,
+      turnRatio: s1.turns === 0 ? 0 : s3.turns / s1.turns,
+    };
+  });
+  const redS1 = stats('redutok', 1);
+  const redS3 = stats('redutok', last);
+  const vanS3 = stats('vanilla', last);
+  const headlineTokenRatio = redS3.tokens === 0 ? 0 : vanS3.tokens / redS3.tokens;
+  const descriptionOf = (id: SlopeCriterionId): string => tier.criteria.find((c) => c.id === id)?.description ?? id;
+  const criteria: SlopeCriterionVerdict[] = [];
+  {
+    const enough = redS1.count > 0 && redS3.count > 0;
+    const pass = enough && redS3.tokens < redS1.tokens && redS3.turns < redS1.turns;
+    criteria.push({
+      id: 'slope-exists',
+      description: descriptionOf('slope-exists'),
+      pass,
+      detail: enough
+        ? `redutok s${last} ${fmt(redS3.tokens)} tokens / ${fmt(redS3.turns)} turns vs s1 ${fmt(redS1.tokens)} tokens / ${fmt(redS1.turns)} turns`
+        : `insufficient data: redutok s1 has ${redS1.count} runs, s${last} has ${redS3.count}`,
+    });
+  }
+  {
+    const enough = redS3.count > 0 && vanS3.count > 0;
+    const parityOk = enough && redS3.passRate >= vanS3.passRate;
+    const pass = enough && redS3.tokens < vanS3.tokens && parityOk;
+    criteria.push({
+      id: 'learning-pays',
+      description: descriptionOf('learning-pays'),
+      pass,
+      detail: enough
+        ? `redutok s${last} ${fmt(redS3.tokens)} tokens vs vanilla s${last} ${fmt(vanS3.tokens)}; success parity ${(redS3.passRate * 100).toFixed(0)}% vs ${(vanS3.passRate * 100).toFixed(0)}%${parityOk ? '' : ' (parity lost)'}`
+        : `insufficient data: redutok s${last} has ${redS3.count} runs, vanilla s${last} has ${vanS3.count}`,
+    });
+  }
+  return { sequenceId: tier.id, variants, headlineTokenRatio, criteria };
+}
+
+/** The RESULTS.md slope section: per-task medians with the attribution
+ * attribution that shows the mechanism, then the slopes and the verdicts. */
+function slopeSection(tier: SlopeTier, measurements: LiveRunMeasurement[], report: SlopeReport): string[] {
+  const lines: string[] = [
+    '',
+    `## Slope (sequence ${tier.id})`,
+    '',
+    'Sequenced runs on one fixture repo: the redutok variant carries its .dcp state (candidates, codex, mirror) across the sequence with a graduation pass between tasks; vanilla starts cold each task. Zoom-backs and enrichment serves come from each redutok copy’s .dcp/audit.jsonl attribution counts (vanilla has no .dcp; runs recovered from committed logs have no audit file and show —).',
+    '',
+    '| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | success |',
+    '| --- | ---: | --- | ---: | ---: | ---: | ---: | --- |',
+  ];
+  tier.sequence.forEach((taskId, index) => {
+    for (const variant of ['vanilla', 'redutok'] as Variant[]) {
+      const runs = measurements.filter((m) => m.taskId === taskId && m.variant === variant);
+      if (runs.length === 0) continue;
+      const withAttribution = runs.filter((r) => r.attribution !== undefined);
+      const cell = (pick: (t: SlopeAttribution) => number): string =>
+        withAttribution.length === 0 ? '—' : fmt(median(withAttribution.map((r) => pick(r.attribution as SlopeAttribution))));
+      lines.push(
+        `| ${taskId} | ${index + 1} | ${variant} | ${fmt(median(runs.map((r) => r.totalTokens)))} | ${fmt(median(runs.map((r) => turnsOf(r.ledger))))} | ${cell((t) => t.zoomBacks)} | ${cell((t) => t.enrichmentServes)} | ${runs.filter((r) => r.success).length}/${runs.length} |`,
+      );
+    }
+  });
+  lines.push('');
+  for (const v of report.variants) {
+    lines.push(`- ${v.variant} slope (s${tier.sequence.length}/s1): tokens ${v.tokenRatio.toFixed(2)}x, turns ${v.turnRatio.toFixed(2)}x`);
+  }
+  lines.push(`- headline: vanilla s${tier.sequence.length} over redutok s${tier.sequence.length}: ${report.headlineTokenRatio.toFixed(1)}x tokens`);
+  lines.push('', '### Pre-registered criteria (bench/tiers/slope.yaml; no bar movement after the fact)', '');
+  for (const c of report.criteria) {
+    lines.push(`- ${c.id}: ${c.description} — ${c.pass ? 'MET' : 'NOT MET'} (${c.detail})`);
+  }
+  return lines;
+}
+
 export interface LiveResultsOptions {
   model: string;
   n: number;
   machine?: string;
   /** false for an in-progress checkpoint write, true for the final report. */
   done: boolean;
+  /** When set, RESULTS.md gains the slope section for this sequence. */
+  slope?: SlopeTier;
 }
 
 export interface LiveResultsSummary {
@@ -368,6 +627,8 @@ export interface LiveResultsSummary {
   medianNonCacheReadRatio: number;
   parity: number;
   spend: number;
+  /** Present when a slope tier was passed in the options. */
+  slope?: SlopeReport;
 }
 
 /**
@@ -470,6 +731,11 @@ export function generateLiveResults(
     `- success parity: redutok ${(redutokRate * 100).toFixed(0)}% vs vanilla ${(vanillaRate * 100).toFixed(0)}%, parity ${(parity * 100).toFixed(0)}% (threshold: at least 95%) ${parity >= 0.95 ? 'MET' : 'NOT MET'}`,
     `- cumulative spend: ${spend.toFixed(4)} USD (meter, prices.yaml)${reported > 0 ? `, ${reported.toFixed(4)} USD (claude CLI reported)` : ''}`,
   );
+  let slope: SlopeReport | undefined;
+  if (options.slope !== undefined) {
+    slope = evaluateSlope(options.slope, measurements);
+    lines.push(...slopeSection(options.slope, measurements, slope));
+  }
   lines.push('', '## Failures (savings with success degradation)', '');
   lines.push(...(failures.length > 0 ? failures : ['None in this run set.']));
   if (notRun.length > 0) {
@@ -484,5 +750,6 @@ export function generateLiveResults(
     medianNonCacheReadRatio,
     parity,
     spend,
+    ...(slope === undefined ? {} : { slope }),
   };
 }
