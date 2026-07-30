@@ -37,13 +37,22 @@ export interface SuccessCheck {
  * can re-introduce a defect into the persistent working tree — the only way
  * the same failure signature can legitimately recur across sessions, which
  * is what the error-fix miner's occurrence count measures. Applied
- * identically in both variants; `find` must occur exactly once or the run
- * aborts as not-run rather than measuring a mis-seeded task.
+ * identically in both variants. Two modes, exactly one per edit:
+ * - `write`: deterministic content-write of the whole target file. The mode
+ *   for seeds landing on a carried tree: the 2026-07-30 rep-1 abort showed a
+ *   find string cannot survive a prior session rewriting the region (the s02
+ *   fix touched both halves of the joint line and find matched 0 times).
+ * - `find`/`replace`: surgical edit; `find` must occur exactly once or the
+ *   run aborts as not-run rather than measuring a mis-seeded task. Only safe
+ *   where no earlier task can have touched the region.
+ * Either mode requires the target to exist: a seed reintroduces, never
+ * introduces.
  */
 export interface TaskSeedEdit {
   path: string;
-  find: string;
-  replace: string;
+  find?: string;
+  replace?: string;
+  write?: string;
 }
 
 export interface BenchTask {
@@ -69,14 +78,16 @@ export function loadBenchTasks(dir: string): BenchTask[] {
     if (raw.seed !== undefined) {
       if (!Array.isArray(raw.seed)) throw new Error(`${file}: seed must be a list of edits`);
       for (const edit of raw.seed) {
-        if (
-          typeof edit?.path !== 'string' ||
-          edit.path === '' ||
-          typeof edit?.find !== 'string' ||
-          edit.find === '' ||
-          typeof edit?.replace !== 'string'
-        ) {
-          throw new Error(`${file}: every seed edit needs a path, a non-empty find, and a replace`);
+        if (typeof edit?.path !== 'string' || edit.path === '') {
+          throw new Error(`${file}: every seed edit needs a path`);
+        }
+        const hasWrite = typeof edit.write === 'string' && edit.write !== '';
+        const hasFindReplace =
+          typeof edit.find === 'string' && edit.find !== '' && typeof edit.replace === 'string';
+        if (hasWrite === hasFindReplace) {
+          throw new Error(
+            `${file}: seed edit for ${edit.path} needs exactly one mode: write, or find plus replace`,
+          );
         }
       }
     }
@@ -86,27 +97,34 @@ export function loadBenchTasks(dir: string): BenchTask[] {
 }
 
 /**
- * Applies a task's seed edits to its working copy. Each `find` must occur
- * exactly once in the target file — zero means the tree drifted from what the
- * seed was authored against (e.g. a model fixed the area differently than
- * expected), more than one means the edit is ambiguous; either way the run
- * must abort rather than measure a mis-seeded task. Returns one description
- * per applied edit for the runner's log.
+ * Applies a task's seed edits to its working copy. A `write` edit overwrites
+ * the whole target file with canonical seeded content, deterministic against
+ * whatever a prior session left there. A `find`/`replace` edit must match
+ * exactly once — zero means the tree drifted from what the seed was authored
+ * against, more than one means the edit is ambiguous; either way the run
+ * must abort rather than measure a mis-seeded task. Both modes require the
+ * target to exist. Returns one description per applied edit for the log.
  */
 export function applyTaskSeed(task: BenchTask, workDir: string): string[] {
   const applied: string[] = [];
   for (const edit of task.seed ?? []) {
     const file = path.join(workDir, edit.path);
     if (!existsSync(file)) throw new Error(`seed for ${task.id}: ${edit.path} does not exist in the copy`);
+    if (typeof edit.write === 'string' && edit.write !== '') {
+      writeFileSync(file, edit.write, 'utf8');
+      applied.push(`${edit.path}: seeded by content-write (${edit.write.length}B)`);
+      continue;
+    }
+    const find = edit.find ?? '';
     const content = readFileSync(file, 'utf8');
-    const occurrences = content.split(edit.find).length - 1;
+    const occurrences = content.split(find).length - 1;
     if (occurrences !== 1) {
       throw new Error(
         `seed for ${task.id}: find string occurs ${occurrences} times in ${edit.path}, expected exactly 1`,
       );
     }
-    writeFileSync(file, content.replace(edit.find, edit.replace), 'utf8');
-    applied.push(`${edit.path}: seeded (${edit.find.length}B find -> ${edit.replace.length}B replace)`);
+    writeFileSync(file, content.replace(find, edit.replace ?? ''), 'utf8');
+    applied.push(`${edit.path}: seeded (${find.length}B find -> ${(edit.replace ?? '').length}B replace)`);
   }
   return applied;
 }

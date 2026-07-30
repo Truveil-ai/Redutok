@@ -1,4 +1,5 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -214,6 +215,55 @@ describe('applyTaskSeed', () => {
     expect(() => applyTaskSeed(seededTask([{ path: 'gone.js', find: 'a', replace: 'b' }]), dir)).toThrow(
       /does not exist/,
     );
+  });
+
+  it('write-mode seeds apply against any prior mutation of the file — the rep-1 abort shape', () => {
+    // 2026-07-30 rep 1: the s02 session fixed BOTH halves of the joint line,
+    // so the find/replace seed found 0 occurrences and aborted the rep. A
+    // content-write seed is deterministic against whatever a prior session
+    // left behind.
+    const dir = copyDir();
+    writeFileSync(path.join(dir, 'target.js'), '// a prior session rewrote this file entirely\n');
+    const applied = applyTaskSeed(seededTask([{ path: 'target.js', write: 'seeded content;\n' }]), dir);
+    expect(applied).toHaveLength(1);
+    expect(readFileSync(path.join(dir, 'target.js'), 'utf8')).toBe('seeded content;\n');
+  });
+
+  it('write-mode still requires the target to exist: a seed reintroduces, never introduces', () => {
+    const dir = copyDir();
+    expect(() => applyTaskSeed(seededTask([{ path: 'gone.js', write: 'x\n' }]), dir)).toThrow(
+      /does not exist/,
+    );
+  });
+
+  it('loadBenchTasks accepts write-mode seeds and rejects edits that mix or omit both modes', () => {
+    const base = [
+      'id: s90',
+      'tier: slope',
+      'repo:',
+      '  url: local:.',
+      '  commit: c',
+      '  localPath: .',
+      "prompt: 'p'",
+      'success:',
+      '  - kind: file-exists',
+      "    path: 'x'",
+      'fixtureLogs:',
+      '  vanilla: a.jsonl',
+      '  redutok: b.jsonl',
+    ];
+    const load = (seedLines: string[]): BenchTask[] => {
+      const dir = mkdtempSync(path.join(os.tmpdir(), 'redutok-seed-schema-'));
+      writeFileSync(path.join(dir, 's90.yaml'), [...base, 'seed:', ...seedLines].join('\n'));
+      return loadBenchTasks(dir);
+    };
+    expect(load(['  - path: a.js', "    write: 'content'"])[0]?.seed?.[0]?.write).toBe('content');
+    expect(load(['  - path: a.js', "    find: 'x'", "    replace: 'y'"])[0]?.seed?.[0]?.find).toBe('x');
+    // Mixing modes is ambiguous; omitting both is an empty edit.
+    expect(() => load(['  - path: a.js', "    write: 'w'", "    find: 'x'", "    replace: 'y'"])).toThrow(
+      /exactly one/,
+    );
+    expect(() => load(['  - path: a.js'])).toThrow(/exactly one/);
   });
 });
 
@@ -474,21 +524,20 @@ describe('the pre-registered tier file in bench/tiers', () => {
     expect(kinds).toContain('file-exists');
   });
 
-  it('s04 declares the recurrence seed against the exact fixture joint expression, and s05 declares none', () => {
+  it('s04 declares a write-mode recurrence seed with the base-side defect, and s05 declares none', () => {
     const tasks = loadBenchTasks(path.join(repoRoot, 'bench', 'tasks'));
     const s04 = tasks.find((t) => t.id === 's04');
     expect(s04?.seed).toHaveLength(1);
     expect(s04?.seed?.[0]?.path).toBe('lib/helpers/combineURLs.js');
-    // The find string must apply to the pristine fixture (vanilla cold copy)
-    // and must not overlap the leading-slash strip that s02's fix touches,
-    // so it also applies to a carried tree whatever that fix looked like.
-    const fixture = readFileSync(
-      path.join(repoRoot, 'fixtures', 'repos', 'axios', 'lib', 'helpers', 'combineURLs.js'),
-      'utf8',
-    );
-    const find = s04?.seed?.[0]?.find ?? '';
-    expect(fixture.split(find).length - 1).toBe(1);
-    expect(find).not.toContain('/^\\/');
+    // Content-write, not find/replace: the 2026-07-30 rep-1 abort proved a
+    // find string cannot survive a prior session's fix rewriting the region.
+    const write = s04?.seed?.[0]?.write ?? '';
+    expect(s04?.seed?.[0]?.find).toBeUndefined();
+    // The seeded defect is the base side only: no trailing strip on baseURL,
+    // while the relative side carries upstream's correct leading strip — so
+    // s02's answer is not pasteable and the failing assertion is s02's.
+    expect(write).toContain("baseURL + '/'");
+    expect(write).toContain('/^\\/+/');
     const s05 = tasks.find((t) => t.id === 's05');
     expect(s05?.seed).toBeUndefined();
     // s05's spec target must not ship with the fixture: the deterministic
@@ -496,5 +545,58 @@ describe('the pre-registered tier file in bench/tiers', () => {
     expect(
       existsSync(path.join(repoRoot, 'fixtures', 'repos', 'axios', 'lib', 'helpers', 'normalizeJoin.js')),
     ).toBe(false);
+  });
+
+  it('the s04 seed reproduces the s02 failure signature on a pristine tree AND on the rep-1 mutated tree', () => {
+    // End-to-end recurrence check: seed, then actually run the verify script.
+    // The first FAIL line is the error-fix candidate's signature, so it must
+    // be byte-identical to s02's whichever tree the seed landed on.
+    const tasks = loadBenchTasks(path.join(repoRoot, 'bench', 'tasks'));
+    const s04 = tasks.find((t) => t.id === 's04');
+    if (s04 === undefined) throw new Error('s04 missing');
+    const fixture = path.join(repoRoot, 'fixtures', 'repos', 'axios');
+    const makeCopy = (): string => {
+      const dir = mkdtempSync(path.join(os.tmpdir(), 'redutok-s04-seed-'));
+      mkdirSync(path.join(dir, 'scripts'), { recursive: true });
+      mkdirSync(path.join(dir, 'lib', 'core'), { recursive: true });
+      mkdirSync(path.join(dir, 'lib', 'helpers'), { recursive: true });
+      for (const rel of [
+        'package.json',
+        path.join('scripts', 'verify-url-assembly.mjs'),
+        path.join('lib', 'core', 'buildFullPath.js'),
+        path.join('lib', 'helpers', 'combineURLs.js'),
+        path.join('lib', 'helpers', 'isAbsoluteURL.js'),
+      ]) {
+        writeFileSync(path.join(dir, rel), readFileSync(path.join(fixture, rel)));
+      }
+      return dir;
+    };
+    const firstFailLine = (dir: string): string => {
+      const run = spawnSync(process.execPath, [path.join('scripts', 'verify-url-assembly.mjs')], { cwd: dir });
+      expect(run.status).toBe(1);
+      return run.stderr.toString('utf8').split(/\r?\n/)[0] ?? '';
+    };
+    const SIGNATURE = 'FAIL: combineURLs strips the duplicate slash at the joint';
+
+    // Pristine tree (the vanilla cold copy): seed applies over the vendored
+    // s02 defect and yields the same failing assertion.
+    const pristine = makeCopy();
+    applyTaskSeed(s04, pristine);
+    expect(firstFailLine(pristine)).toBe(SIGNATURE);
+
+    // Mutated tree: the exact fix the rep-1 s02 session made (quoted from
+    // bench/runs/s02-redutok-1.jsonl), which rewrote both halves of the
+    // joint line and aborted the old find/replace seed with "0 times".
+    const mutated = makeCopy();
+    const target = path.join(mutated, 'lib', 'helpers', 'combineURLs.js');
+    const before = readFileSync(target, 'utf8');
+    const after = before.replace(
+      "    ? baseURL.replace(/\\/?\\/$/, '') + '/' + relativeURL.replace(/^\\/{2,}/, '')",
+      "    ? baseURL.replace(/\\/+$/, '') + '/' + relativeURL.replace(/^\\/+/, '')",
+    );
+    expect(after).not.toBe(before);
+    writeFileSync(target, after);
+    applyTaskSeed(s04, mutated);
+    expect(firstFailLine(mutated)).toBe(SIGNATURE);
   });
 });
