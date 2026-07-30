@@ -25,9 +25,10 @@
  * starts cold each task, while redutok keeps one persistent copy per
  * repetition whose .dcp state (candidates, codex, mirror) carries forward,
  * with the post-session graduation pass required to complete between tasks.
- * --prep-check additionally asserts that persistence and that a session-end
- * produces a completed graduation pass. Naming any sequence task in --tasks
- * selects the whole sequence.
+ * --prep-check additionally asserts that persistence, that the sequence copy
+ * legitimately assesses full posture at SessionStart (not via a pin), and
+ * that a session-end produces a completed graduation pass. Naming any
+ * sequence task in --tasks selects the whole sequence.
  */
 import { execFileSync } from 'node:child_process';
 import {
@@ -94,6 +95,10 @@ const mcp = await import(
   new URL('file:///' + path.join(root, 'packages', 'mcp', 'dist', 'index.js').replace(/\\/g, '/')).href
 );
 const { resolveSidecarPort } = mcp;
+const sidecar = await import(
+  new URL('file:///' + path.join(root, 'packages', 'sidecar', 'dist', 'index.js').replace(/\\/g, '/')).href
+);
+const { assessSessionPosture } = sidecar;
 const shared = await import(
   new URL(
     'file:///' + path.join(root, 'packages', 'shared', 'dist', 'index.js').replace(/\\/g, '/'),
@@ -507,6 +512,16 @@ if (PREP_CHECK) {
     copyRepo(first, workDir);
     const port = initRedutok(workDir);
     const up = await health(port);
+    // Realism gate (idle-posture incident, 2026-07-30): the sequence copy
+    // must legitimately assess full posture — the same assessment the
+    // SessionStart hook runs — not reach it by a pin, or the sequence
+    // measures a disengaged product and any slope is a slope from nowhere.
+    const decision = assessSessionPosture(workDir, path.join(workDir, '.dcp'));
+    const postureOk = decision.posture === 'full' && !decision.pinned;
+    if (!postureOk) process.exitCode = 1;
+    console.log(
+      `prep slope ${slopeTier.id}: sequence copy assesses full posture at SessionStart: ${postureOk ? 'ok' : 'FAIL'} (posture ${decision.posture}${decision.pinned ? ', pinned' : ''}, ${decision.assessment.files} files, ${decision.assessment.sourceBytes} source bytes)`,
+    );
     const pidOf = () => {
       try {
         return JSON.parse(readFileSync(path.join(workDir, '.dcp', 'sidecar.pid.json'), 'utf8')).pid;

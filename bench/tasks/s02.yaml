@@ -1,20 +1,20 @@
 id: s02
 tier: slope
-# Slope sequence position 2 (bench/tiers/slope.yaml): same styling-internals
-# neighborhood as s01, different concrete question — the nested-ANSI
-# re-opening path rather than the code accumulation path.
+# Slope sequence position 2: fix-shaped, same URL-assembly neighborhood as
+# s01 but a different concrete job — a real failing command whose root
+# cause is the defect seeded in lib/helpers/combineURLs.js (see
+# fixtures/repos/axios/PROVENANCE.md). The fail-then-pass command pair is
+# exactly the shape the graduation miner's error-fix extraction feeds on.
 repo:
-  url: https://github.com/chalk/chalk
-  commit: aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef
-  localPath: fixtures/repos/chalk
-prompt: 'In this repo, explain how chalk keeps an outer style alive when the string being styled already contains ANSI escape codes from an inner style: name the function that applies the styles, name the helper it uses for the replacement, explain what gets replaced with what, and explain why the loop walks up through parent stylers.'
+  url: https://github.com/axios/axios
+  commit: b2cb45d5a533a5465c99559b16987e4d5fc08cbc
+  localPath: fixtures/repos/axios
+prompt: 'Running `node scripts/verify-url-assembly.mjs` in this repo fails. Run it, read the failure, find the root cause in the library source, fix it there (not in the script), and rerun the script until it passes.'
 success:
-  - kind: answer-contains
-    needle: 'applyStyle'
-  - kind: answer-contains
-    needle: 'stringReplaceAll'
-  - kind: answer-contains
-    needle: 'parent'
+  - kind: command-succeeds
+    command: 'node scripts/verify-url-assembly.mjs'
+  - kind: file-changed
+    path: lib/helpers/combineURLs.js
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/medium.jsonl

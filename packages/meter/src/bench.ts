@@ -62,7 +62,7 @@ export function loadBenchTasks(dir: string): BenchTask[] {
  * the pre-registered bar can neither be moved nor extended by a yaml edit
  * after runs exist (house rule: no bar movement after the fact).
  */
-export const SLOPE_CRITERION_IDS = ['slope-exists', 'learning-pays'] as const;
+export const SLOPE_CRITERION_IDS = ['slope-exists', 'learning-pays', 'mechanism-engaged'] as const;
 export type SlopeCriterionId = (typeof SLOPE_CRITERION_IDS)[number];
 
 export interface SlopeCriterion {
@@ -133,13 +133,18 @@ export interface AuditEventLike {
 export interface SlopeAttribution {
   zoomBacks: number;
   enrichmentServes: number;
+  /** Graduated learned entries actually injected at this session's
+   * SessionStart, from the posture audit event's injectedLearned refs. */
+  learnedInjected: number;
 }
 
 /**
  * Per-task attribution counts from a redutok copy's .dcp/audit.jsonl:
- * zoom-backs (the model went back for elided detail) and enrichment serves
- * (a served artifact carried a graduated lesson's candidate ref). Together
- * they show the mechanism behind a slope, not just the outcome.
+ * zoom-backs (the model went back for elided detail), enrichment serves (a
+ * served artifact carried a graduated lesson's candidate ref), and learned
+ * injections (graduated entries the posture pass put into this session's
+ * context). Together they show the mechanism behind a slope, not just the
+ * outcome.
  */
 export function countSlopeAttribution(events: readonly AuditEventLike[], sessionId: string): SlopeAttribution {
   const mine = events.filter((e) => e.sessionId === sessionId);
@@ -148,7 +153,11 @@ export function countSlopeAttribution(events: readonly AuditEventLike[], session
     const candidate = e.details?.['enrichmentCandidate'];
     return typeof candidate === 'string' && candidate !== '';
   }).length;
-  return { zoomBacks, enrichmentServes };
+  const learnedInjected = mine.reduce((n, e) => {
+    const injected = e.details?.['injectedLearned'];
+    return n + (Array.isArray(injected) ? injected.length : 0);
+  }, 0);
+  return { zoomBacks, enrichmentServes, learnedInjected };
 }
 
 /** True when the graduation miner has audited a completed mining run for the
@@ -505,6 +514,10 @@ export interface SlopeReport {
   variants: SlopeVariantReport[];
   /** vanilla s3 over redutok s3 (medians), the repo's reduction convention. */
   headlineTokenRatio: number;
+  /** True when at least one enrichment serve or learned injection appeared
+   * across the redutok sequence. Numeric bars that pass without this are
+   * rendered MET-UNATTRIBUTED and are not citable. */
+  mechanismEngaged: boolean;
   criteria: SlopeCriterionVerdict[];
 }
 
@@ -571,7 +584,24 @@ export function evaluateSlope(tier: SlopeTier, measurements: LiveRunMeasurement[
         : `insufficient data: redutok s${last} has ${redS3.count} runs, vanilla s${last} has ${vanS3.count}`,
     });
   }
-  return { sequenceId: tier.id, variants, headlineTokenRatio, criteria };
+  // Mechanism engagement: the idle-posture incident produced a numerically
+  // MET slope with zero attribution — a slope from nowhere. Zoom-backs are
+  // usage, not learning, so only enrichment serves and learned injections
+  // count as the mechanism.
+  const attributed = measurements.filter((m) => m.variant === 'redutok' && m.attribution !== undefined);
+  const serves = attributed.reduce((n, m) => n + (m.attribution?.enrichmentServes ?? 0), 0);
+  const injections = attributed.reduce((n, m) => n + (m.attribution?.learnedInjected ?? 0), 0);
+  const mechanismEngaged = serves + injections > 0;
+  criteria.push({
+    id: 'mechanism-engaged',
+    description: descriptionOf('mechanism-engaged'),
+    pass: mechanismEngaged,
+    detail:
+      attributed.length === 0
+        ? 'attribution unavailable: no redutok run carried audit counts (recovered from logs?)'
+        : `${serves} enrichment serves, ${injections} learned injections across the redutok sequence`,
+  });
+  return { sequenceId: tier.id, variants, headlineTokenRatio, mechanismEngaged, criteria };
 }
 
 /** The RESULTS.md slope section: per-task medians with the attribution
@@ -583,8 +613,8 @@ function slopeSection(tier: SlopeTier, measurements: LiveRunMeasurement[], repor
     '',
     'Sequenced runs on one fixture repo: the redutok variant carries its .dcp state (candidates, codex, mirror) across the sequence with a graduation pass between tasks; vanilla starts cold each task. Zoom-backs and enrichment serves come from each redutok copy’s .dcp/audit.jsonl attribution counts (vanilla has no .dcp; runs recovered from committed logs have no audit file and show —).',
     '',
-    '| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | success |',
-    '| --- | ---: | --- | ---: | ---: | ---: | ---: | --- |',
+    '| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | learned injected | success |',
+    '| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |',
   ];
   tier.sequence.forEach((taskId, index) => {
     for (const variant of ['vanilla', 'redutok'] as Variant[]) {
@@ -594,7 +624,7 @@ function slopeSection(tier: SlopeTier, measurements: LiveRunMeasurement[], repor
       const cell = (pick: (t: SlopeAttribution) => number): string =>
         withAttribution.length === 0 ? '—' : fmt(median(withAttribution.map((r) => pick(r.attribution as SlopeAttribution))));
       lines.push(
-        `| ${taskId} | ${index + 1} | ${variant} | ${fmt(median(runs.map((r) => r.totalTokens)))} | ${fmt(median(runs.map((r) => turnsOf(r.ledger))))} | ${cell((t) => t.zoomBacks)} | ${cell((t) => t.enrichmentServes)} | ${runs.filter((r) => r.success).length}/${runs.length} |`,
+        `| ${taskId} | ${index + 1} | ${variant} | ${fmt(median(runs.map((r) => r.totalTokens)))} | ${fmt(median(runs.map((r) => turnsOf(r.ledger))))} | ${cell((t) => t.zoomBacks)} | ${cell((t) => t.enrichmentServes)} | ${cell((t) => t.learnedInjected)} | ${runs.filter((r) => r.success).length}/${runs.length} |`,
       );
     }
   });
@@ -605,7 +635,16 @@ function slopeSection(tier: SlopeTier, measurements: LiveRunMeasurement[], repor
   lines.push(`- headline: vanilla s${tier.sequence.length} over redutok s${tier.sequence.length}: ${report.headlineTokenRatio.toFixed(1)}x tokens`);
   lines.push('', '### Pre-registered criteria (bench/tiers/slope.yaml; no bar movement after the fact)', '');
   for (const c of report.criteria) {
-    lines.push(`- ${c.id}: ${c.description} — ${c.pass ? 'MET' : 'NOT MET'} (${c.detail})`);
+    // A numeric bar that passes while the mechanism never engaged is a
+    // slope from nowhere: demoted to MET-UNATTRIBUTED, explicitly not
+    // citable (the idle-posture incident, 2026-07-30).
+    const label =
+      c.pass && c.id !== 'mechanism-engaged' && !report.mechanismEngaged
+        ? 'MET-UNATTRIBUTED (mechanism not engaged; not citable)'
+        : c.pass
+          ? 'MET'
+          : 'NOT MET';
+    lines.push(`- ${c.id}: ${c.description} — ${label} (${c.detail})`);
   }
   return lines;
 }

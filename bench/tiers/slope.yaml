@@ -1,20 +1,30 @@
-# Slope tier (v4 session 4): the tier that measures compounding.
+# Slope tier (v4 sessions 4-5): the tier that measures compounding.
 #
-# Three related-but-distinct tasks on the same vendored chalk fixture, all in
-# the styling-internals knowledge neighborhood (createStyler's open/close
-# accumulation, applyStyle's nested-ANSI re-opening, the STYLER parent
-# chain), so no answer can be copied forward — only knowledge can. Both
-# variants run the sequence in order in fresh sessions per task; the redutok
-# variant carries its .dcp state (candidates, codex, mirror) forward across
-# the sequence in one persistent copy per repetition, with the post-session
+# Rewritten for realism after the 2026-07-30 idle-posture diagnosis: the
+# chalk fixture sat below the governance thresholds, redutok disengaged,
+# and a numerically MET slope arrived with zero attribution. This sequence
+# runs on the vendored axios fixture (fixtures/repos/axios, 156 indexable
+# files / ~494 KB — assesses full posture legitimately) with three
+# related-but-distinct tasks in the URL-assembly neighborhood
+# (buildFullPath / isAbsoluteURL / combineURLs): s01 read-shaped, s02
+# fix-shaped against a real failing command (the error-fix mining shape),
+# s03 feature-shaped. No task's answer is copyable from a prior task's.
+#
+# Both variants run the sequence in order in fresh sessions per task; the
+# redutok variant carries its .dcp state (candidates, codex, mirror)
+# forward in one persistent copy per repetition, with the post-session
 # graduation pass required to complete between tasks; vanilla starts cold
 # each task. That asymmetry is the product claim under test.
 #
-# The criteria below were written before any run of this tier existed and are
-# the only criteria the harness will evaluate (loadSlopeTier refuses any
-# other id). House rule: no bar movement after the fact.
+# The criteria below were written before any run of this tier against this
+# fixture existed and are the only criteria the harness will evaluate
+# (loadSlopeTier refuses any other id). House rule: no bar movement after
+# the fact. The first two are unchanged in substance from the original
+# pre-registration; mechanism-engaged is the check the idle-posture
+# diagnosis exposed a need for: a MET with zero attribution renders as
+# MET-UNATTRIBUTED and is not citable.
 tier: slope
-id: slope-chalk
+id: slope-axios
 sequence: [s01, s02, s03]
 criteria:
   - id: slope-exists
@@ -25,3 +35,8 @@ criteria:
     description: >-
       redutok s3 must beat vanilla s3 on median total tokens, with redutok s3
       success rate at least vanilla s3's — the learning pays at parity
+  - id: mechanism-engaged
+    description: >-
+      at least one nonzero attribution counter (enrichment serve or learned
+      injection) must appear across the redutok sequence by s3; numeric bars
+      met with zero attribution are MET-UNATTRIBUTED and not citable

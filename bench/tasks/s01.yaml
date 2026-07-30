@@ -1,21 +1,22 @@
 id: s01
 tier: slope
-# Slope sequence position 1 (bench/tiers/slope.yaml). Same upstream pin as
-# t05-t07. fixtureLogs is required by the loader but never replayed: replay
-# and the flat live matrix exclude slope tasks, which only mean anything run
-# in sequence with carried .dcp state.
+# Slope sequence position 1 (bench/tiers/slope.yaml), rewritten for the
+# full-posture axios fixture after the idle-posture diagnosis. Read-shaped:
+# a deep trace through the URL-assembly neighborhood. fixtureLogs is
+# required by the loader but never replayed: replay and the flat live
+# matrix exclude slope tasks.
 repo:
-  url: https://github.com/chalk/chalk
-  commit: aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef
-  localPath: fixtures/repos/chalk
-prompt: 'In this repo, explain how a chained style like chalk.red.bold builds the escape sequences it wraps around a string: name the function that accumulates the combined open and close codes, explain how a child styler combines its codes with its parent, and quote the exact lines that do the accumulation.'
+  url: https://github.com/axios/axios
+  commit: b2cb45d5a533a5465c99559b16987e4d5fc08cbc
+  localPath: fixtures/repos/axios
+prompt: 'In this repo, trace how axios builds the final request URL when a config carries both baseURL and url: name the function that decides whether baseURL applies at all, quote the rule it uses to detect an absolute URL, name the helper that joins the two parts, and explain what happens to slashes at the joint when the base ends with one and the relative part starts with one.'
 success:
   - kind: answer-contains
-    needle: 'createStyler'
+    needle: 'buildFullPath'
   - kind: answer-contains
-    needle: 'openAll'
+    needle: 'isAbsoluteURL'
   - kind: answer-contains
-    needle: 'closeAll'
+    needle: 'combineURLs'
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/medium.jsonl
