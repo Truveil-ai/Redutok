@@ -122,7 +122,9 @@ export async function vaultAsk(
     goal: question,
     sessionId: askId,
     repoRoot: corpus.root,
-    budget: 'standard',
+    // One remote ask replaces a whole chat-side exploration loop, so it runs
+    // at the deepest bounded budget rather than the interactive default.
+    budget: 'thorough',
   });
   const body = renderDossier(dossier);
   const accounting = askAccounting(corpus, askId, body);
