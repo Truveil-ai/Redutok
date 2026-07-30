@@ -515,17 +515,22 @@ if (PREP_CHECK) {
       }
     };
     const pidBefore = pidOf();
+    // Snapshot which .dcp files exist before the boundary (audit.jsonl and
+    // candidates.jsonl are created lazily, so presence is not guaranteed
+    // yet); every one of them must still be there after it.
+    const dcpBefore = ['config.json', 'state.db', 'audit.jsonl', 'candidates.jsonl'].filter((f) =>
+      existsSync(path.join(workDir, '.dcp', f)),
+    );
     writeFileSync(path.join(workDir, 'ANSWER.md'), 'previous task deliverable');
     betweenSlopeTasks(workDir);
-    const dcpSurvives = ['config.json', 'state.db', 'audit.jsonl'].filter(
-      (f) => !existsSync(path.join(workDir, '.dcp', f)),
-    );
+    const dcpSurvives = dcpBefore.filter((f) => !existsSync(path.join(workDir, '.dcp', f)));
     const answerGone = !existsSync(path.join(workDir, 'ANSWER.md'));
     const sameDaemon = pidBefore !== undefined && pidOf() === pidBefore && (await health(port));
-    const persistOk = up && dcpSurvives.length === 0 && answerGone && sameDaemon;
+    const coreDcp = dcpBefore.includes('config.json') && dcpBefore.includes('state.db');
+    const persistOk = up && coreDcp && dcpSurvives.length === 0 && answerGone && sameDaemon;
     if (!persistOk) process.exitCode = 1;
     console.log(
-      `prep slope ${slopeTier.id}: persistent copy carries .dcp across the boundary: ${persistOk ? 'ok' : `FAIL (missing: ${dcpSurvives.join(',') || 'none'}, answer removed: ${answerGone}, daemon survived: ${sameDaemon})`}`,
+      `prep slope ${slopeTier.id}: persistent copy carries .dcp across the boundary: ${persistOk ? `ok (${dcpBefore.join(', ')} survive; ANSWER.md removed; same daemon)` : `FAIL (core .dcp present before: ${coreDcp}, vanished: ${dcpSurvives.join(',') || 'none'}, answer removed: ${answerGone}, daemon survived: ${sameDaemon})`}`,
     );
     const before = Date.now();
     let graduationOk = false;
