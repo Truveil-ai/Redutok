@@ -600,18 +600,20 @@ if (PREP_CHECK) {
     console.log(
       `prep slope ${slopeTier.id}: attribution counters read injections back from the audit trail: ${attributionOk ? 'ok' : 'FAIL'} (${attributionDetail})`,
     );
-    // Seed assertion: every sequence task's declared seed applies cleanly
-    // (exact-once) to a fresh fixture copy, so a mis-authored seed is caught
-    // here instead of aborting a live rep mid-sequence. The live redutok arm
-    // applies seeds to a carried tree; each seed's find string is authored to
-    // avoid areas earlier tasks fix, and an exact-once mismatch there still
-    // aborts the rep loudly.
+    // Seed assertions, two passes. Fresh copy: every declared seed applies
+    // cleanly to the pristine fixture (the vanilla cold-copy shape). Mutated
+    // tree: the rep-1 abort (2026-07-30) came from a prior session's fix
+    // rewriting the seeded region, so each seeded file is overwritten with
+    // placeholder content simulating exactly that before seeds re-apply — a
+    // write-mode seed must land byte-identical; a find/replace seed that
+    // cannot survive a rewritten region fails here instead of aborting a
+    // live rep mid-sequence.
     let seedsOk = true;
     const seedNotes = [];
     for (const task of sequenceTasks) {
       try {
         const applied = applyTaskSeed(task, workDir);
-        if (applied.length > 0) seedNotes.push(`${task.id}: ${applied.length} edit(s) exact-once`);
+        if (applied.length > 0) seedNotes.push(`${task.id}: ${applied.length} edit(s) on fresh copy`);
       } catch (err) {
         seedsOk = false;
         seedNotes.push(`${task.id}: ${err instanceof Error ? err.message : String(err)}`);
@@ -620,6 +622,31 @@ if (PREP_CHECK) {
     if (!seedsOk) process.exitCode = 1;
     console.log(
       `prep slope ${slopeTier.id}: task seeds apply cleanly on a fresh copy: ${seedsOk ? 'ok' : 'FAIL'} (${seedNotes.join('; ') || 'no seeds declared'})`,
+    );
+    let mutatedOk = true;
+    const mutatedNotes = [];
+    for (const task of sequenceTasks) {
+      for (const edit of task.seed ?? []) {
+        try {
+          writeFileSync(
+            path.join(workDir, edit.path),
+            '// simulated prior-session fix: the region this seed targets was rewritten\n',
+          );
+          applyTaskSeed(task, workDir);
+          if (typeof edit.write === 'string' && edit.write !== '') {
+            const landed = readFileSync(path.join(workDir, edit.path), 'utf8') === edit.write;
+            if (!landed) throw new Error(`${edit.path} content differs from the seed after applying`);
+          }
+          mutatedNotes.push(`${task.id}/${edit.path}: ok after simulated rewrite`);
+        } catch (err) {
+          mutatedOk = false;
+          mutatedNotes.push(`${task.id}/${edit.path}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    }
+    if (!mutatedOk) process.exitCode = 1;
+    console.log(
+      `prep slope ${slopeTier.id}: task seeds survive a mutated tree (prior task fixed the region): ${mutatedOk ? 'ok' : 'FAIL'} (${mutatedNotes.join('; ') || 'no seeds declared'})`,
     );
     await downRedutok(workDir);
     removeDir(workDir);
