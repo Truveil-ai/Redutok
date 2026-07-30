@@ -1,19 +1,20 @@
 id: s03
 tier: slope
-# Slope sequence position 3 (bench/tiers/slope.yaml): a small fix in the same
-# neighborhood s01 and s02 explained — writing it correctly requires the
-# styler-chain knowledge, but nothing from their answers can be pasted in.
+# Slope sequence position 3: feature-shaped, same neighborhood — writing it
+# correctly requires knowing how buildFullPath and isAbsoluteURL interact
+# (s01's knowledge) without any line of s01's answer or s02's regex fix
+# being pasteable.
 repo:
-  url: https://github.com/chalk/chalk
-  commit: aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef
-  localPath: fixtures/repos/chalk
-prompt: 'In source/index.js, add and export a function named stylerDepth that takes a chalk builder and returns how many stylers are stacked on it, by walking the internal styler parent chain (a bare chalk instance with no styles applied has depth 0).'
+  url: https://github.com/axios/axios
+  commit: b2cb45d5a533a5465c99559b16987e4d5fc08cbc
+  localPath: fixtures/repos/axios
+prompt: 'Modify buildFullPath in lib/core/buildFullPath.js to accept an optional third parameter allowAbsoluteUrls, defaulting to true. When it is false, the requestedURL must be combined onto baseURL even if the requestedURL is absolute. Behavior with allowAbsoluteUrls true (or omitted) must be unchanged.'
 success:
   - kind: file-changed
-    path: source/index.js
+    path: lib/core/buildFullPath.js
   - kind: file-matches
-    path: source/index.js
-    pattern: 'stylerDepth'
+    path: lib/core/buildFullPath.js
+    pattern: 'allowAbsoluteUrls'
 fixtureLogs:
   vanilla: fixtures/sessions/long-agentic.jsonl
   redutok: fixtures/sessions/medium.jsonl
