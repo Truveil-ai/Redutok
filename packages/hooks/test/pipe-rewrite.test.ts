@@ -95,6 +95,47 @@ describe('allowlist matching', () => {
   it('shell-quotes the wrapped command so the pipe receives it verbatim', () => {
     expect(shellQuote("pnpm run it's-fine")).toBe("'pnpm run it'\\''s-fine'");
   });
+
+  it('rewrites plain node invocations of test-or-verify-shaped scripts, the s02 regression shape', () => {
+    // s02-redutok-{1,2,3} (2026-07-30 N=3): the bench task's own verify
+    // command ran raw, so the one fail-then-pass pair the error-fix miner
+    // feeds on produced zero distill events. These are the exact commands
+    // from those transcripts.
+    const exact1 =
+      'cd "C:\\Users\\Karan\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-1" && node scripts/verify-url-assembly.mjs';
+    const exact3 =
+      'cd "C:\\Users\\Karan\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-3" && node scripts/verify-url-assembly.mjs 2>&1';
+    for (const command of [exact1, exact3]) {
+      const decision = decideRewrite(command, list);
+      expect(decision?.rule, command).toBe('node-script');
+    }
+    // The cd prefix stays outside the wrap so the pipe inherits the right cwd.
+    expect(decideRewrite(exact1, list)?.command).toBe(
+      'cd "C:\\Users\\Karan\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-1" && ' +
+        `redutok-pipe -c ${shellQuote('node scripts/verify-url-assembly.mjs')}`,
+    );
+    expect(decideRewrite(exact3, list)?.command).toBe(
+      'cd "C:\\Users\\Karan\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-3" && ' +
+        `redutok-pipe -c ${shellQuote('node scripts/verify-url-assembly.mjs 2>&1')}`,
+    );
+    // Without a cd prefix the shape still rewrites.
+    expect(decideRewrite('node scripts/verify-url-assembly.mjs', list)?.rule).toBe('node-script');
+    expect(decideRewrite('node test/check-exports.cjs', list)?.rule).toBe('node-script');
+  });
+
+  it('masks only one leading cd prefix and keeps every deny rule intact behind it', () => {
+    for (const command of [
+      'cd a && cd b && node scripts/verify-x.mjs', // second chain segment is still composition
+      'cd "d" && node scripts/verify-x.mjs > out.txt', // file redirect in the tail
+      'cd "d" && node scripts/verify-x.mjs | tail -n 5', // pipe in the tail
+      'cd "d" && rm -rf dist', // mutation in the tail
+      'cd "d" && node scripts/install-deps.mjs', // install is a deny word
+      'node scripts/build-cache.mjs && echo done', // chain without a cd prefix
+      'node scripts/helper.mjs', // not test-or-verify-shaped
+    ]) {
+      expect(decideRewrite(command, list), command).toBeUndefined();
+    }
+  });
 });
 
 describe('loadAllowlist override', () => {
