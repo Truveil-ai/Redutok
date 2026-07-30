@@ -29,11 +29,11 @@ const repoRoot = path.join(here, '..', '..', '..');
 const tasksDir = path.join(repoRoot, 'bench', 'tasks');
 
 describe('bench task definitions', () => {
-  it('loads thirteen pinned tasks across the tiers', () => {
+  it('loads sixteen pinned tasks across the tiers', () => {
     const tasks = loadBenchTasks(tasksDir);
-    expect(tasks).toHaveLength(13);
+    expect(tasks).toHaveLength(16);
     const tiers = new Set(tasks.map((t) => t.tier));
-    expect(tiers).toEqual(new Set(['small', 'medium', 'large', 'heavy']));
+    expect(tiers).toEqual(new Set(['small', 'medium', 'large', 'heavy', 'slope']));
     for (const task of tasks) {
       expect(task.repo.url.length).toBeGreaterThan(0);
       expect(task.repo.commit.length).toBeGreaterThan(0);

@@ -1,0 +1,19 @@
+id: s03
+tier: slope
+# Slope sequence position 3 (bench/tiers/slope.yaml): a small fix in the same
+# neighborhood s01 and s02 explained — writing it correctly requires the
+# styler-chain knowledge, but nothing from their answers can be pasted in.
+repo:
+  url: https://github.com/chalk/chalk
+  commit: aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef
+  localPath: fixtures/repos/chalk
+prompt: 'In source/index.js, add and export a function named stylerDepth that takes a chalk builder and returns how many stylers are stacked on it, by walking the internal styler parent chain (a bare chalk instance with no styles applied has depth 0).'
+success:
+  - kind: file-changed
+    path: source/index.js
+  - kind: file-matches
+    path: source/index.js
+    pattern: 'stylerDepth'
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/medium.jsonl

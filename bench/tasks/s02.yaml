@@ -1,0 +1,20 @@
+id: s02
+tier: slope
+# Slope sequence position 2 (bench/tiers/slope.yaml): same styling-internals
+# neighborhood as s01, different concrete question — the nested-ANSI
+# re-opening path rather than the code accumulation path.
+repo:
+  url: https://github.com/chalk/chalk
+  commit: aa06bb5ac3f14df9fda8cfb54274dfc165ddfdef
+  localPath: fixtures/repos/chalk
+prompt: 'In this repo, explain how chalk keeps an outer style alive when the string being styled already contains ANSI escape codes from an inner style: name the function that applies the styles, name the helper it uses for the replacement, explain what gets replaced with what, and explain why the loop walks up through parent stylers.'
+success:
+  - kind: answer-contains
+    needle: 'applyStyle'
+  - kind: answer-contains
+    needle: 'stringReplaceAll'
+  - kind: answer-contains
+    needle: 'parent'
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/medium.jsonl
