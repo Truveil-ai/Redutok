@@ -61,6 +61,7 @@ const meter = await import(
   new URL('file:///' + path.join(root, 'packages', 'meter', 'dist', 'index.js').replace(/\\/g, '/')).href
 );
 const {
+  applyTaskSeed,
   buildLedger,
   buildLivePrompt,
   captureBaselines,
@@ -269,9 +270,8 @@ function betweenSlopeTasks(workDir) {
   rmSync(path.join(workDir, 'ANSWER.md'), { force: true });
 }
 
-/** POST a session-end notify to a copy's daemon, the same call the
- * SessionEnd hook makes; fires the graduation miner. */
-function notifySessionEnd(port, sessionId) {
+/** POST a notify body to a copy's daemon, the same call the hooks make. */
+function postNotify(port, body) {
   return new Promise((resolve, reject) => {
     const req = http.request(
       { host: '127.0.0.1', port, path: '/notify', method: 'POST', timeout: 5000 },
@@ -285,8 +285,13 @@ function notifySessionEnd(port, sessionId) {
       req.destroy();
       reject(new Error('notify timed out'));
     });
-    req.end(JSON.stringify({ kind: 'session-end', sessionId }));
+    req.end(JSON.stringify(body));
   });
+}
+
+/** The session-end notify the SessionEnd hook makes; fires the graduation miner. */
+function notifySessionEnd(port, sessionId) {
+  return postNotify(port, { kind: 'session-end', sessionId });
 }
 
 /**
@@ -564,6 +569,58 @@ if (PREP_CHECK) {
     }
     if (!graduationOk) process.exitCode = 1;
     console.log(`prep slope ${slopeTier.id}: graduation pass runs on session-end: ${graduationOk ? 'ok' : 'FAIL'} (${graduationDetail})`);
+    // Attribution assertion (v4 session 6): a posture event carrying
+    // graduated injections must read back through the same counter the
+    // sequence measures — pitfall injections included, since the error-fix
+    // lesson (the sequence's deterministic graduation path) lands there.
+    let attributionOk = false;
+    let attributionDetail = '';
+    try {
+      await postNotify(port, {
+        kind: 'session-posture',
+        sessionId: 'prep-check-slope',
+        posture: 'full',
+        pinned: false,
+        files: decision.assessment.files,
+        sourceBytes: decision.assessment.sourceBytes,
+        learnedEntries: 1,
+        pitfallEntries: 1,
+        injectedLearned: ['prep-cand-learned'],
+        excludedLearned: [],
+        injectedPitfalls: ['prep-cand-pitfall'],
+        droppedSections: [],
+      });
+      const attribution = readAttribution(workDir, 'prep-check-slope');
+      attributionOk = attribution.learnedInjected >= 1 && attribution.pitfallsInjected >= 1;
+      attributionDetail = `learned ${attribution.learnedInjected}, pitfalls ${attribution.pitfallsInjected}, enrichment serves ${attribution.enrichmentServes}`;
+    } catch (err) {
+      attributionDetail = err instanceof Error ? err.message : String(err);
+    }
+    if (!attributionOk) process.exitCode = 1;
+    console.log(
+      `prep slope ${slopeTier.id}: attribution counters read injections back from the audit trail: ${attributionOk ? 'ok' : 'FAIL'} (${attributionDetail})`,
+    );
+    // Seed assertion: every sequence task's declared seed applies cleanly
+    // (exact-once) to a fresh fixture copy, so a mis-authored seed is caught
+    // here instead of aborting a live rep mid-sequence. The live redutok arm
+    // applies seeds to a carried tree; each seed's find string is authored to
+    // avoid areas earlier tasks fix, and an exact-once mismatch there still
+    // aborts the rep loudly.
+    let seedsOk = true;
+    const seedNotes = [];
+    for (const task of sequenceTasks) {
+      try {
+        const applied = applyTaskSeed(task, workDir);
+        if (applied.length > 0) seedNotes.push(`${task.id}: ${applied.length} edit(s) exact-once`);
+      } catch (err) {
+        seedsOk = false;
+        seedNotes.push(`${task.id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    if (!seedsOk) process.exitCode = 1;
+    console.log(
+      `prep slope ${slopeTier.id}: task seeds apply cleanly on a fresh copy: ${seedsOk ? 'ok' : 'FAIL'} (${seedNotes.join('; ') || 'no seeds declared'})`,
+    );
     await downRedutok(workDir);
     removeDir(workDir);
   }
@@ -607,6 +664,9 @@ async function runSingle(task, variant, rep) {
   let port;
   try {
     copyRepo(task, workDir);
+    // Task seeds land right after the copy, before baselines, so
+    // file-changed checks compare against the seeded pre-run state.
+    for (const line of applyTaskSeed(task, workDir)) console.log(`  seed ${id}: ${line}`);
     if (variant === 'vanilla') stripRedutok(workDir);
     else port = initRedutok(workDir);
     // Baselines are captured after the repo is copied (and, for redutok,
@@ -729,6 +789,12 @@ async function runRedutokSequence(rep) {
       const id = `${task.id}-redutok-${rep}`;
       brokenAt = task.id;
       const transcriptOut = path.join(runsDir, `${id}.jsonl`);
+      // Seeds apply to the persistent copy at the task boundary: this is the
+      // sanctioned way a defect recurs in a carried working tree (an
+      // exact-once mismatch aborts the rep rather than measuring a
+      // mis-seeded task — e.g. a prior session fixed the area differently
+      // than the seed was authored against).
+      for (const line of applyTaskSeed(task, workDir)) console.log(`  seed ${id}: ${line}`);
       const baselines = captureBaselines(task, workDir);
       const streamPath = path.join(runsDir, `${id}.stream.jsonl`);
       console.log(`run ${id} (sequence ${slopeTier.id}, cwd ${workDir}, sidecar :${port})`);

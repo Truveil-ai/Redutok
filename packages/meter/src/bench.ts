@@ -30,6 +30,22 @@ export interface SuccessCheck {
   variant?: Variant | 'both';
 }
 
+/**
+ * A harness-applied edit to the task's working copy, applied after the copy
+ * (and, for a slope sequence, after the inter-task boundary) but before the
+ * session starts and before baselines are captured. This is how a slope task
+ * can re-introduce a defect into the persistent working tree — the only way
+ * the same failure signature can legitimately recur across sessions, which
+ * is what the error-fix miner's occurrence count measures. Applied
+ * identically in both variants; `find` must occur exactly once or the run
+ * aborts as not-run rather than measuring a mis-seeded task.
+ */
+export interface TaskSeedEdit {
+  path: string;
+  find: string;
+  replace: string;
+}
+
 export interface BenchTask {
   id: string;
   tier: 'small' | 'medium' | 'large' | 'heavy' | 'slope';
@@ -37,6 +53,7 @@ export interface BenchTask {
   prompt: string;
   success: SuccessCheck[];
   fixtureLogs: Record<Variant, string>;
+  seed?: TaskSeedEdit[];
 }
 
 export function loadBenchTasks(dir: string): BenchTask[] {
@@ -49,9 +66,49 @@ export function loadBenchTasks(dir: string): BenchTask[] {
     if (raw.repo.url === undefined || raw.repo.commit === undefined) {
       throw new Error(`${file}: repo pin requires url and commit`);
     }
+    if (raw.seed !== undefined) {
+      if (!Array.isArray(raw.seed)) throw new Error(`${file}: seed must be a list of edits`);
+      for (const edit of raw.seed) {
+        if (
+          typeof edit?.path !== 'string' ||
+          edit.path === '' ||
+          typeof edit?.find !== 'string' ||
+          edit.find === '' ||
+          typeof edit?.replace !== 'string'
+        ) {
+          throw new Error(`${file}: every seed edit needs a path, a non-empty find, and a replace`);
+        }
+      }
+    }
     tasks.push(raw);
   }
   return tasks;
+}
+
+/**
+ * Applies a task's seed edits to its working copy. Each `find` must occur
+ * exactly once in the target file — zero means the tree drifted from what the
+ * seed was authored against (e.g. a model fixed the area differently than
+ * expected), more than one means the edit is ambiguous; either way the run
+ * must abort rather than measure a mis-seeded task. Returns one description
+ * per applied edit for the runner's log.
+ */
+export function applyTaskSeed(task: BenchTask, workDir: string): string[] {
+  const applied: string[] = [];
+  for (const edit of task.seed ?? []) {
+    const file = path.join(workDir, edit.path);
+    if (!existsSync(file)) throw new Error(`seed for ${task.id}: ${edit.path} does not exist in the copy`);
+    const content = readFileSync(file, 'utf8');
+    const occurrences = content.split(edit.find).length - 1;
+    if (occurrences !== 1) {
+      throw new Error(
+        `seed for ${task.id}: find string occurs ${occurrences} times in ${edit.path}, expected exactly 1`,
+      );
+    }
+    writeFileSync(file, content.replace(edit.find, edit.replace), 'utf8');
+    applied.push(`${edit.path}: seeded (${edit.find.length}B find -> ${edit.replace.length}B replace)`);
+  }
+  return applied;
 }
 
 /**
