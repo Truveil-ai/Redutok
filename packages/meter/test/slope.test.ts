@@ -46,13 +46,15 @@ function slopeTask(id: string, overrides: Partial<BenchTask> = {}): BenchTask {
 
 const TIER_YAML = [
   'tier: slope',
-  'id: slope-chalk',
+  'id: slope-axios',
   'sequence: [s01, s02, s03]',
   'criteria:',
   '  - id: slope-exists',
   '    description: redutok s3 fewer tokens and fewer turns than redutok s1',
   '  - id: learning-pays',
   '    description: redutok s3 fewer tokens than vanilla s3 at success parity',
+  '  - id: mechanism-engaged',
+  '    description: at least one enrichment serve or learned injection by s3',
 ].join('\n');
 
 function writeTierFile(content: string): string {
@@ -106,11 +108,12 @@ function synthMeasurement(
 
 const tier: SlopeTier = {
   tier: 'slope',
-  id: 'slope-chalk',
+  id: 'slope-axios',
   sequence: ['s01', 's02', 's03'],
   criteria: [
     { id: 'slope-exists', description: 'redutok s3 fewer tokens and fewer turns than redutok s1' },
     { id: 'learning-pays', description: 'redutok s3 fewer tokens than vanilla s3 at success parity' },
+    { id: 'mechanism-engaged', description: 'at least one enrichment serve or learned injection by s3' },
   ],
 };
 
@@ -120,20 +123,20 @@ function learningRun(rep: number): LiveRunMeasurement[] {
     synthMeasurement('s01', 'vanilla', rep, 100_000, 20),
     synthMeasurement('s02', 'vanilla', rep, 98_000, 19),
     synthMeasurement('s03', 'vanilla', rep, 96_000, 20),
-    synthMeasurement('s01', 'redutok', rep, 50_000, 15, { attribution: { zoomBacks: 4, enrichmentServes: 0 } }),
-    synthMeasurement('s02', 'redutok', rep, 40_000, 12, { attribution: { zoomBacks: 2, enrichmentServes: 3 } }),
-    synthMeasurement('s03', 'redutok', rep, 30_000, 9, { attribution: { zoomBacks: 1, enrichmentServes: 5 } }),
+    synthMeasurement('s01', 'redutok', rep, 50_000, 15, { attribution: { zoomBacks: 4, enrichmentServes: 0, learnedInjected: 0 } }),
+    synthMeasurement('s02', 'redutok', rep, 40_000, 12, { attribution: { zoomBacks: 2, enrichmentServes: 3, learnedInjected: 2 } }),
+    synthMeasurement('s03', 'redutok', rep, 30_000, 9, { attribution: { zoomBacks: 1, enrichmentServes: 5, learnedInjected: 4 } }),
   ];
 }
 
 // ----------------------------------------------------------------- loaders
 
 describe('loadSlopeTier', () => {
-  it('loads a valid tier file with sequence order and the two pre-registered criteria', () => {
+  it('loads a valid tier file with sequence order and the three pre-registered criteria', () => {
     const loaded = loadSlopeTier(writeTierFile(TIER_YAML), threeTasks());
-    expect(loaded.id).toBe('slope-chalk');
+    expect(loaded.id).toBe('slope-axios');
     expect(loaded.sequence).toEqual(['s01', 's02', 's03']);
-    expect(loaded.criteria.map((c) => c.id)).toEqual(['slope-exists', 'learning-pays']);
+    expect(loaded.criteria.map((c) => c.id)).toEqual(['slope-exists', 'learning-pays', 'mechanism-engaged']);
     for (const criterion of loaded.criteria) expect(criterion.description.length).toBeGreaterThan(0);
   });
 
@@ -166,9 +169,9 @@ describe('loadSlopeTier', () => {
     expect(() => loadSlopeTier(writeTierFile(yaml), threeTasks())).toThrow(/vibes-based/);
   });
 
-  it('rejects a tier file missing a criterion: both pre-registered bars must be present', () => {
-    const yaml = TIER_YAML.split('\n').slice(0, 6).join('\n');
-    expect(() => loadSlopeTier(writeTierFile(yaml), threeTasks())).toThrow(/learning-pays/);
+  it('rejects a tier file missing a criterion: every pre-registered bar must be present', () => {
+    const yaml = TIER_YAML.split('\n').slice(0, 9).join('\n');
+    expect(() => loadSlopeTier(writeTierFile(yaml), threeTasks())).toThrow(/mechanism-engaged/);
   });
 });
 
@@ -183,20 +186,23 @@ describe('countSlopeAttribution', () => {
     { action: 'rewrite', sessionId: 'a', module: 'hooks.pretooluse', details: { enrichmentCandidate: 'cand-2' } },
     { action: 'rewrite', sessionId: 'b', module: 'hooks.pretooluse', details: { enrichmentCandidate: 'cand-2' } },
     { action: 'rewrite', sessionId: 'a', module: 'hooks.pretooluse', details: { rule: 'read-mirror' } },
+    { action: 'posture', sessionId: 'a', module: 'hooks.session-start', details: { injectedLearned: ['cand-1', 'cand-3'], excludedLearned: ['cand-9'] } },
+    { action: 'posture', sessionId: 'b', module: 'hooks.session-start', details: { injectedLearned: [] } },
   ];
 
-  it('counts zoom-backs and enrichment serves attributed to the session, ignoring other sessions', () => {
-    expect(countSlopeAttribution(events, 'a')).toEqual({ zoomBacks: 2, enrichmentServes: 2 });
-    expect(countSlopeAttribution(events, 'b')).toEqual({ zoomBacks: 1, enrichmentServes: 1 });
-    expect(countSlopeAttribution(events, 'c')).toEqual({ zoomBacks: 0, enrichmentServes: 0 });
+  it('counts zoom-backs, enrichment serves, and learned injections attributed to the session, ignoring other sessions', () => {
+    expect(countSlopeAttribution(events, 'a')).toEqual({ zoomBacks: 2, enrichmentServes: 2, learnedInjected: 2 });
+    expect(countSlopeAttribution(events, 'b')).toEqual({ zoomBacks: 1, enrichmentServes: 1, learnedInjected: 0 });
+    expect(countSlopeAttribution(events, 'c')).toEqual({ zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0 });
   });
 
-  it('does not count an empty or missing enrichmentCandidate as a serve', () => {
+  it('does not count an empty or missing enrichmentCandidate as a serve, nor excluded refs as injections', () => {
     const noise = [
       { action: 'distill', sessionId: 'a', details: { enrichmentCandidate: '' } },
       { action: 'distill', sessionId: 'a', details: {} },
+      { action: 'posture', sessionId: 'a', details: { excludedLearned: ['cand-1'] } },
     ];
-    expect(countSlopeAttribution(noise, 'a')).toEqual({ zoomBacks: 0, enrichmentServes: 0 });
+    expect(countSlopeAttribution(noise, 'a')).toEqual({ zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0 });
   });
 });
 
@@ -234,11 +240,37 @@ describe('evaluateSlope', () => {
     expect(report.headlineTokenRatio).toBeCloseTo(96_000 / 30_000, 5);
   });
 
-  it('passes both pre-registered criteria on a clean learning slope', () => {
+  it('passes all three pre-registered criteria on a clean attributed learning slope', () => {
     const report = evaluateSlope(tier, learningRun(1));
     const byId = new Map(report.criteria.map((c) => [c.id, c]));
     expect(byId.get('slope-exists')?.pass).toBe(true);
     expect(byId.get('learning-pays')?.pass).toBe(true);
+    expect(byId.get('mechanism-engaged')?.pass).toBe(true);
+    expect(report.mechanismEngaged).toBe(true);
+  });
+
+  it('fails mechanism-engaged when every redutok attribution counter is zero: the slope came from nowhere', () => {
+    const runs = learningRun(1).map((m) =>
+      m.variant === 'redutok' ? { ...m, attribution: { zoomBacks: 3, enrichmentServes: 0, learnedInjected: 0 } } : m,
+    );
+    const report = evaluateSlope(tier, runs);
+    const verdict = report.criteria.find((c) => c.id === 'mechanism-engaged');
+    expect(verdict?.pass).toBe(false);
+    expect(report.mechanismEngaged).toBe(false);
+    // Zoom-backs alone are usage, not learning attribution: they must not
+    // count as engagement.
+    expect(verdict?.detail).toMatch(/0 enrichment serves/);
+  });
+
+  it('fails mechanism-engaged when attribution is unavailable (recovered runs) rather than passing silently', () => {
+    const runs = learningRun(1).map((m) => {
+      const { attribution: _attribution, ...rest } = m;
+      return rest as typeof m;
+    });
+    const report = evaluateSlope(tier, runs);
+    const verdict = report.criteria.find((c) => c.id === 'mechanism-engaged');
+    expect(verdict?.pass).toBe(false);
+    expect(verdict?.detail).toMatch(/unavailable/i);
   });
 
   it('fails slope-exists when s3 tokens drop but turns do not: both must fall', () => {
@@ -269,12 +301,11 @@ describe('evaluateSlope', () => {
     expect(report.criteria.find((c) => c.id === 'learning-pays')?.pass).toBe(false);
   });
 
-  it('fails both criteria with an insufficient-data detail instead of passing on missing positions', () => {
+  it('fails every criterion instead of passing on missing positions, with insufficient-data details on the slope bars', () => {
     const report = evaluateSlope(tier, [synthMeasurement('s01', 'redutok', 1, 50_000, 15)]);
-    for (const criterion of report.criteria) {
-      expect(criterion.pass).toBe(false);
-      expect(criterion.detail).toMatch(/insufficient data/i);
-    }
+    for (const criterion of report.criteria) expect(criterion.pass).toBe(false);
+    expect(report.criteria.find((c) => c.id === 'slope-exists')?.detail).toMatch(/insufficient data/i);
+    expect(report.criteria.find((c) => c.id === 'learning-pays')?.detail).toMatch(/insufficient data/i);
   });
 });
 
@@ -288,18 +319,35 @@ describe('generateLiveResults slope section', () => {
       done: true,
       slope: tier,
     });
-    expect(summary.markdown).toContain('## Slope (sequence slope-chalk)');
-    expect(summary.markdown).toContain('| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | success |');
+    expect(summary.markdown).toContain('## Slope (sequence slope-axios)');
+    expect(summary.markdown).toContain('| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | learned injected | success |');
     // s02 redutok row carries its attribution counts.
-    expect(summary.markdown).toMatch(/\| s02 \| 2 \| redutok \|[^|]+\|[^|]+\| 2 \| 3 \|/);
+    expect(summary.markdown).toMatch(/\| s02 \| 2 \| redutok \|[^|]+\|[^|]+\| 2 \| 3 \| 2 \|/);
     // Vanilla rows have no .dcp, so attribution renders as an em dash.
-    expect(summary.markdown).toMatch(/\| s02 \| 2 \| vanilla \|[^|]+\|[^|]+\| — \| — \|/);
+    expect(summary.markdown).toMatch(/\| s02 \| 2 \| vanilla \|[^|]+\|[^|]+\| — \| — \| — \|/);
     expect(summary.markdown).toContain('redutok slope (s3/s1): tokens 0.60x, turns 0.60x');
     expect(summary.markdown).toContain('headline: vanilla s3 over redutok s3: 3.2x tokens');
     expect(summary.markdown).toContain('### Pre-registered criteria');
     expect(summary.markdown).toMatch(/slope-exists: .+ MET/);
     expect(summary.markdown).toMatch(/learning-pays: .+ MET/);
+    expect(summary.markdown).toMatch(/mechanism-engaged: .+ MET/);
+    expect(summary.markdown).not.toContain('MET-UNATTRIBUTED');
     expect(summary.slope?.criteria.every((c) => c.pass)).toBe(true);
+  });
+
+  it('renders MET-UNATTRIBUTED and marks the result not citable when the bars pass with zero attribution', () => {
+    const runs = learningRun(1).map((m) =>
+      m.variant === 'redutok' ? { ...m, attribution: { zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0 } } : m,
+    );
+    const summary = generateLiveResults(runs, [], { model: 'claude-sonnet-5', n: 1, done: true, slope: tier });
+    // The numeric bars still pass, but without mechanism they are demoted.
+    expect(summary.markdown).toMatch(/slope-exists: .+ MET-UNATTRIBUTED/);
+    expect(summary.markdown).toMatch(/learning-pays: .+ MET-UNATTRIBUTED/);
+    expect(summary.markdown).toMatch(/mechanism-engaged: .+ NOT MET/);
+    expect(summary.markdown).toContain('not citable');
+    expect(summary.slope?.mechanismEngaged).toBe(false);
+    // The demoted label must never read as a plain MET.
+    expect(summary.markdown).not.toMatch(/slope-exists: .+ — MET \(/);
   });
 
   it('omits the slope section when no slope tier is passed', () => {
@@ -319,8 +367,8 @@ describe('dryRunMatrix with a slope tier', () => {
     expect(text).toContain('# t99 rep 1 vanilla');
     // Slope tasks appear only inside the sequence blocks.
     expect(lines.filter((l) => l.startsWith('# s01 rep 1 '))).toHaveLength(2);
-    expect(text).toContain('# slope sequence slope-chalk rep 1 redutok');
-    expect(text).toContain('# slope sequence slope-chalk rep 2 redutok');
+    expect(text).toContain('# slope sequence slope-axios rep 1 redutok');
+    expect(text).toContain('# slope sequence slope-axios rep 2 redutok');
     expect(text).toMatch(/persistent copy/);
     expect(text).toMatch(/graduation/);
     expect(text).toMatch(/cold copy/);
@@ -342,17 +390,23 @@ describe('dryRunMatrix with a slope tier', () => {
 // -------------------------------------------------- repo tier file (data)
 
 describe('the pre-registered tier file in bench/tiers', () => {
-  it('loads against the real task set: three chalk tasks, both criteria pinned before any run', () => {
+  it('loads against the real task set: three axios tasks on a full-posture fixture, all criteria pinned before any run', () => {
     const tasks = loadBenchTasks(path.join(repoRoot, 'bench', 'tasks'));
     const loaded = loadSlopeTier(path.join(repoRoot, 'bench', 'tiers', 'slope.yaml'), tasks);
     expect(loaded.sequence).toEqual(['s01', 's02', 's03']);
-    expect(loaded.criteria.map((c) => c.id)).toEqual(['slope-exists', 'learning-pays']);
+    expect(loaded.criteria.map((c) => c.id)).toEqual(['slope-exists', 'learning-pays', 'mechanism-engaged']);
     const sequenceTasks = loaded.sequence.map((id) => tasks.find((t) => t.id === id));
     for (const task of sequenceTasks) {
       expect(task?.tier).toBe('slope');
-      expect(task?.repo.localPath).toBe('fixtures/repos/chalk');
+      expect(task?.repo.localPath).toBe('fixtures/repos/axios');
     }
     // Related but distinct: the three prompts must not repeat each other.
     expect(new Set(sequenceTasks.map((t) => t?.prompt)).size).toBe(3);
+    // Mixed read-and-fix shapes: at least one answer-graded task and at
+    // least one command-graded fix, so error-fix candidates can arise.
+    const kinds = sequenceTasks.flatMap((t) => t?.success.map((c) => c.kind) ?? []);
+    expect(kinds).toContain('answer-contains');
+    expect(kinds).toContain('command-succeeds');
+    expect(kinds).toContain('file-changed');
   });
 });
