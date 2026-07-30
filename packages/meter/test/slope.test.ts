@@ -123,9 +123,9 @@ function learningRun(rep: number): LiveRunMeasurement[] {
     synthMeasurement('s01', 'vanilla', rep, 100_000, 20),
     synthMeasurement('s02', 'vanilla', rep, 98_000, 19),
     synthMeasurement('s03', 'vanilla', rep, 96_000, 20),
-    synthMeasurement('s01', 'redutok', rep, 50_000, 15, { attribution: { zoomBacks: 4, enrichmentServes: 0, learnedInjected: 0 } }),
-    synthMeasurement('s02', 'redutok', rep, 40_000, 12, { attribution: { zoomBacks: 2, enrichmentServes: 3, learnedInjected: 2 } }),
-    synthMeasurement('s03', 'redutok', rep, 30_000, 9, { attribution: { zoomBacks: 1, enrichmentServes: 5, learnedInjected: 4 } }),
+    synthMeasurement('s01', 'redutok', rep, 50_000, 15, { attribution: { zoomBacks: 4, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: 0 } }),
+    synthMeasurement('s02', 'redutok', rep, 40_000, 12, { attribution: { zoomBacks: 2, enrichmentServes: 3, learnedInjected: 2, pitfallsInjected: 0 } }),
+    synthMeasurement('s03', 'redutok', rep, 30_000, 9, { attribution: { zoomBacks: 1, enrichmentServes: 5, learnedInjected: 4, pitfallsInjected: 1 } }),
   ];
 }
 
@@ -186,14 +186,14 @@ describe('countSlopeAttribution', () => {
     { action: 'rewrite', sessionId: 'a', module: 'hooks.pretooluse', details: { enrichmentCandidate: 'cand-2' } },
     { action: 'rewrite', sessionId: 'b', module: 'hooks.pretooluse', details: { enrichmentCandidate: 'cand-2' } },
     { action: 'rewrite', sessionId: 'a', module: 'hooks.pretooluse', details: { rule: 'read-mirror' } },
-    { action: 'posture', sessionId: 'a', module: 'hooks.session-start', details: { injectedLearned: ['cand-1', 'cand-3'], excludedLearned: ['cand-9'] } },
+    { action: 'posture', sessionId: 'a', module: 'hooks.session-start', details: { injectedLearned: ['cand-1', 'cand-3'], excludedLearned: ['cand-9'], injectedPitfalls: ['cand-7'] } },
     { action: 'posture', sessionId: 'b', module: 'hooks.session-start', details: { injectedLearned: [] } },
   ];
 
-  it('counts zoom-backs, enrichment serves, and learned injections attributed to the session, ignoring other sessions', () => {
-    expect(countSlopeAttribution(events, 'a')).toEqual({ zoomBacks: 2, enrichmentServes: 2, learnedInjected: 2 });
-    expect(countSlopeAttribution(events, 'b')).toEqual({ zoomBacks: 1, enrichmentServes: 1, learnedInjected: 0 });
-    expect(countSlopeAttribution(events, 'c')).toEqual({ zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0 });
+  it('counts zoom-backs, enrichment serves, and learned and pitfall injections attributed to the session, ignoring other sessions', () => {
+    expect(countSlopeAttribution(events, 'a')).toEqual({ zoomBacks: 2, enrichmentServes: 2, learnedInjected: 2, pitfallsInjected: 1 });
+    expect(countSlopeAttribution(events, 'b')).toEqual({ zoomBacks: 1, enrichmentServes: 1, learnedInjected: 0, pitfallsInjected: 0 });
+    expect(countSlopeAttribution(events, 'c')).toEqual({ zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: 0 });
   });
 
   it('does not count an empty or missing enrichmentCandidate as a serve, nor excluded refs as injections', () => {
@@ -202,7 +202,7 @@ describe('countSlopeAttribution', () => {
       { action: 'distill', sessionId: 'a', details: {} },
       { action: 'posture', sessionId: 'a', details: { excludedLearned: ['cand-1'] } },
     ];
-    expect(countSlopeAttribution(noise, 'a')).toEqual({ zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0 });
+    expect(countSlopeAttribution(noise, 'a')).toEqual({ zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: 0 });
   });
 });
 
@@ -251,7 +251,7 @@ describe('evaluateSlope', () => {
 
   it('fails mechanism-engaged when every redutok attribution counter is zero: the slope came from nowhere', () => {
     const runs = learningRun(1).map((m) =>
-      m.variant === 'redutok' ? { ...m, attribution: { zoomBacks: 3, enrichmentServes: 0, learnedInjected: 0 } } : m,
+      m.variant === 'redutok' ? { ...m, attribution: { zoomBacks: 3, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: 0 } } : m,
     );
     const report = evaluateSlope(tier, runs);
     const verdict = report.criteria.find((c) => c.id === 'mechanism-engaged');
@@ -260,6 +260,23 @@ describe('evaluateSlope', () => {
     // Zoom-backs alone are usage, not learning attribution: they must not
     // count as engagement.
     expect(verdict?.detail).toMatch(/0 enrichment serves/);
+  });
+
+  it('passes mechanism-engaged on pitfall injections alone: an error-fix lesson graduates into pitfalls, not learned', () => {
+    // The N=3 diagnosis (2026-07-30): the deterministic graduation path for
+    // the slope sequence is an error-fix, which lands in the codex pitfalls
+    // section and is recorded under injectedPitfalls. A counter blind to it
+    // would demote a genuinely earned injection to MET-UNATTRIBUTED.
+    const runs = learningRun(1).map((m) =>
+      m.variant === 'redutok'
+        ? { ...m, attribution: { zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: m.taskId === 's03' ? 1 : 0 } }
+        : m,
+    );
+    const report = evaluateSlope(tier, runs);
+    const verdict = report.criteria.find((c) => c.id === 'mechanism-engaged');
+    expect(verdict?.pass).toBe(true);
+    expect(report.mechanismEngaged).toBe(true);
+    expect(verdict?.detail).toMatch(/1 pitfall injection/);
   });
 
   it('fails mechanism-engaged when attribution is unavailable (recovered runs) rather than passing silently', () => {
@@ -320,11 +337,11 @@ describe('generateLiveResults slope section', () => {
       slope: tier,
     });
     expect(summary.markdown).toContain('## Slope (sequence slope-axios)');
-    expect(summary.markdown).toContain('| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | learned injected | success |');
+    expect(summary.markdown).toContain('| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | learned injected | pitfalls injected | success |');
     // s02 redutok row carries its attribution counts.
-    expect(summary.markdown).toMatch(/\| s02 \| 2 \| redutok \|[^|]+\|[^|]+\| 2 \| 3 \| 2 \|/);
+    expect(summary.markdown).toMatch(/\| s02 \| 2 \| redutok \|[^|]+\|[^|]+\| 2 \| 3 \| 2 \| 0 \|/);
     // Vanilla rows have no .dcp, so attribution renders as an em dash.
-    expect(summary.markdown).toMatch(/\| s02 \| 2 \| vanilla \|[^|]+\|[^|]+\| — \| — \| — \|/);
+    expect(summary.markdown).toMatch(/\| s02 \| 2 \| vanilla \|[^|]+\|[^|]+\| — \| — \| — \| — \|/);
     expect(summary.markdown).toContain('redutok slope (s3/s1): tokens 0.60x, turns 0.60x');
     expect(summary.markdown).toContain('headline: vanilla s3 over redutok s3: 3.2x tokens');
     expect(summary.markdown).toContain('### Pre-registered criteria');
@@ -337,7 +354,7 @@ describe('generateLiveResults slope section', () => {
 
   it('renders MET-UNATTRIBUTED and marks the result not citable when the bars pass with zero attribution', () => {
     const runs = learningRun(1).map((m) =>
-      m.variant === 'redutok' ? { ...m, attribution: { zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0 } } : m,
+      m.variant === 'redutok' ? { ...m, attribution: { zoomBacks: 0, enrichmentServes: 0, learnedInjected: 0, pitfallsInjected: 0 } } : m,
     );
     const summary = generateLiveResults(runs, [], { model: 'claude-sonnet-5', n: 1, done: true, slope: tier });
     // The numeric bars still pass, but without mechanism they are demoted.

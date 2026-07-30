@@ -136,6 +136,11 @@ export interface SlopeAttribution {
   /** Graduated learned entries actually injected at this session's
    * SessionStart, from the posture audit event's injectedLearned refs. */
   learnedInjected: number;
+  /** Graduated pitfalls entries injected at SessionStart (injectedPitfalls
+   * refs). An error-fix lesson graduates into pitfalls, not learned, so a
+   * counter blind to these demotes the sequence's deterministic graduation
+   * path to MET-UNATTRIBUTED (N=3 diagnosis, 2026-07-30). */
+  pitfallsInjected: number;
 }
 
 /**
@@ -153,11 +158,17 @@ export function countSlopeAttribution(events: readonly AuditEventLike[], session
     const candidate = e.details?.['enrichmentCandidate'];
     return typeof candidate === 'string' && candidate !== '';
   }).length;
-  const learnedInjected = mine.reduce((n, e) => {
-    const injected = e.details?.['injectedLearned'];
-    return n + (Array.isArray(injected) ? injected.length : 0);
-  }, 0);
-  return { zoomBacks, enrichmentServes, learnedInjected };
+  const injectedCount = (key: string): number =>
+    mine.reduce((n, e) => {
+      const injected = e.details?.[key];
+      return n + (Array.isArray(injected) ? injected.length : 0);
+    }, 0);
+  return {
+    zoomBacks,
+    enrichmentServes,
+    learnedInjected: injectedCount('injectedLearned'),
+    pitfallsInjected: injectedCount('injectedPitfalls'),
+  };
 }
 
 /** True when the graduation miner has audited a completed mining run for the
@@ -586,12 +597,13 @@ export function evaluateSlope(tier: SlopeTier, measurements: LiveRunMeasurement[
   }
   // Mechanism engagement: the idle-posture incident produced a numerically
   // MET slope with zero attribution — a slope from nowhere. Zoom-backs are
-  // usage, not learning, so only enrichment serves and learned injections
-  // count as the mechanism.
+  // usage, not learning, so only enrichment serves and graduated-knowledge
+  // injections (learned and pitfalls sections both) count as the mechanism.
   const attributed = measurements.filter((m) => m.variant === 'redutok' && m.attribution !== undefined);
   const serves = attributed.reduce((n, m) => n + (m.attribution?.enrichmentServes ?? 0), 0);
   const injections = attributed.reduce((n, m) => n + (m.attribution?.learnedInjected ?? 0), 0);
-  const mechanismEngaged = serves + injections > 0;
+  const pitfalls = attributed.reduce((n, m) => n + (m.attribution?.pitfallsInjected ?? 0), 0);
+  const mechanismEngaged = serves + injections + pitfalls > 0;
   criteria.push({
     id: 'mechanism-engaged',
     description: descriptionOf('mechanism-engaged'),
@@ -599,7 +611,7 @@ export function evaluateSlope(tier: SlopeTier, measurements: LiveRunMeasurement[
     detail:
       attributed.length === 0
         ? 'attribution unavailable: no redutok run carried audit counts (recovered from logs?)'
-        : `${serves} enrichment serves, ${injections} learned injections across the redutok sequence`,
+        : `${serves} enrichment serves, ${injections} learned injections, ${pitfalls} pitfall injection(s) across the redutok sequence`,
   });
   return { sequenceId: tier.id, variants, headlineTokenRatio, mechanismEngaged, criteria };
 }
@@ -613,8 +625,8 @@ function slopeSection(tier: SlopeTier, measurements: LiveRunMeasurement[], repor
     '',
     'Sequenced runs on one fixture repo: the redutok variant carries its .dcp state (candidates, codex, mirror) across the sequence with a graduation pass between tasks; vanilla starts cold each task. Zoom-backs and enrichment serves come from each redutok copy’s .dcp/audit.jsonl attribution counts (vanilla has no .dcp; runs recovered from committed logs have no audit file and show —).',
     '',
-    '| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | learned injected | success |',
-    '| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |',
+    '| task | position | variant | tokens (median) | turns (median) | zoom-backs | enrichment serves | learned injected | pitfalls injected | success |',
+    '| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |',
   ];
   tier.sequence.forEach((taskId, index) => {
     for (const variant of ['vanilla', 'redutok'] as Variant[]) {
@@ -624,7 +636,7 @@ function slopeSection(tier: SlopeTier, measurements: LiveRunMeasurement[], repor
       const cell = (pick: (t: SlopeAttribution) => number): string =>
         withAttribution.length === 0 ? '—' : fmt(median(withAttribution.map((r) => pick(r.attribution as SlopeAttribution))));
       lines.push(
-        `| ${taskId} | ${index + 1} | ${variant} | ${fmt(median(runs.map((r) => r.totalTokens)))} | ${fmt(median(runs.map((r) => turnsOf(r.ledger))))} | ${cell((t) => t.zoomBacks)} | ${cell((t) => t.enrichmentServes)} | ${cell((t) => t.learnedInjected)} | ${runs.filter((r) => r.success).length}/${runs.length} |`,
+        `| ${taskId} | ${index + 1} | ${variant} | ${fmt(median(runs.map((r) => r.totalTokens)))} | ${fmt(median(runs.map((r) => turnsOf(r.ledger))))} | ${cell((t) => t.zoomBacks)} | ${cell((t) => t.enrichmentServes)} | ${cell((t) => t.learnedInjected)} | ${cell((t) => t.pitfallsInjected)} | ${runs.filter((r) => r.success).length}/${runs.length} |`,
       );
     }
   });
