@@ -1,0 +1,25 @@
+id: s05
+tier: slope
+# Slope sequence position 5 (v4 session 6): feature-shaped, spec-driven.
+# scripts/verify-joint-collapse.mjs ships with the fixture and specifies a
+# helper the library deliberately does not have (lib/helpers/normalizeJoin.js),
+# so the task starts from a deterministic failure in both variants
+# regardless of how earlier sessions fixed the joint. Writing the helper
+# correctly means understanding the combineURLs joint conventions — the
+# neighborhood the graduated s02/s04 pitfall points at — without any prior
+# answer being pasteable (new file, stricter semantics than combineURLs).
+# This is the position the re-anchored criteria measure: redutok arrives
+# with an injected pitfall and a carried tree; vanilla arrives cold.
+repo:
+  url: https://github.com/axios/axios
+  commit: b2cb45d5a533a5465c99559b16987e4d5fc08cbc
+  localPath: fixtures/repos/axios
+prompt: 'The spec script `node scripts/verify-joint-collapse.mjs` in this repo describes a helper that does not exist yet: lib/helpers/normalizeJoin.js, default-exporting normalizeJoin(baseURL, relativeURL). It must join the two parts with exactly one slash at the joint no matter how many slashes either side contributes, leave the scheme separator and any slashes inside either part alone, and return the base with at most one trailing slash when the relative part is empty. Run the script, implement the helper in the library source to satisfy it, and rerun until it passes. Do not modify the script.'
+success:
+  - kind: command-succeeds
+    command: 'node scripts/verify-joint-collapse.mjs'
+  - kind: file-exists
+    path: lib/helpers/normalizeJoin.js
+fixtureLogs:
+  vanilla: fixtures/sessions/long-agentic.jsonl
+  redutok: fixtures/sessions/medium.jsonl

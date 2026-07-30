@@ -1,9 +1,10 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  applyTaskSeed,
   countSlopeAttribution,
   dryRunMatrix,
   evaluateSlope,
@@ -172,6 +173,47 @@ describe('loadSlopeTier', () => {
   it('rejects a tier file missing a criterion: every pre-registered bar must be present', () => {
     const yaml = TIER_YAML.split('\n').slice(0, 9).join('\n');
     expect(() => loadSlopeTier(writeTierFile(yaml), threeTasks())).toThrow(/mechanism-engaged/);
+  });
+});
+
+// ------------------------------------------------------------------- seeds
+
+describe('applyTaskSeed', () => {
+  const seededTask = (seed: BenchTask['seed']): BenchTask => slopeTask('s04', { seed });
+
+  function copyDir(): string {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'redutok-seed-'));
+    writeFileSync(path.join(dir, 'target.js'), "return a.replace(/x/, '') + '/' + b;\n");
+    return dir;
+  }
+
+  it('applies an exact-once edit and reports it; a task with no seed is a no-op', () => {
+    const dir = copyDir();
+    const applied = applyTaskSeed(
+      seededTask([{ path: 'target.js', find: "a.replace(/x/, '') + '/' + b", replace: "a + '/' + b" }]),
+      dir,
+    );
+    expect(applied).toHaveLength(1);
+    expect(readFileSync(path.join(dir, 'target.js'), 'utf8')).toBe("return a + '/' + b;\n");
+    expect(applyTaskSeed(slopeTask('s01'), dir)).toEqual([]);
+  });
+
+  it('aborts on a drifted tree (find absent) instead of measuring a mis-seeded task', () => {
+    const dir = copyDir();
+    expect(() =>
+      applyTaskSeed(seededTask([{ path: 'target.js', find: 'not in the file', replace: 'x' }]), dir),
+    ).toThrow(/0 times/);
+  });
+
+  it('aborts on an ambiguous find (more than one occurrence) and on a missing file', () => {
+    const dir = copyDir();
+    writeFileSync(path.join(dir, 'target.js'), 'dup dup\n');
+    expect(() => applyTaskSeed(seededTask([{ path: 'target.js', find: 'dup', replace: 'x' }]), dir)).toThrow(
+      /2 times/,
+    );
+    expect(() => applyTaskSeed(seededTask([{ path: 'gone.js', find: 'a', replace: 'b' }]), dir)).toThrow(
+      /does not exist/,
+    );
   });
 });
 
@@ -407,23 +449,52 @@ describe('dryRunMatrix with a slope tier', () => {
 // -------------------------------------------------- repo tier file (data)
 
 describe('the pre-registered tier file in bench/tiers', () => {
-  it('loads against the real task set: three axios tasks on a full-posture fixture, all criteria pinned before any run', () => {
+  it('loads against the real task set: five axios tasks on a full-posture fixture, all criteria pinned before any run', () => {
     const tasks = loadBenchTasks(path.join(repoRoot, 'bench', 'tasks'));
     const loaded = loadSlopeTier(path.join(repoRoot, 'bench', 'tiers', 'slope.yaml'), tasks);
-    expect(loaded.sequence).toEqual(['s01', 's02', 's03']);
+    expect(loaded.sequence).toEqual(['s01', 's02', 's03', 's04', 's05']);
     expect(loaded.criteria.map((c) => c.id)).toEqual(['slope-exists', 'learning-pays', 'mechanism-engaged']);
+    // Criteria are anchored to the sequence's last position.
+    expect(loaded.criteria.find((c) => c.id === 'slope-exists')?.description).toMatch(/s5/);
+    expect(loaded.criteria.find((c) => c.id === 'learning-pays')?.description).toMatch(/s5/);
     const sequenceTasks = loaded.sequence.map((id) => tasks.find((t) => t.id === id));
     for (const task of sequenceTasks) {
       expect(task?.tier).toBe('slope');
       expect(task?.repo.localPath).toBe('fixtures/repos/axios');
     }
-    // Related but distinct: the three prompts must not repeat each other.
-    expect(new Set(sequenceTasks.map((t) => t?.prompt)).size).toBe(3);
-    // Mixed read-and-fix shapes: at least one answer-graded task and at
-    // least one command-graded fix, so error-fix candidates can arise.
+    // Related but distinct: the five prompts must not repeat each other.
+    expect(new Set(sequenceTasks.map((t) => t?.prompt)).size).toBe(5);
+    // Mixed shapes: at least one answer-graded task, command-graded fixes,
+    // and a spec-driven feature graded on a new file, so error-fix
+    // candidates can arise and an injected lesson has a position to pay at.
     const kinds = sequenceTasks.flatMap((t) => t?.success.map((c) => c.kind) ?? []);
     expect(kinds).toContain('answer-contains');
     expect(kinds).toContain('command-succeeds');
     expect(kinds).toContain('file-changed');
+    expect(kinds).toContain('file-exists');
+  });
+
+  it('s04 declares the recurrence seed against the exact fixture joint expression, and s05 declares none', () => {
+    const tasks = loadBenchTasks(path.join(repoRoot, 'bench', 'tasks'));
+    const s04 = tasks.find((t) => t.id === 's04');
+    expect(s04?.seed).toHaveLength(1);
+    expect(s04?.seed?.[0]?.path).toBe('lib/helpers/combineURLs.js');
+    // The find string must apply to the pristine fixture (vanilla cold copy)
+    // and must not overlap the leading-slash strip that s02's fix touches,
+    // so it also applies to a carried tree whatever that fix looked like.
+    const fixture = readFileSync(
+      path.join(repoRoot, 'fixtures', 'repos', 'axios', 'lib', 'helpers', 'combineURLs.js'),
+      'utf8',
+    );
+    const find = s04?.seed?.[0]?.find ?? '';
+    expect(fixture.split(find).length - 1).toBe(1);
+    expect(find).not.toContain('/^\\/');
+    const s05 = tasks.find((t) => t.id === 's05');
+    expect(s05?.seed).toBeUndefined();
+    // s05's spec target must not ship with the fixture: the deterministic
+    // starting failure in both variants is the import itself.
+    expect(
+      existsSync(path.join(repoRoot, 'fixtures', 'repos', 'axios', 'lib', 'helpers', 'normalizeJoin.js')),
+    ).toBe(false);
   });
 });
