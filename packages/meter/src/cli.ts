@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { realpathSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildAuditReport, renderAuditText } from './audit-render.js';
 import { renderBadgeSvg, renderShareLine } from './badge.js';
@@ -73,7 +74,7 @@ export async function main(argv: string[]): Promise<number> {
     return 0;
   }
   if (command === 'bench') {
-    const { runReplay, loadBenchTasks, dryRunMatrix } = await import('./bench.js');
+    const { runReplay, loadBenchTasks, dryRunMatrix, loadSlopeTier } = await import('./bench.js');
     const tasksDir = 'bench/tasks';
     if (rest.includes('--replay')) {
       const results = await runReplay(process.cwd(), tasksDir, 'bench/RESULTS.md');
@@ -86,7 +87,10 @@ export async function main(argv: string[]): Promise<number> {
       const mIndex = rest.indexOf('--model');
       const n = nIndex >= 0 ? Number(rest[nIndex + 1]) : 3;
       const model = mIndex >= 0 ? String(rest[mIndex + 1]) : 'claude-sonnet-5';
-      console.log(dryRunMatrix(loadBenchTasks(tasksDir), n, model).join('\n'));
+      const tasks = loadBenchTasks(tasksDir);
+      const tierFile = path.join('bench', 'tiers', 'slope.yaml');
+      const slope = existsSync(tierFile) ? loadSlopeTier(tierFile, tasks) : undefined;
+      console.log(dryRunMatrix(tasks, n, model, slope).join('\n'));
       return 0;
     }
     console.error('Usage: redutok bench --replay | --dry-run [--n N] [--model <name>]. Live execution is operator-only; use --dry-run to see the command matrix.');
