@@ -115,6 +115,19 @@ export const LIMITS = {
     CODEX_MAX_TOKENS: 3000,
     TOTAL_MAX_TOKENS: 3500,
   },
+  /**
+   * Vault codex emission budget (Session 4, zero-turn channel). The codex
+   * emitted by `vault codex` is pasted into a claude.ai Project instructions
+   * block; MAX_TOKENS is the hard ceiling for the whole rendered Markdown,
+   * GRADUATED_MAX_TOKENS the sub-budget for graduated entries within it.
+   * When either budget is exceeded, entries are excluded lowest-confidence
+   * first (mirroring GRADUATION.LEARNED_SECTION_MAX_TOKENS discipline in
+   * buildInjection). Product tuning constants, not measured claims.
+   */
+  VAULT_CODEX: {
+    MAX_TOKENS: 2000,
+    GRADUATED_MAX_TOKENS: 600,
+  },
   GRADUATION: {
     /** Occurrence count at which the occurrence term reaches 0.5 (saturating toward 1). */
     OCCURRENCE_HALF_SATURATION: 2,
