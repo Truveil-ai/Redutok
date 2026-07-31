@@ -66,11 +66,10 @@ function loadAll(configPath) {
   return { cfg, sets };
 }
 
-async function runPrepCheck(cfg, sets, matrix) {
+async function runPrepCheck(cfg, sets) {
   console.log('');
   console.log('prep-check (mocked API): end-to-end pass over one docs question');
   console.log('  no network call is made; both arms use canned responses');
-  const docs = cfg.corpora.find((c) => c.id === 'docs');
   const questionSet = sets.get('docs');
   const q = questionSet.questions[0];
 
@@ -175,14 +174,14 @@ async function main() {
   console.log(renderDryRun(cfg, matrix, RATES));
 
   if (args.mode === 'prep-check') {
-    await runPrepCheck(cfg, sets, matrix);
+    await runPrepCheck(cfg, sets);
   }
   if (args.mode === 'live') {
     console.log('');
     console.log('LIVE mode: not enabled in this commit. Falling back to a prep-check.');
     console.log('To wire live, add @anthropic-ai/sdk, instantiate the client, and pass it to');
     console.log('the same runPasteTurn / runVaultLoop functions the prep-check exercises.');
-    await runPrepCheck(cfg, sets, matrix);
+    await runPrepCheck(cfg, sets);
   }
 }
 
