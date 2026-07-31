@@ -8,7 +8,7 @@ import { startVaultServer } from './http.js';
 import { runIngest } from './ingest.js';
 import { handleVaultRequest, type JsonRpcRequest, type JsonRpcResponse } from './server.js';
 import { statementFromDcp } from './statement.js';
-import { newVaultSession, type VaultSession } from './tools.js';
+import { newVaultSession, resumeAskCounter, type VaultSession } from './tools.js';
 
 /**
  * redutok-vault entry: streamable HTTP by default, --stdio for local
@@ -65,6 +65,7 @@ export function createStdioHandler(
     }
     if (rpc.method === 'initialize') {
       session = newVaultSession(`stdio-${randomBytes(4).toString('hex')}`);
+      resumeAskCounter(corpora, session);
     }
     if (session === undefined) {
       if (rpc.method.startsWith('notifications/')) return null;

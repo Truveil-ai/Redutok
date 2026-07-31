@@ -26,6 +26,23 @@ export function newVaultSession(mcpSessionId: string): VaultSession {
   return { id: `vault-${mcpSessionId}`, asks: 0 };
 }
 
+/**
+ * Resume the ask counter from the ledger: an explicit X-Vault-Session
+ * identity survives server restarts, so a fresh process must continue its
+ * numbering, or a reused ask id would pull the earlier ask's audit events
+ * into its accounting and double-append their serve lines. Two concurrently
+ * live sessions sharing one identity can still collide; restarts cannot.
+ */
+export function resumeAskCounter(corpora: Map<string, Corpus>, session: VaultSession): void {
+  for (const corpus of corpora.values()) {
+    for (const line of corpus.ledger.lines({ sessionId: session.id })) {
+      if (line.kind !== 'ask' || line.askId === undefined) continue;
+      const n = Number(/#ask(\d+)$/.exec(line.askId)?.[1] ?? '0');
+      if (n > session.asks) session.asks = n;
+    }
+  }
+}
+
 const fmt = (n: number): string => n.toLocaleString('en-US');
 const bytesToTokens = (bytes: number): number => Math.round(bytes / 4);
 

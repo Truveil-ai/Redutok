@@ -3,7 +3,7 @@ import http from 'node:http';
 import { bearerAuthorized } from './auth.js';
 import type { Corpus } from './corpus.js';
 import { handleVaultRequest, type JsonRpcRequest } from './server.js';
-import { newVaultSession, type VaultSession } from './tools.js';
+import { newVaultSession, resumeAskCounter, type VaultSession } from './tools.js';
 
 /**
  * Streamable HTTP transport per the current MCP spec, hand-rolled in the
@@ -134,6 +134,9 @@ export async function startVaultServer(options: VaultServerOptions): Promise<Vau
       }
       const mcpSessionId = randomBytes(8).toString('hex');
       const session = newVaultSession(explicitId ?? mcpSessionId);
+      // An explicit identity may resume across restarts: continue its ask
+      // numbering from the ledger so ask ids never collide with prior runs.
+      resumeAskCounter(options.corpora, session);
       sessions.set(mcpSessionId, session);
       const response = await handleVaultRequest(rpc, { corpora: options.corpora, session }, { authorized });
       sendJson(res, 200, response, { 'mcp-session-id': mcpSessionId });

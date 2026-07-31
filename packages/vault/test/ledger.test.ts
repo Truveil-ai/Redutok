@@ -10,6 +10,7 @@ import {
 import { mountCorpus, type Corpus } from '../src/corpus.js';
 import { VaultLedger, type LedgerLine } from '../src/ledger.js';
 import { handleVaultRequest, newVaultSession, type VaultDeps } from '../src/server.js';
+import { resumeAskCounter } from '../src/tools.js';
 import { makeCorpusDir, type TempCorpus } from './helpers.js';
 
 /**
@@ -161,7 +162,13 @@ describe('persistent vault ledger', () => {
     corpus.store.close();
     corpus.ledger.close();
     corpus = mountCorpus(temp.root, { name: 'ledgercorp' });
-    deps = { corpora: new Map([[corpus.name, corpus]]), session: deps.session };
+    // A restarted process resumes the same explicit identity with a fresh
+    // session object; the ask counter must continue from the ledger so ask
+    // ids never collide with prior runs.
+    const resumed = newVaultSession('ledger-test');
+    resumeAskCounter(new Map([[corpus.name, corpus]]), resumed);
+    expect(resumed.asks).toBe(2);
+    deps = { corpora: new Map([[corpus.name, corpus]]), session: resumed };
     const after = sessionLines().map((l) => l.id);
     expect(after).toEqual(before);
     await call('vault_ask', { question: 'What does segmentIsAbsolute treat as an absolute segment?' });
