@@ -5,11 +5,7 @@ This checklist governs the Practice's internal review of every
 valuation engagement before the signed report is issued to a client.
 
 2. Concurring Partner Review
-Every engagement that yields a Fair Market Value opinion above
-USD 10,000,000 requires review and written concurrence by a partner
-who is not the engagement partner. Concurrence is recorded in the
-engagement workpapers before the report is signed. The threshold is
-reviewed annually by the managing partner.
+Every engagement that yields a Fair Market Value opinion above USD 10,000,000 requires review and written concurrence by a partner who is not the engagement partner. Concurrence is recorded in the engagement workpapers before the report is signed. The threshold is reviewed annually by the managing partner.
 
 3. Independence Attestation
 An independence attestation is refreshed annually for every partner

@@ -9,7 +9,7 @@
 // Run: node scripts/build-chatbench-fixtures.mjs
 // Deps: pdfkit, docx (root devDependencies).
 
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, copyFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import PDFDocument from 'pdfkit';
@@ -17,7 +17,20 @@ import { Document, Packer, Paragraph, TextRun } from 'docx';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
-const CORPUS_DIR = join(ROOT, 'fixtures', 'doc-corpus');
+// The chatbench corpus is its own directory so the fixture stays a
+// self-contained bench input and does not interfere with the vault
+// ingest test that recursively copies fixtures/doc-corpus.
+const SOURCE_DIR = join(ROOT, 'fixtures', 'doc-corpus');
+const CORPUS_DIR = join(ROOT, 'fixtures', 'chatbench-docs');
+
+// Existing valuation-practice files we copy into the chatbench corpus so
+// its questions can reference them alongside the PDF/DOCX additions.
+const COPIED_FILES = [
+  'billing-policy.md',
+  'glossary.md',
+  'retention-schedule.txt',
+  'tools/fee-calculator.ts',
+];
 
 const ENGAGEMENT_LETTER_TEXT = `MERIDIAN VALUATION ENGAGEMENT LETTER
 
@@ -30,10 +43,7 @@ intellectual property portfolio, delivered as a signed valuation report
 addressed to Meridian's board of directors.
 
 Section 3. Fees and Installments
-The fixed fee for the engagement is USD 48,000, payable in twelve equal
-monthly installments in accordance with the Practice's Billing Policy.
-Installments are invoiced monthly in arrears alongside any allowable
-disbursements at cost.
+The fixed fee for the engagement is USD 48,000, payable in twelve equal monthly installments in accordance with the Practice's Billing Policy. Installments are invoiced monthly in arrears alongside any allowable disbursements at cost.
 
 Section 4. Suspension
 The Practice may suspend work under this engagement when an invoice is
@@ -55,11 +65,7 @@ This checklist governs the Practice's internal review of every
 valuation engagement before the signed report is issued to a client.
 
 2. Concurring Partner Review
-Every engagement that yields a Fair Market Value opinion above
-USD 10,000,000 requires review and written concurrence by a partner
-who is not the engagement partner. Concurrence is recorded in the
-engagement workpapers before the report is signed. The threshold is
-reviewed annually by the managing partner.
+Every engagement that yields a Fair Market Value opinion above USD 10,000,000 requires review and written concurrence by a partner who is not the engagement partner. Concurrence is recorded in the engagement workpapers before the report is signed. The threshold is reviewed annually by the managing partner.
 
 3. Independence Attestation
 An independence attestation is refreshed annually for every partner
@@ -99,17 +105,28 @@ async function writeDocx(path, text) {
 
 async function main() {
   await mkdir(CORPUS_DIR, { recursive: true });
+  // Copy the existing MD/TXT/TS documents from the source doc-corpus so
+  // the chatbench corpus is self-contained and questions can reference
+  // any file in a single root.
+  for (const rel of COPIED_FILES) {
+    const src = join(SOURCE_DIR, rel);
+    const dst = join(CORPUS_DIR, rel);
+    await mkdir(dirname(dst), { recursive: true });
+    await copyFile(src, dst);
+    console.log('copied: ' + dst);
+  }
+  // Materialise the PDF and DOCX additions plus their extracted-text
+  // shadows the PASTE arm reads.
   const pdfPath = join(CORPUS_DIR, 'engagement-letter.pdf');
   const docxPath = join(CORPUS_DIR, 'quality-review-checklist.docx');
   await writePdf(pdfPath, ENGAGEMENT_LETTER_TEXT);
   await writeFile(`${pdfPath}.extracted.txt`, ENGAGEMENT_LETTER_TEXT, 'utf8');
   await writeDocx(docxPath, QUALITY_REVIEW_TEXT);
   await writeFile(`${docxPath}.extracted.txt`, QUALITY_REVIEW_TEXT, 'utf8');
-  console.log('wrote:');
-  console.log('  ' + pdfPath);
-  console.log('  ' + pdfPath + '.extracted.txt');
-  console.log('  ' + docxPath);
-  console.log('  ' + docxPath + '.extracted.txt');
+  console.log('wrote: ' + pdfPath);
+  console.log('wrote: ' + pdfPath + '.extracted.txt');
+  console.log('wrote: ' + docxPath);
+  console.log('wrote: ' + docxPath + '.extracted.txt');
 }
 
 main().catch((err) => {

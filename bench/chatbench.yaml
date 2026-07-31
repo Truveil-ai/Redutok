@@ -45,11 +45,14 @@ seed: 20260801
 corpora:
   - id: docs
     label: 'docs corpus (PDF + DOCX + MD + TS mix)'
-    # The existing valuation-practice fixture at fixtures/doc-corpus, extended
-    # by scripts/build-chatbench-fixtures.mjs with engagement-letter.pdf and
-    # quality-review-checklist.docx. Both binaries and their .extracted.txt
-    # shadows (used by the PASTE arm) are committed under this root.
-    root: fixtures/doc-corpus
+    # Self-contained chatbench corpus at fixtures/chatbench-docs. Built by
+    # scripts/build-chatbench-fixtures.mjs: copies of the valuation-practice
+    # docs (billing-policy.md, glossary.md, retention-schedule.txt,
+    # tools/fee-calculator.ts) plus engagement-letter.pdf and
+    # quality-review-checklist.docx with their .extracted.txt shadows.
+    # Isolated from fixtures/doc-corpus so the vault ingest test does not
+    # index chatbench-only files.
+    root: fixtures/chatbench-docs
     # For the PASTE arm we embed the pre-extracted plaintext for each source
     # file so the arm's token count is deterministic and matches what a chat
     # client would produce after attachment extraction. The build script

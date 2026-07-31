@@ -1,14 +1,37 @@
 import type { AnthropicLike, MessagesCreateRequest, MessagesResponse } from './types.js';
 
-/** Programmable mock client. Feed it an ordered list of canned responses;
- * each `messages.create` call pops the next one. `history` records every
- * request the mock received so tests can assert against them. */
 export interface MockAnthropicClient extends AnthropicLike {
   history: MessagesCreateRequest[];
-  push(response: MessagesResponse): void;
   responses: MessagesResponse[];
+  push(response: MessagesResponse): void;
 }
 
-export function newMockClient(_initial?: MessagesResponse[]): MockAnthropicClient {
-  throw new Error('chatbench:newMockClient not implemented');
+/**
+ * Programmable mock. Every `messages.create` call pops the next canned
+ * response and records the request. Throws if the queue is empty — a
+ * missing canned response is a test bug, not a graceful default.
+ */
+export function newMockClient(initial: MessagesResponse[] = []): MockAnthropicClient {
+  const history: MessagesCreateRequest[] = [];
+  const responses = [...initial];
+  const client: MockAnthropicClient = {
+    history,
+    responses,
+    push(r) {
+      responses.push(r);
+    },
+    messages: {
+      async create(req: MessagesCreateRequest): Promise<MessagesResponse> {
+        history.push(req);
+        const r = responses.shift();
+        if (r === undefined) {
+          throw new Error(
+            `chatbench mock: no more canned responses (call #${history.length})`,
+          );
+        }
+        return r;
+      },
+    },
+  };
+  return client;
 }
