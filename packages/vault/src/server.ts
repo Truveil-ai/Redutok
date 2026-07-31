@@ -1,5 +1,5 @@
 import type { Corpus } from './corpus.js';
-import { vaultAsk, vaultReceipt, vaultZoom, type VaultSession } from './tools.js';
+import { vaultAsk, vaultCodex, vaultReceipt, vaultZoom, type VaultSession } from './tools.js';
 
 export { newVaultSession, type VaultSession } from './tools.js';
 
@@ -35,14 +35,35 @@ export const TOOLS = [
   {
     name: 'vault_ask',
     description:
-      'Ask a question about the mounted corpus. Returns a dossier: verdict, file:line evidence, a zoom handle for every elision, and a mandatory accounting block (raw bytes and estimated tokens touched versus served for this ask).',
+      'Ask a question about the mounted corpus. Returns a dossier: verdict, file:line evidence, a zoom handle for every elision, and a mandatory accounting block (raw bytes and estimated tokens touched versus served for this ask). Pass codex_version from the pasted codex footer so a stale block is flagged with a one-line refresh notice.',
     inputSchema: {
       type: 'object',
       properties: {
         question: { type: 'string', description: 'The question to answer from the corpus' },
+        codex_version: {
+          type: 'number',
+          description:
+            'Version number from the pasted vault codex footer (v<N>); triggers a one-line refresh notice when the current emission is newer.',
+        },
         corpus: { type: 'string', description: 'Corpus name when more than one is mounted' },
       },
       required: ['question'],
+    },
+  },
+  {
+    name: 'vault_codex',
+    description:
+      'Emit a compact Markdown block for pasting into claude.ai Project instructions: corpus map, glossary, graduated learned entries, a four-line vault protocol, and a versioned footer with the pinned rate row. Hard token budget with lowest-confidence-first exclusion. json returns the emission structure alongside the rendered text.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        corpus: { type: 'string', description: 'Corpus name when more than one is mounted' },
+        json: { type: 'boolean', description: 'Return the emission struct as JSON' },
+        maxTokens: {
+          type: 'number',
+          description: 'Override the hard token ceiling (defaults to LIMITS.VAULT_CODEX.MAX_TOKENS)',
+        },
+      },
     },
   },
   {
@@ -113,6 +134,7 @@ export async function handleVaultRequest(
       vault_ask: () => vaultAsk(deps.corpora, deps.session, args),
       vault_zoom: () => vaultZoom(deps.corpora, deps.session, args),
       vault_receipt: () => vaultReceipt(deps.corpora, deps.session, args),
+      vault_codex: () => vaultCodex(deps.corpora, deps.session, args),
     };
     const fn = run[params.name ?? ''];
     if (fn === undefined) return fail(-32602, `unknown tool ${String(params.name)}`);

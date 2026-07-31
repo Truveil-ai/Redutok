@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { readAuditFile, type AuditEvent } from '@redutok/shared';
 import { exploreGoal, redact, zoom, type Dossier } from '@redutok/sidecar';
+import { emitCodex, readCodexState, type EmitOptions } from './codex.js';
 import type { Corpus } from './corpus.js';
 import { makeLedgerLine } from './ledger.js';
+import { TOUCHED_SECTIONS_KEY, type TouchedSection } from './miner.js';
 import { rollupLines, type RollupQuery, type RollupScope, type VaultRollup } from './rollup.js';
 
 export { REFERENCE_MODEL } from './rates.js';
@@ -128,6 +130,11 @@ export async function vaultAsk(
   const question = typeof args['question'] === 'string' ? args['question'].trim() : '';
   if (question === '') throw new VaultError('question is required (a non-empty string)');
   const corpus = pickCorpus(corpora, args['corpus']);
+  // Session 4: an explicit codex_version tells us which pasted block the
+  // caller is riding. If it is older than the current emission's version, a
+  // one-line refresh notice is appended to the response body — never more
+  // than one line, never blocking the answer.
+  const clientCodexVersion = readClientCodexVersion(args['codex_version']);
   session.asks += 1;
   const askId = `${session.id}#ask${session.asks}`;
   const dossier = await exploreGoal(corpus.store, corpus.audit, corpus.profiles, corpus.llm, {
@@ -144,6 +151,7 @@ export async function vaultAsk(
   const body = renderDossier(dossier);
   const askEvents = readAuditFile(corpus.auditPath).events.filter((e) => e.sessionId === askId);
   const accounting = askAccounting(askEvents, askId, body);
+  const touchedSections = touchedSectionsFromDossier(dossier);
   // The vault event carries the byte totals in details only: the per-step
   // distill events already account these bytes, and a second bytesIn would
   // double-count them in every rollup.
@@ -158,9 +166,13 @@ export async function vaultAsk(
     details: {
       askId,
       corpus: corpus.name,
+      question,
       rawBytes: accounting.rawBytes,
       servedBytes: accounting.servedBytes,
       evidence: dossier.evidence.length,
+      // The touched-sections signature is what the vault miner keys on to
+      // detect recurring neighborhoods (Session 4 conversational graduation).
+      [TOUCHED_SECTIONS_KEY]: touchedSections,
       incomplete: dossier.incomplete ?? null,
     },
   });
@@ -201,7 +213,78 @@ export async function vaultAsk(
       auditIds: [askEventId],
     }),
   );
-  return redact(`${body}\n\n${renderAccountingBlock(accounting)}`).text;
+  const stale = staleCodexNotice(corpus, clientCodexVersion);
+  const full = stale === undefined
+    ? `${body}\n\n${renderAccountingBlock(accounting)}`
+    : `${body}\n\n${renderAccountingBlock(accounting)}\n${stale}`;
+  return redact(full).text;
+}
+
+/** Coerces the codex_version arg to a number; empty/absent means "no claim". */
+function readClientCodexVersion(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** The one-line refresh notice, or undefined when the claim is current. */
+function staleCodexNotice(corpus: Corpus, clientVersion: number | undefined): string | undefined {
+  if (clientVersion === undefined) return undefined;
+  const state = readCodexState(corpus.dcpDir);
+  if (state === undefined || state.version <= clientVersion) return undefined;
+  return `[vault codex refresh: pasted block is v${clientVersion}; current v${state.version} — re-emit with \`redutok-vault codex --corpus ${corpus.name}\` and repaste.]`;
+}
+
+/**
+ * Pull touched (document, section) tuples from the dossier evidence. Explore
+ * writes section anchors into `evidence.why` as "§section-id ..." for every
+ * document hit; the vault miner keys on this signature.
+ */
+function touchedSectionsFromDossier(dossier: Dossier): TouchedSection[] {
+  const out: TouchedSection[] = [];
+  for (const e of dossier.evidence) {
+    const match = /§([\w./:-]+)/.exec(e.why);
+    if (match === null || match[1] === undefined) continue;
+    out.push({ document: e.file, section: match[1] });
+  }
+  // Dedup while preserving first-seen order (some evidence rows share sections).
+  const seen = new Set<string>();
+  return out.filter((t) => {
+    const k = `${t.document}#${t.section}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+export function vaultCodex(
+  corpora: Map<string, Corpus>,
+  session: VaultSession,
+  args: Record<string, unknown>,
+): string {
+  const corpus = pickCorpus(corpora, args['corpus']);
+  const options: EmitOptions = {};
+  if (typeof args['maxTokens'] === 'number') options.maxTokens = args['maxTokens'];
+  const emission = emitCodex(corpus, options);
+  writeVaultEvent(corpus, {
+    id: `vault-codex-${randomUUID()}`,
+    timestamp: new Date().toISOString(),
+    sessionId: session.id,
+    module: 'vault.codex',
+    action: 'summarize',
+    reason: `codex emission v${emission.version} on corpus ${corpus.name}: ${emission.includedGraduated.length} graduated included, ${emission.excludedGraduated.length} excluded`,
+    details: {
+      corpus: corpus.name,
+      version: emission.version,
+      textHash: emission.textHash,
+      includedGraduated: emission.includedGraduated,
+      excludedGraduated: emission.excludedGraduated,
+    },
+  });
+  if (args['json'] === true) {
+    return JSON.stringify(emission, null, 2);
+  }
+  return emission.text;
 }
 
 /** Corpus-relative path behind an artifact, from its stored meta or the

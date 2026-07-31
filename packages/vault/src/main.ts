@@ -3,9 +3,11 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { pathToFileURL } from 'node:url';
 import { resolveSecret } from './auth.js';
+import { emitCodex } from './codex.js';
 import { mountCorpus, type Corpus } from './corpus.js';
 import { startVaultServer } from './http.js';
 import { runIngest } from './ingest.js';
+import { mineVault } from './miner.js';
 import { handleVaultRequest, type JsonRpcRequest, type JsonRpcResponse } from './server.js';
 import { statementFromDcp } from './statement.js';
 import { newVaultSession, resumeAskCounter, type VaultSession } from './tools.js';
@@ -163,9 +165,93 @@ export function parseStatementArgs(argv: string[]): StatementArgs {
   return args;
 }
 
+export interface CodexCliArgs {
+  target: string;
+  corpus?: string;
+  maxTokens?: number;
+  json: boolean;
+}
+
+export function parseCodexArgs(argv: string[]): CodexCliArgs {
+  let target: string | undefined;
+  let corpus: string | undefined;
+  let maxTokens: number | undefined;
+  let json = false;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '--corpus') {
+      corpus = argv[i + 1];
+      i += 1;
+    } else if (arg === '--max-tokens') {
+      maxTokens = Number(argv[i + 1]);
+      i += 1;
+      if (!Number.isFinite(maxTokens) || maxTokens <= 0) {
+        throw new Error(`invalid --max-tokens "${String(argv[i])}" (positive integer)`);
+      }
+    } else if (arg === '--json') {
+      json = true;
+    } else if (target === undefined && arg !== undefined && !arg.startsWith('--')) {
+      target = arg;
+    } else {
+      throw new Error(
+        `unknown argument ${String(arg)} (usage: redutok-vault codex <path> [--corpus <name>] [--max-tokens N] [--json])`,
+      );
+    }
+  }
+  if (target === undefined) {
+    throw new Error('usage: redutok-vault codex <path> [--corpus <name>] [--max-tokens N] [--json]');
+  }
+  const out: CodexCliArgs = { target, json };
+  if (corpus !== undefined) out.corpus = corpus;
+  if (maxTokens !== undefined) out.maxTokens = maxTokens;
+  return out;
+}
+
+async function runCodexCommand(argv: string[]): Promise<void> {
+  const args = parseCodexArgs(argv);
+  const corpus = mountCorpus(args.target, args.corpus === undefined ? {} : { name: args.corpus });
+  const emitOpts: Parameters<typeof emitCodex>[1] = {};
+  if (args.maxTokens !== undefined) emitOpts.maxTokens = args.maxTokens;
+  const emission = emitCodex(corpus, emitOpts);
+  console.log(args.json ? JSON.stringify(emission, null, 2) : emission.text);
+}
+
+async function runMineCommand(argv: string[]): Promise<void> {
+  let target: string | undefined;
+  let corpus: string | undefined;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '--corpus') {
+      corpus = argv[i + 1];
+      i += 1;
+    } else if (target === undefined && arg !== undefined && !arg.startsWith('--')) {
+      target = arg;
+    } else {
+      throw new Error(`unknown argument ${String(arg)} (usage: redutok-vault mine <path> [--corpus <name>])`);
+    }
+  }
+  if (target === undefined) throw new Error('usage: redutok-vault mine <path> [--corpus <name>]');
+  const mounted = mountCorpus(target, corpus === undefined ? {} : { name: corpus });
+  const result = mineVault(mounted, { sync: true });
+  console.log(
+    `mined ${mounted.name}: ${result.graduated.length} graduated (${result.newlyGraduated.length} newly), ${result.candidates.length} candidate(s)`,
+  );
+  for (const g of result.graduated) {
+    console.log(`  ${g.kind.padEnd(18)} ${g.candidate}: ${g.oneLiner} (confidence ${g.confidence.toFixed(2)})`);
+  }
+}
+
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   if (argv[0] === 'ingest') {
     await runIngestCommand(argv.slice(1));
+    return;
+  }
+  if (argv[0] === 'codex') {
+    await runCodexCommand(argv.slice(1));
+    return;
+  }
+  if (argv[0] === 'mine') {
+    await runMineCommand(argv.slice(1));
     return;
   }
   if (argv[0] === 'statement') {
