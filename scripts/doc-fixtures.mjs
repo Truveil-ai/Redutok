@@ -206,6 +206,64 @@ export function makeDocx({ title, sections }) {
   ]);
 }
 
+/**
+ * A USPTO 101-shaped PDF fixture: a "Part One" divider, three "Example N"
+ * headings each followed by a body paragraph and two "Claim N" sub-headings,
+ * and one lettered outline section. The heading text is the entire line so
+ * detectHeadings sees the same shape the real 109-page examples PDF produces.
+ * Small on purpose (2 pages) — enough to exercise every new pattern.
+ */
+export function makeUsptoExamplesPdf() {
+  return makePdf({
+    title: 'Subject Matter Eligibility Examples',
+    pageBreaks: [3],
+    sections: [
+      {
+        heading: 'Part One',
+        paragraphs: [
+          'The following examples illustrate the two-step framework for analyzing subject matter eligibility under 35 U.S.C. 101.',
+        ],
+      },
+      {
+        heading: 'Example 1: Isolated DNA',
+        paragraphs: [
+          'The claimed invention is an isolated DNA molecule extracted from a naturally occurring sequence.',
+        ],
+      },
+      {
+        heading: 'Claim 1',
+        paragraphs: [
+          'An isolated DNA molecule comprising the nucleotide sequence of SEQ ID NO:1.',
+        ],
+      },
+      {
+        heading: 'Claim 2',
+        paragraphs: [
+          'The isolated DNA of claim 1 wherein the sequence is at least 95% identical to SEQ ID NO:1.',
+        ],
+      },
+      {
+        heading: 'Example 2: Diagnostic Method',
+        paragraphs: [
+          'The claim recites a method of diagnosing a disorder by detecting a naturally occurring correlation.',
+        ],
+      },
+      {
+        heading: 'A. Preliminary Considerations',
+        paragraphs: [
+          'The outline in this appendix uses lettered sections that a heading detector should recognize.',
+        ],
+      },
+      {
+        heading: 'Analysis of Prior Art',
+        paragraphs: [
+          'A title-case standalone heading with no numbering; separates the analysis discussion from the examples.',
+        ],
+      },
+    ],
+  });
+}
+
 /** The doc-corpus binary fixtures, written into dir. */
 export function writeDocFixtures(dir) {
   mkdirSync(dir, { recursive: true });

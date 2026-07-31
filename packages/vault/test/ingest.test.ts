@@ -4,10 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readAuditFile } from '@redutok/shared';
-import { openStore, readDocumentIndex } from '@redutok/sidecar';
+import { DETECTOR_VERSION, openStore, readDocumentIndex } from '@redutok/sidecar';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore plain-mjs fixture generator, no type declarations
-import { writeDocFixtures } from '../../../scripts/doc-fixtures.mjs';
+import { makeUsptoExamplesPdf, writeDocFixtures } from '../../../scripts/doc-fixtures.mjs';
 import { runIngest } from '../src/ingest.js';
 import { monorepoRoot } from './helpers.js';
 
@@ -137,5 +137,108 @@ describe('vault ingest', () => {
     );
     expect(billing?.sections.some((s) => s.title === 'Retainers')).toBe(true);
     expect(third?.documents.some((d) => d.path === 'glossary.md')).toBe(false);
+  });
+});
+
+describe('vault ingest heading-detection upgrade', () => {
+  // Field finding from a 109-page USPTO PDF: default detection produced
+  // generic offset blocks instead of "Example N" / "Claim N" headings. The
+  // upgrade path must re-map an unchanged file whose detectorVersion is stale,
+  // and must respect a per-document heading override in .dcp/config.json —
+  // both without disturbing sibling docs or the ledger sitting alongside.
+  let upgradeRoot: string;
+
+  beforeAll(() => {
+    upgradeRoot = mkdtempSync(path.join(os.tmpdir(), 'vault-ingest-upgrade-'));
+    cpSync(docCorpus, upgradeRoot, { recursive: true });
+    writeDocFixtures(upgradeRoot);
+    writeFileSync(path.join(upgradeRoot, 'uspto.pdf'), makeUsptoExamplesPdf());
+  });
+
+  afterAll(() => {
+    rmSync(upgradeRoot, { recursive: true, force: true, maxRetries: 5 });
+  });
+
+  it('stamps DETECTOR_VERSION on every entry and re-maps stale entries', async () => {
+    await runIngest(upgradeRoot, { corpus: 'uspto' });
+    const dcp = path.join(upgradeRoot, '.dcp');
+    const first = readDocumentIndex(dcp);
+    const uspto = first?.documents.find((d) => d.path === 'uspto.pdf');
+    expect(uspto?.detectorVersion, 'fresh entry carries detectorVersion').toBe(DETECTOR_VERSION);
+    expect(uspto?.sections.some((s) => s.id === 'example-1')).toBe(true);
+
+    // Simulate a corpus ingested by an older detector: bytes unchanged, but
+    // structure map is out of date. Rewriting documents.json with a stale
+    // detectorVersion is enough — the ingester should notice on next run.
+    if (first === undefined || uspto === undefined) throw new Error('index missing');
+    const staleEntry = {
+      ...uspto,
+      detectorVersion: 1,
+      sections: [
+        {
+          id: 's1',
+          title: '(preamble)',
+          level: 1,
+          startLine: 1,
+          endLine: 999,
+          summary: 'stale block',
+        },
+      ],
+    };
+    const stale = {
+      ...first,
+      documents: first.documents.map((d) => (d.path === 'uspto.pdf' ? staleEntry : d)),
+    };
+    writeFileSync(path.join(dcp, 'documents.json'), `${JSON.stringify(stale, null, 2)}\n`, 'utf8');
+
+    // A ledger sitting alongside must not be touched by re-ingest — verify by
+    // planting a marker file and asserting its bytes are byte-equal after.
+    const ledgerMarker = path.join(dcp, 'ledger.db');
+    writeFileSync(ledgerMarker, 'LEDGER-BYTES-DO-NOT-TOUCH', 'utf8');
+
+    const summary = await runIngest(upgradeRoot, { corpus: 'uspto' });
+    const rerun = summary.files.find((f) => f.path === 'uspto.pdf');
+    expect(rerun?.status, 'stale detectorVersion forces re-extract').toBe('document');
+    const after = readDocumentIndex(dcp);
+    const upgraded = after?.documents.find((d) => d.path === 'uspto.pdf');
+    expect(upgraded?.detectorVersion).toBe(DETECTOR_VERSION);
+    expect(upgraded?.sections.some((s) => s.id === 'example-1')).toBe(true);
+    expect(upgraded?.sections.some((s) => s.title === '(preamble)')).toBe(false);
+    expect(readFileSync(ledgerMarker, 'utf8')).toBe('LEDGER-BYTES-DO-NOT-TOUCH');
+  });
+
+  it('honors per-document headingPatterns from .dcp/config.json', async () => {
+    const dcp = path.join(upgradeRoot, '.dcp');
+    // Add a text file with a bespoke heading pattern and configure an override.
+    const bespokePath = 'notes-bespoke.txt';
+    writeFileSync(
+      path.join(upgradeRoot, bespokePath),
+      [
+        'Preamble.',
+        '',
+        'USPTO-2019-EX-01',
+        'Body of the first custom example.',
+        '',
+        'USPTO-2019-EX-02',
+        'Body of the second custom example.',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    // Extend the corpus config with a per-document override.
+    const configPath = path.join(dcp, 'config.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8')) as Record<string, unknown>;
+    config['documents'] = {
+      [bespokePath]: { headingPatterns: ['^USPTO-\\d{4}-EX-\\d+$'] },
+    };
+    writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+
+    await runIngest(upgradeRoot, { corpus: 'uspto' });
+    const after = readDocumentIndex(dcp);
+    const bespoke = after?.documents.find((d) => d.path === bespokePath);
+    const customs = bespoke?.sections.filter((s) => /^USPTO-\d{4}-EX-\d+$/.test(s.title)) ?? [];
+    expect(customs.length, 'per-doc override detects bespoke headings').toBe(2);
+    expect(customs[0]?.id).toBe('uspto-2019-ex-01');
   });
 });

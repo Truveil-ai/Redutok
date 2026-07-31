@@ -327,20 +327,77 @@ export function extractDocument(absPath: string): DocExtraction {
 
 // --- Structure maps ---
 
-const NUMBERED_HEADING = /^(\d+(?:\.\d+)*)[.)]\s+(\S.*)$/;
-const ALL_CAPS_HEADING = /^[A-Z][A-Z0-9 ,&'()/-]{2,89}$/;
+/**
+ * Bumped whenever detectHeadings' pattern set or slug rule changes in a way
+ * that could produce different sections for the same input bytes. runIngest
+ * stamps this on every fresh DocumentIndexEntry, and re-ingest treats a stale
+ * value as an invalidation trigger even when the source hash is unchanged —
+ * so old corpora upgrade to the new structure without a manual --force flag
+ * and without losing the ledger (which lives beside documents.json, not
+ * inside it).
+ */
+export const DETECTOR_VERSION = 2;
 
-function detectHeadings(lines: string[], kind: DocKind): DocHeading[] {
+const NUMBERED_HEADING = /^(\d+(?:\.\d+)*)[.)]\s+(\S.*)$/;
+/**
+ * The USPTO 101 examples PDF is the canonical case: "Example 1", "Claim 3",
+ * "Part One" as their own lines, sometimes with a colon subtitle. Anchored
+ * ^...$ against the trimmed line so a body sentence like "See Example 1 for
+ * details" cannot slip past — the whole trimmed line must be just the label
+ * (with optional short subtitle).
+ */
+const NAMED_ITEM_HEADING =
+  /^(Example|Claim|Part|Section|Chapter|Appendix|Figure|Table|Exhibit|Case|Note)\s+([0-9]+|[IVXLCDM]+|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve)(?:\s*[:.\-—]\s*(.+))?$/i;
+const LETTERED_HEADING = /^\(?([A-Z])[.)]\s+(\S.*)$/;
+const ALL_CAPS_HEADING = /^[A-Z][A-Z0-9 ,&'()/-]{2,89}$/;
+/**
+ * A short standalone Title Case line (2–8 words, no trailing punctuation) is
+ * treated as a heading. Small connective words are allowed between capitalised
+ * ones so "Analysis of Prior Art" and "Notice to the Reader" match; the strict
+ * character class rejects body sentences that end in "." or "," or contain
+ * lowercase-initial content words outside the connector list.
+ */
+const TITLE_CASE_HEADING =
+  /^[A-Z][a-z0-9-]+(?:\s+(?:[A-Z][a-z0-9-]+|of|the|and|for|to|in|a|an|on|at|by|with|from|or|as|but|vs)){1,7}$/;
+
+export interface StructureMapOptions {
+  /**
+   * Per-document heading patterns supplied by the corpus config, tried before
+   * the built-in detectors so a corpus owner can teach the ingester bespoke
+   * shapes without patching the code. A match on the trimmed line makes the
+   * whole line a level-1 heading.
+   */
+  extraHeadingPatterns?: RegExp[];
+}
+
+function detectHeadings(
+  lines: string[],
+  kind: DocKind,
+  options: StructureMapOptions = {},
+): DocHeading[] {
   const headings: DocHeading[] = [];
+  const extras = options.extraHeadingPatterns ?? [];
   lines.forEach((line, i) => {
     const trimmed = line.trim();
+    if (trimmed === '') return;
     if (kind === 'markdown') {
       const md = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(trimmed);
       if (md !== null) headings.push({ line: i + 1, level: (md[1] as string).length, title: md[2] as string });
       return;
     }
+    // Heading heuristic length guard: a heading is a short standalone line,
+    // not a body sentence that happens to start with a matching prefix.
+    if (trimmed.length > 100) return;
+
+    for (const extra of extras) {
+      if (extra.test(trimmed)) {
+        headings.push({ line: i + 1, level: 1, title: trimmed });
+        return;
+      }
+    }
+
     const numbered = NUMBERED_HEADING.exec(trimmed);
-    if (numbered !== null && trimmed.length <= 90 && !trimmed.endsWith('.')) {
+    if (numbered !== null && !trimmed.endsWith('.')) {
       headings.push({
         line: i + 1,
         level: (numbered[1] as string).split('.').length,
@@ -348,12 +405,36 @@ function detectHeadings(lines: string[], kind: DocKind): DocHeading[] {
       });
       return;
     }
+    if (NAMED_ITEM_HEADING.test(trimmed)) {
+      headings.push({ line: i + 1, level: 2, title: trimmed });
+      return;
+    }
+    const lettered = LETTERED_HEADING.exec(trimmed);
+    if (lettered !== null && !trimmed.endsWith('.')) {
+      headings.push({ line: i + 1, level: 3, title: trimmed });
+      return;
+    }
     if (ALL_CAPS_HEADING.test(trimmed) && !/[a-z]/.test(trimmed)) {
       headings.push({ line: i + 1, level: 1, title: trimmed });
+      return;
+    }
+    if (TITLE_CASE_HEADING.test(trimmed)) {
+      headings.push({ line: i + 1, level: 2, title: trimmed });
     }
   });
   return headings;
 }
+
+const slugify = (s: string): string =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const isExtraHeading = (line: string, extras: RegExp[] | undefined): boolean => {
+  if (extras === undefined || extras.length === 0) return false;
+  return extras.some((p) => p.test(line));
+};
 
 function firstSentence(text: string): string {
   const collapsed = text.replace(/\s+/g, ' ').trim();
@@ -374,13 +455,14 @@ function pageOf(pages: DocPage[] | undefined, line: number): number | undefined 
 export async function buildStructureMap(
   extraction: DocExtraction,
   llm: LlmPass,
+  options: StructureMapOptions = {},
 ): Promise<DocSection[]> {
   if (extraction.outOfScope !== undefined || extraction.text.trim() === '') return [];
   const lines = extraction.text.split(/\r?\n/);
   const headings =
     extraction.headings !== undefined && extraction.headings.length > 0
       ? extraction.headings
-      : detectHeadings(lines, extraction.kind);
+      : detectHeadings(lines, extraction.kind, options);
 
   interface Bound {
     heading?: DocHeading;
@@ -401,6 +483,15 @@ export async function buildStructureMap(
   });
 
   const sections: DocSection[] = [];
+  // Semantic ids collide occasionally (two "Example 1"s in different parts,
+  // an outline that repeats "A."); suffix the second and later with -2, -3
+  // so citations stay unambiguous without silently dropping a section.
+  const seenIds = new Map<string, number>();
+  const uniqueId = (id: string): string => {
+    const n = (seenIds.get(id) ?? 0) + 1;
+    seenIds.set(id, n);
+    return n === 1 ? id : `${id}-${n}`;
+  };
   for (const bound of bounds) {
     let end = bound.endLine;
     while (end > bound.startLine && (lines[end - 1] ?? '').trim() === '') end -= 1;
@@ -408,10 +499,43 @@ export async function buildStructureMap(
     const body = lines.slice(bodyStart - 1, end).join('\n');
     const headingTitle = bound.heading?.title ?? '';
     const numbered = NUMBERED_HEADING.exec(headingTitle);
+    const named = NAMED_ITEM_HEADING.exec(headingTitle);
+    const lettered = LETTERED_HEADING.exec(headingTitle);
+
+    // Title rule: NUMBERED and LETTERED strip their prefix so the id carries
+    // the enumeration and the title carries the semantic name. NAMED_ITEM,
+    // ALL_CAPS, and TITLE_CASE keep the full line as the title because the
+    // label ("Example 1") is itself the reader's citation, not a prefix.
     const title =
       bound.heading === undefined
         ? (lines.slice(bound.startLine - 1, end).find((l) => l.trim() !== '') ?? '(preamble)').trim().slice(0, 80)
-        : ((numbered?.[2] as string | undefined) ?? headingTitle).trim();
+        : numbered !== null
+          ? (numbered[2] as string).trim()
+          : lettered !== null && named === null
+            ? (lettered[2] as string).trim()
+            : headingTitle.trim();
+
+    let baseId: string;
+    if (bound.heading === undefined) {
+      baseId = `s${sections.length + 1}`;
+    } else if (numbered !== null) {
+      baseId = numbered[1] as string;
+    } else if (named !== null) {
+      baseId = `${(named[1] as string).toLowerCase()}-${(named[2] as string).toLowerCase()}`;
+    } else if (lettered !== null) {
+      baseId = (lettered[1] as string).toLowerCase();
+    } else if (isExtraHeading(headingTitle, options.extraHeadingPatterns)) {
+      // A per-doc override matched: slug the whole heading so the citation id
+      // is legible ("uspto-2019-ex-01") rather than a positional s<N>.
+      const slug = slugify(headingTitle);
+      baseId = slug === '' ? `s${sections.length + 1}` : slug.slice(0, 60);
+    } else {
+      // ALL_CAPS and TITLE_CASE: legible titles already, but no natural
+      // enumeration — keep positional s<N> ids so callers who key on them
+      // (existing corpora, tests) stay stable across the detector upgrade.
+      baseId = `s${sections.length + 1}`;
+    }
+
     const llmSummary = await llm.summarize({
       text: body.slice(0, 4000),
       prompt: 'Summarize this document section in one short sentence.',
@@ -419,7 +543,7 @@ export async function buildStructureMap(
     });
     const summary = (llmSummary ?? '').split('\n')[0]?.trim() || firstSentence(body) || title;
     const section: DocSection = {
-      id: numbered?.[1] ?? `s${sections.length + 1}`,
+      id: uniqueId(baseId),
       title,
       level: bound.heading?.level ?? 1,
       startLine: bound.startLine,
@@ -461,6 +585,9 @@ export interface DocumentIndexEntry {
   outOfScope?: string;
   pages?: DocPage[];
   sections: DocSection[];
+  /** The DETECTOR_VERSION under which sections were built. A stale value on
+   * re-ingest triggers a full re-extract even when the source hash matches. */
+  detectorVersion?: number;
 }
 
 export interface DocumentIndex {

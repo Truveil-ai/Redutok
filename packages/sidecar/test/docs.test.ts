@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore plain-mjs fixture generator, no type declarations
-import { writeDocFixtures } from '../../../scripts/doc-fixtures.mjs';
+import { makeUsptoExamplesPdf, writeDocFixtures } from '../../../scripts/doc-fixtures.mjs';
 import { AuditWriter } from '../src/audit.js';
 import {
   buildStructureMap,
@@ -19,6 +19,7 @@ import {
   type DocumentIndex,
   type DocumentIndexEntry,
 } from '../src/docs.js';
+import { writeFileSync } from 'node:fs';
 import { NoopLlmPass } from '../src/llm.js';
 import { storeRedactedArtifact } from '../src/redact.js';
 import { openStore } from '../src/store.js';
@@ -129,6 +130,77 @@ describe('pdf extraction and structure', () => {
     const extraction = extractDocument(path.join(binDir, 'scanned-notes.pdf'));
     expect(extraction.outOfScope).toMatch(/no extractable text|scanned/i);
     expect(extraction.outOfScope).not.toBe('');
+  });
+});
+
+describe('extended pdf heading detection', () => {
+  // The 109-page USPTO 101 examples PDF surfaced this: default heading
+  // detection only knows "1. ", "1.2 ", and ALL-CAPS lines, so headings like
+  // "Example 1", "Claim 1", "Part One", lettered outlines, and Title Case
+  // banners silently collapsed into one generic preamble with an s1 id and
+  // char offsets. This suite locks the new pattern set against a small
+  // deterministic PDF that reproduces the same shapes.
+  const dir = (): string => {
+    const d = mkdtempSync(path.join(os.tmpdir(), 'uspto-fixture-'));
+    indexDirs.push(d);
+    writeFileSync(path.join(d, 'uspto.pdf'), makeUsptoExamplesPdf());
+    return d;
+  };
+
+  it('detects Example/Claim/Part/lettered/title-case headings with semantic ids', async () => {
+    const extraction = extractDocument(path.join(dir(), 'uspto.pdf'));
+    expect(extraction.kind).toBe('pdf');
+    const sections = await buildStructureMap(extraction, noop);
+    const ids = sections.map((s) => s.id);
+    expect(ids).toContain('part-one');
+    expect(ids).toContain('example-1');
+    expect(ids).toContain('example-2');
+    expect(ids).toContain('claim-1');
+    expect(ids).toContain('claim-2');
+    expect(ids).toContain('a');
+    const analysis = sections.find((s) => s.title === 'Analysis of Prior Art');
+    expect(analysis, 'title-case standalone heading detected').toBeDefined();
+  });
+
+  it('keeps the full heading line as the section title, not just the label', async () => {
+    const extraction = extractDocument(path.join(dir(), 'uspto.pdf'));
+    const sections = await buildStructureMap(extraction, noop);
+    const ex1 = sections.find((s) => s.id === 'example-1');
+    expect(ex1?.title).toBe('Example 1: Isolated DNA');
+    const letteredA = sections.find((s) => s.id === 'a');
+    expect(letteredA?.title).toBe('Preliminary Considerations');
+  });
+
+  it('binds sections to their page anchor so citations read as p.N', async () => {
+    const extraction = extractDocument(path.join(dir(), 'uspto.pdf'));
+    const sections = await buildStructureMap(extraction, noop);
+    const ex1 = sections.find((s) => s.id === 'example-1');
+    expect(ex1?.page).toBe(1);
+    // The Example 2 heading sits after the pageBreak in the fixture.
+    const ex2 = sections.find((s) => s.id === 'example-2');
+    expect(ex2?.page).toBe(2);
+  });
+
+  it('honors per-document extraHeadingPatterns for corpus-specific formats', async () => {
+    // A bespoke pattern the built-in detectors do not know: an override lets
+    // the corpus owner teach the ingester without patching the detector.
+    const text = [
+      'Preamble line.',
+      '',
+      'USPTO-2019-EX-01',
+      'Body of the first custom example.',
+      '',
+      'USPTO-2019-EX-02',
+      'Body of the second custom example.',
+      '',
+    ].join('\n');
+    const extraction = { kind: 'text' as const, method: 'utf8-text', text };
+    const sections = await buildStructureMap(extraction, noop, {
+      extraHeadingPatterns: [/^USPTO-\d{4}-EX-\d+$/],
+    });
+    const custom = sections.filter((s) => /^USPTO-\d{4}-EX-\d+$/.test(s.title));
+    expect(custom.length).toBe(2);
+    expect(custom[0]?.id).toBe('uspto-2019-ex-01');
   });
 });
 
