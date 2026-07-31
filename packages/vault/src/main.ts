@@ -7,6 +7,7 @@ import { mountCorpus, type Corpus } from './corpus.js';
 import { startVaultServer } from './http.js';
 import { runIngest } from './ingest.js';
 import { handleVaultRequest, type JsonRpcRequest, type JsonRpcResponse } from './server.js';
+import { statementFromDcp } from './statement.js';
 import { newVaultSession, type VaultSession } from './tools.js';
 
 /**
@@ -116,9 +117,61 @@ async function runIngestCommand(argv: string[]): Promise<void> {
   );
 }
 
+export interface StatementArgs {
+  target: string;
+  corpus?: string;
+  month: string;
+  json: boolean;
+}
+
+export function parseStatementArgs(argv: string[]): StatementArgs {
+  let target: string | undefined;
+  let corpus: string | undefined;
+  let month: string | undefined;
+  let json = false;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '--corpus') {
+      corpus = argv[i + 1];
+      i += 1;
+    } else if (arg === '--month') {
+      month = argv[i + 1];
+      i += 1;
+      if (month === undefined || !/^\d{4}-\d{2}$/.test(month)) {
+        throw new Error(`invalid --month "${String(month)}" (YYYY-MM)`);
+      }
+    } else if (arg === '--json') {
+      json = true;
+    } else if (target === undefined && arg !== undefined && !arg.startsWith('--')) {
+      target = arg;
+    } else {
+      throw new Error(
+        `unknown argument ${String(arg)} (usage: redutok-vault statement <path> [--corpus <name>] [--month YYYY-MM] [--json])`,
+      );
+    }
+  }
+  if (target === undefined) {
+    throw new Error('usage: redutok-vault statement <path> [--corpus <name>] [--month YYYY-MM] [--json]');
+  }
+  const args: StatementArgs = {
+    target,
+    month: month ?? new Date().toISOString().slice(0, 7),
+    json,
+  };
+  if (corpus !== undefined) args.corpus = corpus;
+  return args;
+}
+
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   if (argv[0] === 'ingest') {
     await runIngestCommand(argv.slice(1));
+    return;
+  }
+  if (argv[0] === 'statement') {
+    const args = parseStatementArgs(argv.slice(1));
+    const opts: Parameters<typeof statementFromDcp>[1] = { month: args.month, json: args.json };
+    if (args.corpus !== undefined) opts.corpus = args.corpus;
+    console.log(statementFromDcp(args.target, opts));
     return;
   }
   const options = parseArgs(argv);
