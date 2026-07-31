@@ -1,0 +1,144 @@
+# Redutok chatbench — pre-registered criteria (Session 5)
+#
+# House law: this file is frozen at commit time. Any change after the first
+# live run invalidates the run and requires a new pre-registration under a
+# new registrationId. The harness (scripts/chatbench.mjs) refuses to record
+# a live result whose config hash does not match the hash pinned below.
+#
+# What this measures. The chatbench pits Redutok's vault against the way
+# people actually use chat clients on a corpus: paste the documents, then
+# ask questions across a multi-turn conversation. Two arms:
+#   PASTE — the corpus text is included in the first user message the way a
+#           chat user attaches files, then the same question set is asked
+#           across a multi-turn conversation. No vault tools.
+#   VAULT — the Project simulation: the system prompt carries the emitted
+#           vault_codex block plus the Redutok Skill text; the model reaches
+#           the corpus through a local in-process tool loop that proxies
+#           vault_ask and vault_zoom against the real vault server.
+# Same model, same questions, same order, N replications per (arm, corpus).
+
+version: 1
+registrationId: chatbench-v1-2026-08-01
+kind: chatbench
+model: claude-sonnet-5
+# The Anthropic client is the one component with sanctioned outbound
+# network. API key from ANTHROPIC_API_KEY at runtime, never stored.
+apiKeyEnv: ANTHROPIC_API_KEY
+
+# N replications per (arm, corpus). Each replication runs the full question
+# set as one continuous conversation, so follow-up questions test the
+# economics of continuation.
+replications: 3
+
+# Sampling parameters (fixed across arms).
+maxTokensPerTurn: 2048
+temperature: 0
+seed: 20260801
+
+corpora:
+  - id: docs
+    label: 'docs corpus (PDF + DOCX + MD + TS mix)'
+    # The existing valuation-practice fixture at fixtures/doc-corpus, extended
+    # by scripts/build-chatbench-fixtures.mjs with engagement-letter.pdf and
+    # quality-review-checklist.docx. Both binaries and their .extracted.txt
+    # shadows (used by the PASTE arm) are committed under this root.
+    root: fixtures/doc-corpus
+    # For the PASTE arm we embed the pre-extracted plaintext for each source
+    # file so the arm's token count is deterministic and matches what a chat
+    # client would produce after attachment extraction. The build script
+    # scripts/build-chatbench-fixtures.mjs materialises the .extracted.txt
+    # shadow files from the binary originals; both are committed.
+    pasteExtractedSuffix: .extracted.txt
+    questions: bench/chatbench/docs.yaml
+    # Chatbench-specific reduction floor for this corpus. See headline below.
+    minInputReductionMedianX: 10
+  - id: code
+    label: 'code corpus (axios)'
+    root: fixtures/repos/axios
+    pasteExtractedSuffix: ''
+    questions: bench/chatbench/code.yaml
+    minInputReductionMedianX: 5
+
+# Grader — same rubric applied to both arms per question. Substance checks
+# come from the question yaml; parity is judged from the score, not from
+# argmax between arms.
+grader:
+  # A per-question score in [0, 1]. answer-contains needles each contribute
+  # equally; the score is fraction of needles matched (case-insensitive).
+  kind: needle-fraction
+  # An arm's answer is "at parity" with the reference if its score is at
+  # least this floor. The headline reduction claim is conditioned on parity.
+  parityFloor: 0.75
+
+# Headline metric (pre-registered). Both must hold on the docs corpus and
+# both must hold on the code corpus at the corpus's minInputReductionMedianX.
+headline:
+  # Median across a corpus's question set of PASTE-input-tokens divided by
+  # VAULT-input-tokens, evaluated per-question with the median taken over
+  # replications first. Input tokens come from the Anthropic API usage
+  # field (ground truth), not our own tokenizer.
+  medianInputTokenReduction:
+    docs:
+      minX: 10
+    code:
+      minX: 5
+  # Both arms must clear the grader parityFloor on at least this fraction
+  # of the question set. If VAULT drops below parity, the reduction claim
+  # is void for that corpus.
+  minParityRate: 0.85
+  # Total conversation cost reduction, computed from usage totals per arm
+  # summed over the whole question-set conversation, then medianed over
+  # replications.
+  minTotalCostReductionX:
+    docs: 5
+    code: 3
+
+# Reconciliation band. The vault receipt's avoidedTokens claim for a VAULT
+# conversation is reconciled against the measured (PASTE input tokens minus
+# VAULT input tokens) for the same question set. Symmetric relative error:
+#   |receipt.avoidedTokens - (paste.input - vault.input)| / max(...)
+# must be within this band. Wider than a bit-exact match because our
+# tokens-from-bytes model (bytes/4) and the platform tokenizer disagree by
+# a few percent per document, and because the VAULT arm sends the codex
+# block + skill in every request which is not accounted as "avoided" by
+# the receipt (it is served, not avoided).
+receiptReconciliation:
+  maxRelativeError: 0.25
+  # The VAULT arm also carries the codex block in the system prompt on
+  # every turn. That is measured directly and subtracted before comparing
+  # to the receipt (the receipt does not know about it).
+  subtractCodexInSystem: true
+
+# Definition of Done. All must be true to publish MET.
+dod:
+  - headline.medianInputTokenReduction.docs.minX satisfied
+  - headline.medianInputTokenReduction.code.minX satisfied
+  - headline.minParityRate satisfied on both corpora
+  - headline.minTotalCostReductionX satisfied on both corpora
+  - receiptReconciliation.maxRelativeError satisfied on every VAULT rep
+  - no arm errored on any (question, corpus, rep); a single arm error voids
+    the run and requires a rerun of that (question, corpus, rep) triple
+
+# Failures section (skeleton). Populated by the harness after runs.
+# Anything landing here that is not covered by the DoD blocks a MET verdict
+# regardless of the headline numbers; that is the whole point of pre-
+# registration. Leave as [] until the run reports results.
+failures: []
+
+# Immutability. The harness computes sha256 over this file (with the
+# failures[] contents excluded from the hash so failures can be appended
+# post-run without recompiling the registration) and refuses to record a
+# run whose stored hash does not match. The excluded field is exactly
+# `failures`; every other field is inside the hash.
+immutable:
+  hashAlgorithm: sha256
+  excludeFields: [failures]
+
+# What DRY-RUN prints. The chatbench driver in --dry-run mode enumerates
+# the full (arm x corpus x question x replication) matrix, prints token-
+# estimate bounds per call (from a static tokenizer estimate on the pre-
+# assembled prompt), and totals a cost-band from the model's list rate.
+# No live API call is made; the founder approves the spend from this output.
+dryRun:
+  emitCallMatrix: true
+  tokenEstimatorNote: 'bytes/4 approximation; see docs/METHODOLOGY.md; live usage numbers replace these post-run'
