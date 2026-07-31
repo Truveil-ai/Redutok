@@ -230,8 +230,18 @@ export async function exploreGoal(
       zoomHandles.push(outcome.artifactId);
     }
     stepsTaken += 1;
+    // Evidence per document: the densest hit lines, not the earliest — the
+    // line naming the fee outranks the parties boilerplate above it.
+    const matchCount = (text: string): number => {
+      const pattern = new RegExp(
+        keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+        'gi',
+      );
+      return [...text.matchAll(pattern)].length;
+    };
     for (const [docPath, hs] of rankedDocs.slice(0, 6)) {
-      for (const h of hs.slice(0, 2)) {
+      const ranked = [...hs].sort((a, b) => matchCount(b.text) - matchCount(a.text) || a.line - b.line);
+      for (const h of ranked.slice(0, 2)) {
         evidence.push({
           file: docPath,
           line: h.line,

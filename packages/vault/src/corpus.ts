@@ -8,6 +8,8 @@ import {
   loadProfiles,
   openStore,
   readCodex,
+  readDocumentIndex,
+  type DocumentIndexEntry,
   type LlmPass,
   type Store,
 } from '@redutok/sidecar';
@@ -28,6 +30,8 @@ export interface Corpus {
   audit: AuditWriter;
   profiles: Map<string, DistillProfile>;
   codex: CodexFile | undefined;
+  /** Ingested document index (vault ingest); empty for pure code corpora. */
+  documents: DocumentIndexEntry[];
   llm: LlmPass;
 }
 
@@ -40,9 +44,10 @@ export interface MountOptions {
 
 /**
  * Profiles come from the corpus's own .dcp/config.json (written by redutok
- * init), then REDUTOK_PROFILES, then the monorepo's shipped profiles/.
+ * init or vault ingest), then REDUTOK_PROFILES, then the monorepo's shipped
+ * profiles/. Shared with the ingest pipeline so both resolve identically.
  */
-function resolveProfilesDir(dcpDir: string, env: NodeJS.ProcessEnv): string | undefined {
+export function resolveProfilesDir(dcpDir: string, env: NodeJS.ProcessEnv): string | undefined {
   try {
     const config = JSON.parse(readFileSync(path.join(dcpDir, 'config.json'), 'utf8')) as {
       profilesDir?: unknown;
@@ -84,6 +89,7 @@ export function mountCorpus(rootDir: string, options: MountOptions = {}): Corpus
     audit: new AuditWriter(auditPath),
     profiles: loadProfiles(profilesDir),
     codex,
+    documents: readDocumentIndex(dcpDir)?.documents ?? [],
     llm: options.llm ?? new NoopLlmPass(),
   };
 }

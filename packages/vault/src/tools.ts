@@ -125,6 +125,9 @@ export async function vaultAsk(
     // One remote ask replaces a whole chat-side exploration loop, so it runs
     // at the deepest bounded budget rather than the interactive default.
     budget: 'thorough',
+    // Ingested documents are searched by section and cited with document,
+    // section, and page context alongside any code evidence.
+    documents: corpus.documents,
   });
   const body = renderDossier(dossier);
   const accounting = askAccounting(corpus, askId, body);

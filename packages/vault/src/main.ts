@@ -5,14 +5,16 @@ import { pathToFileURL } from 'node:url';
 import { resolveSecret } from './auth.js';
 import { mountCorpus, type Corpus } from './corpus.js';
 import { startVaultServer } from './http.js';
+import { runIngest } from './ingest.js';
 import { handleVaultRequest, type JsonRpcRequest, type JsonRpcResponse } from './server.js';
 import { newVaultSession } from './tools.js';
 
 /**
  * redutok-vault entry: streamable HTTP by default, --stdio for local
- * testing. HTTP requires a bearer agent secret (REDUTOK_VAULT_SECRET or
- * <corpus>/.dcp/vault.json); stdio has no headers to carry one, so it is
- * documented as trusted-local only.
+ * testing, `ingest <path> --corpus <name>` to build the .dcp state for an
+ * arbitrary directory. HTTP requires a bearer agent secret
+ * (REDUTOK_VAULT_SECRET or <corpus>/.dcp/vault.json); stdio has no headers
+ * to carry one, so it is documented as trusted-local only.
  */
 
 export interface CliOptions {
@@ -59,7 +61,40 @@ async function runStdio(corpora: Map<string, Corpus>): Promise<void> {
   }
 }
 
+async function runIngestCommand(argv: string[]): Promise<void> {
+  let target: string | undefined;
+  let corpus: string | undefined;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '--corpus') {
+      corpus = argv[i + 1];
+      i += 1;
+    } else if (target === undefined && arg !== undefined && !arg.startsWith('--')) {
+      target = arg;
+    } else {
+      throw new Error(`unknown argument ${String(arg)} (usage: redutok-vault ingest <path> --corpus <name>)`);
+    }
+  }
+  if (target === undefined || corpus === undefined || corpus === '') {
+    throw new Error('usage: redutok-vault ingest <path> --corpus <name>');
+  }
+  const summary = await runIngest(target, { corpus });
+  for (const file of summary.files) {
+    if (file.status === 'document' || file.status === 'out-of-scope') {
+      console.log(`  ${file.status.padEnd(12)} ${file.path} (${file.method})`);
+    }
+  }
+  console.log(
+    `ingested corpus ${summary.corpus} at ${summary.root}: ${summary.documents} document(s) extracted, ` +
+      `${summary.unchanged} unchanged, ${summary.outOfScope} out of scope, ${summary.files.length} file(s) in PROVENANCE.json`,
+  );
+}
+
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
+  if (argv[0] === 'ingest') {
+    await runIngestCommand(argv.slice(1));
+    return;
+  }
   const options = parseArgs(argv);
   if (options.corpora.length === 0) {
     throw new Error('at least one --corpus <path | name=path> is required');
