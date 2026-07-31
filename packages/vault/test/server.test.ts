@@ -86,7 +86,7 @@ describe('handshake and auth gate', () => {
       authorized: true,
     });
     const tools = (res?.result as { tools: { name: string }[] }).tools.map((t) => t.name);
-    expect(tools).toEqual(['vault_ask', 'vault_zoom', 'vault_receipt']);
+    expect(tools).toEqual(['vault_ask', 'vault_codex', 'vault_zoom', 'vault_receipt']);
   });
 });
 
