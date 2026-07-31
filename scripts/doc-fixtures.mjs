@@ -207,6 +207,16 @@ export function makeDocx({ title, sections }) {
 }
 
 /**
+ * A PDF whose content streams are supplied verbatim, for fixtures that embed
+ * excerpts of real-world operator sequences (fragmented Td continuations,
+ * per-block Tm positioning) that pageStream would never produce. One stream
+ * per page.
+ */
+export function makeRawStreamPdf(streams) {
+  return assemblePdf(streams);
+}
+
+/**
  * A USPTO 101-shaped PDF fixture: a "Part One" divider, three "Example N"
  * headings each followed by a body paragraph and two "Claim N" sub-headings,
  * and one lettered outline section. The heading text is the entire line so
