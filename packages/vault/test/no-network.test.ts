@@ -89,6 +89,7 @@ describe('no outbound network from the vault process', () => {
       vi.restoreAllMocks();
       await handle.close();
       corpus.store.close();
+      corpus.ledger.close();
       temp.cleanup();
     }
   });

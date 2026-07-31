@@ -26,6 +26,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await handle.close();
   corpus.store.close();
+  corpus.ledger.close();
   temp.cleanup();
 });
 

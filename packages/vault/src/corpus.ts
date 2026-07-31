@@ -13,6 +13,7 @@ import {
   type LlmPass,
   type Store,
 } from '@redutok/sidecar';
+import { openLedger, type VaultLedger } from './ledger.js';
 
 /**
  * A mounted corpus: the .dcp state that redutok init plus codex refresh
@@ -32,6 +33,8 @@ export interface Corpus {
   codex: CodexFile | undefined;
   /** Ingested document index (vault ingest); empty for pure code corpora. */
   documents: DocumentIndexEntry[];
+  /** Persistent receipt ledger, alongside the store under .dcp/. */
+  ledger: VaultLedger;
   llm: LlmPass;
 }
 
@@ -90,6 +93,7 @@ export function mountCorpus(rootDir: string, options: MountOptions = {}): Corpus
     profiles: loadProfiles(profilesDir),
     codex,
     documents: readDocumentIndex(dcpDir)?.documents ?? [],
+    ledger: openLedger(dcpDir),
     llm: options.llm ?? new NoopLlmPass(),
   };
 }

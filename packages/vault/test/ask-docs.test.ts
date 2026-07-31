@@ -28,6 +28,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   corpus.store.close();
+  corpus.ledger.close();
   rmSync(root, { recursive: true, force: true, maxRetries: 5 });
 });
 

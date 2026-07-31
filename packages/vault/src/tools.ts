@@ -9,6 +9,10 @@ import {
 } from '@redutok/shared';
 import { exploreGoal, redact, zoom, type Dossier } from '@redutok/sidecar';
 import type { Corpus } from './corpus.js';
+import { makeLedgerLine } from './ledger.js';
+import { REFERENCE_MODEL } from './rates.js';
+
+export { REFERENCE_MODEL } from './rates.js';
 
 /**
  * The three vault tools, built directly on the sidecar engines. Everything
@@ -68,8 +72,7 @@ interface AskAccounting {
  * audit events this ask wrote (so the block always reconciles with the
  * trail); served bytes are the dossier text actually handed to the client.
  */
-function askAccounting(corpus: Corpus, askId: string, servedText: string): AskAccounting {
-  const events = readAuditFile(corpus.auditPath).events.filter((e) => e.sessionId === askId);
+function askAccounting(events: AuditEvent[], askId: string, servedText: string): AskAccounting {
   const rawBytes = events.reduce((n, e) => n + (e.bytesIn ?? 0), 0);
   const servedBytes = Buffer.byteLength(servedText, 'utf8');
   return {
@@ -130,12 +133,14 @@ export async function vaultAsk(
     documents: corpus.documents,
   });
   const body = renderDossier(dossier);
-  const accounting = askAccounting(corpus, askId, body);
+  const askEvents = readAuditFile(corpus.auditPath).events.filter((e) => e.sessionId === askId);
+  const accounting = askAccounting(askEvents, askId, body);
   // The vault event carries the byte totals in details only: the per-step
   // distill events already account these bytes, and a second bytesIn would
   // double-count them in every rollup.
+  const askEventId = `vault-ask-${randomUUID()}`;
   writeVaultEvent(corpus, {
-    id: `vault-ask-${randomUUID()}`,
+    id: askEventId,
     timestamp: new Date().toISOString(),
     sessionId: session.id,
     module: 'vault.ask',
@@ -150,7 +155,53 @@ export async function vaultAsk(
       incomplete: dossier.incomplete ?? null,
     },
   });
+  const now = new Date().toISOString();
+  // One ledger 'serve' line per measured internal step; rollup totals sum
+  // those, so the 'ask' line on top records the accounting block without
+  // double-counting the same bytes.
+  for (const e of askEvents) {
+    if (e.bytesIn === undefined || e.bytesOut === undefined) continue;
+    const doc = documentFor(corpus, e.inputRef);
+    corpus.ledger.append(
+      makeLedgerLine({
+        kind: 'serve',
+        corpus: corpus.name,
+        sessionId: session.id,
+        askId,
+        timestamp: now,
+        rawBytes: e.bytesIn,
+        servedBytes: e.bytesOut,
+        label:
+          typeof e.details?.['profile'] === 'string' ? (e.details['profile'] as string) : e.module,
+        artifactRefs: e.inputRef === undefined ? [] : [e.inputRef],
+        auditIds: [e.id],
+        ...(doc === undefined ? {} : { document: doc }),
+      }),
+    );
+  }
+  corpus.ledger.append(
+    makeLedgerLine({
+      kind: 'ask',
+      corpus: corpus.name,
+      sessionId: session.id,
+      askId,
+      timestamp: now,
+      rawBytes: accounting.rawBytes,
+      servedBytes: accounting.servedBytes,
+      artifactRefs: dossier.zoomHandles,
+      auditIds: [askEventId],
+    }),
+  );
   return redact(`${body}\n\n${renderAccountingBlock(accounting)}`).text;
+}
+
+/** Corpus-relative path behind an artifact, from its stored meta or the
+ * document index, for per-document ledger attribution. */
+function documentFor(corpus: Corpus, artifactId: string | undefined): string | undefined {
+  if (artifactId === undefined) return undefined;
+  const filePath = corpus.store.getArtifact(artifactId)?.meta['filePath'];
+  if (typeof filePath === 'string' && filePath !== '') return filePath;
+  return corpus.documents.find((d) => d.artifactId === artifactId)?.path;
 }
 
 export function vaultZoom(
@@ -166,21 +217,41 @@ export function vaultZoom(
   const query = args['query'] === undefined ? undefined : String(args['query']);
   const result = zoom(corpus.store, corpus.audit, ref, query, corpus.codex);
   if (!result.found) throw new VaultError(result.text);
+  const served = redact(result.text).text;
+  const rawBytes = result.rawBytes ?? Buffer.byteLength(result.text, 'utf8');
+  const servedBytes = Buffer.byteLength(served, 'utf8');
+  // Unlike the ask event, the zoom event carries its bytes directly: no
+  // per-step event accounts this serve, so this is the one measurement.
+  const eventId = `vault-zoom-${randomUUID()}`;
+  const timestamp = new Date().toISOString();
   writeVaultEvent(corpus, {
-    id: `vault-zoom-${randomUUID()}`,
-    timestamp: new Date().toISOString(),
+    id: eventId,
+    timestamp,
     sessionId: session.id,
     module: 'vault.zoom',
     action: 'zoom',
     reason: `zoom ${ref}${query === undefined ? '' : ' with query'} on corpus ${corpus.name}`,
     inputRef: ref,
+    bytesIn: rawBytes,
+    bytesOut: servedBytes,
   });
-  return redact(result.text).text;
+  const artifactId = result.artifactId ?? ref;
+  const doc = result.filePath ?? documentFor(corpus, result.artifactId);
+  corpus.ledger.append(
+    makeLedgerLine({
+      kind: 'zoom',
+      corpus: corpus.name,
+      sessionId: session.id,
+      timestamp,
+      rawBytes,
+      servedBytes,
+      artifactRefs: [artifactId],
+      auditIds: [eventId],
+      ...(doc === undefined ? {} : { document: doc }),
+    }),
+  );
+  return served;
 }
-
-/** All avoided-cost and energy numbers are stated against this row of
- * prices.yaml / energy_factors.yaml, named in the receipt itself. */
-export const REFERENCE_MODEL = 'claude-sonnet-5';
 
 export interface VaultReceipt {
   scope: 'session' | 'corpus';

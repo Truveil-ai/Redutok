@@ -410,6 +410,11 @@ export async function distillArtifact(
 export interface ZoomResult {
   found: boolean;
   text: string;
+  /** Set when found: the resolved artifact behind the handle, its raw size,
+   * and its recorded file path, so callers can account the serve. */
+  artifactId?: string;
+  rawBytes?: number;
+  filePath?: string;
 }
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -578,5 +583,13 @@ export function zoom(
   };
   audit.write(event);
   store.insertAuditEvent(event);
-  return { found: true, text };
+  const result: ZoomResult = {
+    found: true,
+    text,
+    artifactId: artifact.id,
+    rawBytes: Buffer.byteLength(artifact.raw, 'utf8'),
+  };
+  const filePath = artifact.meta['filePath'];
+  if (typeof filePath === 'string' && filePath !== '') result.filePath = filePath;
+  return result;
 }

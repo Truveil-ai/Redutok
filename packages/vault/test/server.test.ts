@@ -33,6 +33,7 @@ beforeAll(() => {
 
 afterAll(() => {
   corpus.store.close();
+  corpus.ledger.close();
   temp.cleanup();
 });
 
