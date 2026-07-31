@@ -114,8 +114,26 @@ export async function startVaultServer(options: VaultServerOptions): Promise<Vau
     if (rpc.method === 'initialize') {
       // The one unauthenticated request: the handshake carries no corpus
       // content, and the session it creates is inert without the bearer.
+      // Session identity (Session 1 finding): an explicit X-Vault-Session
+      // names the vault session for receipts and audit; a malformed one is
+      // an explicit 400, never silently ignored; absent, the id is generated
+      // per initialize — there is no shared fallback.
+      const header = req.headers['x-vault-session'];
+      const explicitId = Array.isArray(header) ? header[0] : header;
+      if (explicitId !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(explicitId)) {
+        sendJson(res, 400, {
+          jsonrpc: '2.0',
+          id: rpc.id ?? null,
+          error: {
+            code: -32602,
+            message:
+              'invalid X-Vault-Session: 1-64 characters of [A-Za-z0-9._-], starting alphanumeric',
+          },
+        });
+        return;
+      }
       const mcpSessionId = randomBytes(8).toString('hex');
-      const session = newVaultSession(mcpSessionId);
+      const session = newVaultSession(explicitId ?? mcpSessionId);
       sessions.set(mcpSessionId, session);
       const response = await handleVaultRequest(rpc, { corpora: options.corpora, session }, { authorized });
       sendJson(res, 200, response, { 'mcp-session-id': mcpSessionId });

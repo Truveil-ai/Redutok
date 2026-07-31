@@ -7,7 +7,7 @@ import { mountCorpus, type Corpus } from './corpus.js';
 import { startVaultServer } from './http.js';
 import { runIngest } from './ingest.js';
 import { handleVaultRequest, type JsonRpcRequest, type JsonRpcResponse } from './server.js';
-import { newVaultSession } from './tools.js';
+import { newVaultSession, type VaultSession } from './tools.js';
 
 /**
  * redutok-vault entry: streamable HTTP by default, --stdio for local
@@ -45,18 +45,44 @@ export function parseArgs(argv: string[]): CliOptions {
   return options;
 }
 
+/**
+ * Session identity over stdio (Session 1 finding): every initialize mints a
+ * fresh per-initialize session id — never a shared per-process fallback — so
+ * receipts and audit attribute strictly per session. Requests before any
+ * initialize are refused rather than served on an implicit identity.
+ */
+export function createStdioHandler(
+  corpora: Map<string, Corpus>,
+): (line: string) => Promise<JsonRpcResponse | null> {
+  let session: VaultSession | undefined;
+  return async (line) => {
+    let rpc: JsonRpcRequest;
+    try {
+      rpc = JSON.parse(line) as JsonRpcRequest;
+    } catch {
+      return { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'parse error' } };
+    }
+    if (rpc.method === 'initialize') {
+      session = newVaultSession(`stdio-${randomBytes(4).toString('hex')}`);
+    }
+    if (session === undefined) {
+      if (rpc.method.startsWith('notifications/')) return null;
+      return {
+        jsonrpc: '2.0',
+        id: rpc.id ?? null,
+        error: { code: -32002, message: 'no session on this stdio stream: initialize first' },
+      };
+    }
+    return handleVaultRequest(rpc, { corpora, session }, { authorized: true });
+  };
+}
+
 async function runStdio(corpora: Map<string, Corpus>): Promise<void> {
-  const session = newVaultSession(`stdio-${randomBytes(4).toString('hex')}`);
+  const handler = createStdioHandler(corpora);
   const rl = readline.createInterface({ input: process.stdin });
   for await (const line of rl) {
     if (line.trim() === '') continue;
-    let response: JsonRpcResponse | null;
-    try {
-      const rpc = JSON.parse(line) as JsonRpcRequest;
-      response = await handleVaultRequest(rpc, { corpora, session }, { authorized: true });
-    } catch {
-      response = { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'parse error' } };
-    }
+    const response = await handler(line);
     if (response !== null) process.stdout.write(JSON.stringify(response) + '\n');
   }
 }
