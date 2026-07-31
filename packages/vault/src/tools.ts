@@ -1,18 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import {
-  loadEnergyFactors,
-  loadGridIntensity,
-  loadPrices,
-  readAuditFile,
-  type AuditEvent,
-  type EnergyBand,
-} from '@redutok/shared';
+import { readAuditFile, type AuditEvent } from '@redutok/shared';
 import { exploreGoal, redact, zoom, type Dossier } from '@redutok/sidecar';
 import type { Corpus } from './corpus.js';
 import { makeLedgerLine } from './ledger.js';
-import { REFERENCE_MODEL } from './rates.js';
+import { rollupLines, type RollupQuery, type RollupScope, type VaultRollup } from './rollup.js';
 
 export { REFERENCE_MODEL } from './rates.js';
+export type { VaultRollup } from './rollup.js';
 
 /**
  * The three vault tools, built directly on the sidecar engines. Everything
@@ -34,8 +28,6 @@ export function newVaultSession(mcpSessionId: string): VaultSession {
 
 const fmt = (n: number): string => n.toLocaleString('en-US');
 const bytesToTokens = (bytes: number): number => Math.round(bytes / 4);
-const avoidedFor = (e: { bytesIn: number; bytesOut: number }): number =>
-  Math.max(0, bytesToTokens(e.bytesIn) - bytesToTokens(e.bytesOut));
 
 function pickCorpus(corpora: Map<string, Corpus>, arg: unknown): Corpus {
   if (arg === undefined || arg === null || arg === '') {
@@ -253,110 +245,38 @@ export function vaultZoom(
   return served;
 }
 
-export interface VaultReceipt {
-  scope: 'session' | 'corpus';
-  corpus: string;
-  sessionId?: string;
-  auditEvents: number;
-  measuredEvents: number;
-  rawTokens: number;
-  servedTokens: number;
-  avoidedTokens: number;
-  topDistillations: {
-    label: string;
-    ref: string;
-    rawTokens: number;
-    servedTokens: number;
-    avoidedTokens: number;
-  }[];
-  referenceModel: string;
-  inputPerMTokUsd: number;
-  costAvoidedUsd: number;
-  wh: EnergyBand;
-  gCo2e: EnergyBand;
-  region: string;
-}
-
 /**
- * Rollup from the corpus audit trail: session scope filters to events whose
- * sessionId starts with the vault session id (per-ask ids are derived from
- * it); corpus scope takes the whole trail. Cost at current API rates from
- * prices.yaml; Wh and gCO2e bands per docs/METHODOLOGY.md, with the context
- * multiplier held at 1.0 because the counterfactual context shape of avoided
- * tokens is unknowable.
+ * Rollup from the persistent ledger. Session scope covers this vault session
+ * id; day and month scopes cut by line timestamp (UTC); corpus scope covers
+ * the corpus lifetime of vault serving; document scope groups per document.
+ * The ledger reconciles with the audit trail by construction, so these
+ * figures always match a recomputation from the trail.
  */
-export function buildVaultReceipt(corpus: Corpus, sessionId?: string): VaultReceipt {
-  const all = readAuditFile(corpus.auditPath).events;
-  const events =
-    sessionId === undefined
-      ? all
-      : all.filter((e) => typeof e.sessionId === 'string' && e.sessionId.startsWith(sessionId));
-  const measured = events.filter(
-    (e): e is AuditEvent & { bytesIn: number; bytesOut: number } =>
-      e.bytesIn !== undefined && e.bytesOut !== undefined,
-  );
-  const avoidedTokens = measured.reduce((n, e) => n + avoidedFor(e), 0);
-  const topDistillations = measured
-    .filter((e) => e.action === 'distill')
-    .map((e) => ({
-      label:
-        typeof e.details?.['profile'] === 'string' ? (e.details['profile'] as string) : e.module,
-      ref: e.inputRef ?? e.id,
-      rawTokens: bytesToTokens(e.bytesIn),
-      servedTokens: bytesToTokens(e.bytesOut),
-      avoidedTokens: avoidedFor(e),
-    }))
-    .sort((a, b) => b.avoidedTokens - a.avoidedTokens)
-    .slice(0, 3);
-
-  const priceRow = loadPrices().models.find((m) => m.id === REFERENCE_MODEL);
-  if (priceRow === undefined) {
-    throw new VaultError(`reference model ${REFERENCE_MODEL} has no row in prices.yaml`);
-  }
-  const factorRow = loadEnergyFactors().classes.find((c) => c.models.includes(REFERENCE_MODEL));
-  if (factorRow === undefined) {
-    throw new VaultError(`reference model ${REFERENCE_MODEL} has no class in energy_factors.yaml`);
-  }
-  const grid = loadGridIntensity();
-  const gridRow = grid.regions.find((r) => r.region === grid.defaultRegion);
-  if (gridRow === undefined) {
-    throw new VaultError(`grid_intensity.yaml has no row for its own default region`);
-  }
-  const mtok = avoidedTokens / 1e6;
-  const wh: EnergyBand = {
-    base: mtok * factorRow.whPerMTok.base,
-    low: mtok * factorRow.whPerMTok.low,
-    high: mtok * factorRow.whPerMTok.high,
-  };
-  const toGrams = (x: number): number => (x / 1000) * gridRow.gCo2ePerKwh;
-  const receipt: VaultReceipt = {
-    scope: sessionId === undefined ? 'corpus' : 'session',
+export function buildVaultReceipt(corpus: Corpus, query?: string | RollupQuery): VaultRollup {
+  const q: RollupQuery =
+    typeof query === 'string'
+      ? { scope: 'session', sessionId: query }
+      : (query ?? { scope: 'corpus' });
+  const filter: { sessionId?: string; day?: string; month?: string } = {};
+  if (q.scope === 'session' && q.sessionId !== undefined) filter.sessionId = q.sessionId;
+  if (q.scope === 'day' && q.day !== undefined) filter.day = q.day;
+  if (q.scope === 'month' && q.month !== undefined) filter.month = q.month;
+  return rollupLines(corpus.ledger.lines(filter), q, {
     corpus: corpus.name,
-    auditEvents: events.length,
-    measuredEvents: measured.length,
-    rawTokens: measured.reduce((n, e) => n + bytesToTokens(e.bytesIn), 0),
-    servedTokens: measured.reduce((n, e) => n + bytesToTokens(e.bytesOut), 0),
-    avoidedTokens,
-    topDistillations,
-    referenceModel: REFERENCE_MODEL,
-    inputPerMTokUsd: priceRow.inputPerMTokUsd,
-    costAvoidedUsd: mtok * priceRow.inputPerMTokUsd,
-    wh,
-    gCo2e: { base: toGrams(wh.base), low: toGrams(wh.low), high: toGrams(wh.high) },
-    region: grid.defaultRegion,
-  };
-  if (sessionId !== undefined) receipt.sessionId = sessionId;
-  return receipt;
+    corpusResidentTokens: bytesToTokens(corpus.store.residentRawBytes()),
+  });
 }
 
-export function renderVaultReceipt(r: VaultReceipt): string {
+export function renderVaultReceipt(r: VaultRollup): string {
   const lines: string[] = [`Redutok vault receipt (scope: ${r.scope}, corpus: ${r.corpus})`];
   if (r.sessionId !== undefined) lines.push(`  session      ${r.sessionId}`);
+  if (r.day !== undefined) lines.push(`  day          ${r.day}`);
+  if (r.month !== undefined) lines.push(`  month        ${r.month}`);
   lines.push(
-    `  audit events ${fmt(r.auditEvents)} (${fmt(r.measuredEvents)} with byte accounting)`,
+    `  ledger lines ${fmt(r.lines)} (${fmt(r.asks)} asks, ${fmt(r.zooms)} zooms, ${fmt(r.serves)} serves; ${fmt(r.sessions)} sessions)`,
     `  raw touched  ${fmt(r.rawTokens)} tok; served ${fmt(r.servedTokens)} tok; avoided ${fmt(r.avoidedTokens)} tok`,
   );
-  if (r.topDistillations.length > 0) {
+  if (r.topDistillations.length > 0 && r.scope !== 'document') {
     lines.push('  top distillations by tokens avoided');
     r.topDistillations.forEach((d, i) => {
       lines.push(
@@ -364,13 +284,35 @@ export function renderVaultReceipt(r: VaultReceipt): string {
       );
     });
   }
+  if (r.documents.length > 0) {
+    const shown = r.scope === 'document' ? r.documents : r.documents.slice(0, 5);
+    lines.push(
+      r.scope === 'document' ? '  documents by reads' : '  top documents by reads',
+    );
+    shown.forEach((d, i) => {
+      lines.push(
+        `    ${i + 1}. ${d.document}: ${fmt(d.reads)} read${d.reads === 1 ? '' : 's'}, ${fmt(d.avoidedTokens)} tok avoided, $${d.costAvoidedUsd.toFixed(4)}`,
+      );
+    });
+  }
+  if (r.scope !== 'session' && r.topSessions.length > 0) {
+    lines.push('  top sessions by tokens avoided');
+    r.topSessions.slice(0, 5).forEach((s, i) => {
+      lines.push(
+        `    ${i + 1}. ${s.sessionId}: ${fmt(s.asks)} ask${s.asks === 1 ? '' : 's'}, ${fmt(s.avoidedTokens)} tok avoided, $${s.costAvoidedUsd.toFixed(4)}`,
+      );
+    });
+  }
   lines.push(
-    `  cost avoided est $${r.costAvoidedUsd.toFixed(4)} USD at ${r.referenceModel} input rate ($${r.inputPerMTokUsd.toFixed(2)}/MTok)`,
+    `  cost avoided est $${r.costAvoidedUsd.toFixed(4)} USD at ${r.referenceModel} input rate ($${r.inputPerMTokUsd.toFixed(2)}/MTok), rate row prices.yaml ${r.referenceModel} (source: ${r.priceSource})`,
     `  energy avoided est ${r.wh.base.toFixed(3)} Wh (band ${r.wh.low.toFixed(3)}-${r.wh.high.toFixed(3)}), ${r.gCo2e.base.toFixed(3)} gCO2e (band ${r.gCo2e.low.toFixed(3)}-${r.gCo2e.high.toFixed(3)}), region ${r.region}, context multiplier 1.0`,
+    `  corpus resident size avoided ${fmt(r.corpusResidentTokens)} tok: the whole corpus at rest, a distinct figure from the avoided total above, which counts only what was touched`,
     '  estimates per docs/METHODOLOGY.md: bands are the claim, base is a midpoint convenience',
   );
   return lines.join('\n');
 }
+
+const SCOPES: RollupScope[] = ['session', 'day', 'month', 'corpus', 'document'];
 
 export function vaultReceipt(
   corpora: Map<string, Corpus>,
@@ -378,20 +320,36 @@ export function vaultReceipt(
   args: Record<string, unknown>,
 ): string {
   const scopeArg = args['scope'];
-  if (scopeArg !== undefined && scopeArg !== 'session' && scopeArg !== 'corpus') {
-    throw new VaultError(`unknown scope "${String(scopeArg)}" (session | corpus)`);
+  if (scopeArg !== undefined && !SCOPES.includes(scopeArg as RollupScope)) {
+    throw new VaultError(`unknown scope "${String(scopeArg)}" (${SCOPES.join(' | ')})`);
   }
-  const scope = scopeArg === 'corpus' ? 'corpus' : 'session';
+  const scope = (scopeArg ?? 'session') as RollupScope;
   const corpus = pickCorpus(corpora, args['corpus']);
-  const receipt = buildVaultReceipt(corpus, scope === 'session' ? session.id : undefined);
+  const query: RollupQuery = { scope };
+  if (scope === 'session') query.sessionId = session.id;
+  if (scope === 'day' && args['day'] !== undefined) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(args['day']))) {
+      throw new VaultError(`invalid day "${String(args['day'])}" (YYYY-MM-DD)`);
+    }
+    query.day = String(args['day']);
+  }
+  if (scope === 'month' && args['month'] !== undefined) {
+    if (!/^\d{4}-\d{2}$/.test(String(args['month']))) {
+      throw new VaultError(`invalid month "${String(args['month'])}" (YYYY-MM)`);
+    }
+    query.month = String(args['month']);
+  }
+  const receipt = buildVaultReceipt(corpus, query);
   writeVaultEvent(corpus, {
     id: `vault-receipt-${randomUUID()}`,
     timestamp: new Date().toISOString(),
     sessionId: session.id,
     module: 'vault.receipt',
     action: 'summarize',
-    reason: `receipt (${scope}) on corpus ${corpus.name}: ${receipt.avoidedTokens} tokens avoided across ${receipt.auditEvents} audit events`,
+    reason: `receipt (${scope}) on corpus ${corpus.name}: ${receipt.avoidedTokens} tokens avoided across ${receipt.lines} ledger lines`,
     details: { scope, corpus: corpus.name, avoidedTokens: receipt.avoidedTokens },
   });
-  return redact(renderVaultReceipt(receipt)).text;
+  const text =
+    args['json'] === true ? JSON.stringify(receipt, null, 2) : renderVaultReceipt(receipt);
+  return redact(text).text;
 }

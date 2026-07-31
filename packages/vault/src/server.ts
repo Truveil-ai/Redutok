@@ -62,11 +62,17 @@ export const TOOLS = [
   {
     name: 'vault_receipt',
     description:
-      'Rollup of tokens avoided with artifact backing, cost avoided at current API rates from prices.yaml, and Wh/gCO2e bands per METHODOLOGY.md. scope "session" (default) covers this MCP session; "corpus" covers the corpus lifetime.',
+      'Ledger rollup of tokens avoided with artifact backing, cost avoided at current API rates from prices.yaml (rate row cited), and Wh/gCO2e bands per METHODOLOGY.md. scope "session" (default) covers this MCP session; "day", "month", and "corpus" cut the persistent ledger by time or lifetime; "document" ranks the documents consumed. json returns the rollup as JSON instead of the human render.',
     inputSchema: {
       type: 'object',
       properties: {
-        scope: { type: 'string', enum: ['session', 'corpus'] },
+        scope: { type: 'string', enum: ['session', 'day', 'month', 'corpus', 'document'] },
+        day: { type: 'string', description: 'YYYY-MM-DD (UTC) for scope "day"; defaults to today' },
+        month: {
+          type: 'string',
+          description: 'YYYY-MM (UTC) for scope "month"; defaults to the current month',
+        },
+        json: { type: 'boolean', description: 'Return the rollup as JSON' },
         corpus: { type: 'string', description: 'Corpus name when more than one is mounted' },
       },
     },

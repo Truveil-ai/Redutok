@@ -208,7 +208,9 @@ describe('vault_receipt', () => {
       0,
     );
     expect(receipt.scope).toBe('session');
-    expect(receipt.auditEvents).toBe(events.length);
+    // Ledger and audit reconcile by construction: serve and zoom lines
+    // mirror the measured events one-to-one.
+    expect(receipt.serves + receipt.zooms).toBe(measured.length);
     expect(receipt.avoidedTokens).toBe(avoided);
     expect(receipt.avoidedTokens).toBeGreaterThan(0);
     expect(receipt.topDistillations.length).toBeGreaterThan(0);
@@ -238,7 +240,7 @@ describe('vault_receipt', () => {
     const session = buildVaultReceipt(corpus, deps.session.id);
     const lifetime = buildVaultReceipt(corpus);
     expect(lifetime.scope).toBe('corpus');
-    expect(lifetime.auditEvents).toBeGreaterThanOrEqual(session.auditEvents);
+    expect(lifetime.lines).toBeGreaterThanOrEqual(session.lines);
     expect(lifetime.avoidedTokens).toBeGreaterThanOrEqual(session.avoidedTokens);
   });
 
