@@ -1,9 +1,39 @@
 # @redutok/vault
 
 The Redutok Vault: an MCP server that exposes the sidecar engines to normal
-AI chat clients over streamable HTTP, mounted on an existing corpus — the
-`.dcp` state (store, audit trail, codex, config) that `redutok init` plus
-`redutok codex refresh` already produce.
+AI chat clients over streamable HTTP, mounted on a corpus — the `.dcp`
+state (store, audit trail, codex, config) that `redutok init` plus
+`redutok codex refresh` produce for a repository, or that `vault ingest`
+builds for an arbitrary directory of mixed files.
+
+## Ingest
+
+```bash
+node packages/vault/dist/main.js ingest /path/to/files --corpus practice
+```
+
+Builds the full `.dcp` state for a directory of mixed files so the server
+can mount it. Code (`.ts/.js/.py` and friends) goes through the codex and
+skeleton mirror exactly as `redutok init` + `codex refresh` would.
+Documents — plain text, Markdown, PDF (text extraction), DOCX — are
+extracted with node builtins only, structure-mapped (headings, sections,
+page or paragraph anchors, one-line summaries via the LlmPass seam with a
+first-sentence rule fallback), and stored through the redaction pass as
+`doc-serve` artifacts. Scanned-image PDFs and anything else without an
+extractable text layer are declared out of scope in the index and the
+summary — never silently empty.
+
+Alongside the store the ingest writes:
+
+- `.dcp/documents.json` — the slice index: every document's sections with
+  ids, anchors, and summaries, so zoom handles cite like a professional
+  would (document, section, page).
+- `.dcp/PROVENANCE.json` — source path, sha256, size, extraction method,
+  and ingestion date per file, so every dossier citation traces to the
+  hashed bytes that were ingested.
+
+Re-ingestion is incremental by hash: unchanged files keep their artifact,
+index entry, and timestamps untouched; removed files leave the index.
 
 ## Run
 
@@ -31,8 +61,18 @@ secret comes from `REDUTOK_VAULT_SECRET` or `<corpus>/.dcp/vault.json`
   LlmPass seam with rule fallback, file:line evidence, a zoom handle for
   every elision, and a mandatory accounting block (raw bytes and estimated
   tokens touched versus served, per ask, reconciling with the audit trail).
+  On an ingested corpus the documents are searched by section first
+  (`doc-search`), the most relevant served ask-relevant (`doc-serve`), and
+  the evidence cites document, section, and page (`§3 "Fees and Billing",
+  p.2`). The prose entity gates hold those serves to the same discipline as
+  code output: dates, defined terms, party names, section numbers, and
+  figures in the conclusion-relevant region survive verbatim or the raw is
+  served instead.
 - `vault_zoom(handle, query?, corpus?)` — byte-recoverable zoom with the
   existing semantics, including the `id` alias and `Fxxxx@hash` file refs.
+  On a document artifact, a section reference (`§3`, `3`, or the exact
+  title) or a page reference (`page 2`) recovers that slice byte-equal from
+  the store.
 - `vault_receipt(scope?, corpus?)` — `session` (default) or `corpus`
   lifetime rollups: tokens avoided with artifact backing, cost avoided at
   the claude-sonnet-5 input rate from `prices.yaml`, Wh and gCO2e bands per
@@ -45,16 +85,29 @@ secret comes from `REDUTOK_VAULT_SECRET` or `<corpus>/.dcp/vault.json`
 - Everything stored or served passes the sidecar's redaction module.
 - Fail-open never applies: there is no raw fallback path to a chat client,
   so failures return explicit tool errors.
-- Every tool call writes audit events under a vault session id derived from
-  the MCP session (`vault-<Mcp-Session-Id>`; per-ask ids `#askN`).
+- Every tool call writes audit events under a vault session id, and
+  receipts attribute strictly per session id. An `initialize` carrying an
+  `X-Vault-Session` header names the session explicitly
+  (`vault-<name>`; malformed values are a 400, never silently ignored);
+  without it the id is generated per initialize — over HTTP and over stdio
+  alike, there is no shared per-process fallback identity.
 
 ## Verify live (zero model cost)
 
 ```bash
 node scripts/vault-verify.mjs
+node scripts/vault-verify-docs.mjs
 ```
 
-Copies the axios fixture, initializes it with the real CLI, starts the
-vault, and drives a scripted MCP client through the handshake, auth
-rejections, a real ask (asserting ≥10x raw-versus-served), byte-equal zoom
-recovery, and a receipt reconciled against the audit trail.
+The first copies the axios fixture, initializes it with the real CLI,
+starts the vault, and drives a scripted MCP client through the handshake,
+auth rejections, a real ask (asserting ≥10x raw-versus-served), byte-equal
+zoom recovery, and a receipt reconciled against the audit trail.
+
+The second assembles the mixed document corpus (checked-in Markdown and
+text plus a script-generated multi-page PDF and DOCX), ingests it twice
+(proving hash-incrementality), then verifies a cross-document ask cited by
+document, section, and page with its accounting block, byte-equal section
+recovery via `vault_zoom("§3")`, the prose entity gate blocking a
+distillate that drops a date, and receipt attribution to an explicit
+`X-Vault-Session`.
