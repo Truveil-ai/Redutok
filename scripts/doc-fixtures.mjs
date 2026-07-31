@@ -7,11 +7,11 @@
 //   node scripts/doc-fixtures.mjs <target-dir>
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
 const pdfEscape = (s) => s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 
-const wrap = (text, width = 88) => {
+const wrap = (text, width = 100) => {
   const words = text.split(/\s+/).filter((w) => w !== '');
   const lines = [];
   let line = '';

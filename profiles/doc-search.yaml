@@ -1,0 +1,23 @@
+name: doc-search
+version: "1"
+description: Cross-document search, ranked hits with document, section, and page context
+match:
+  tools: [vault_ask]
+  contentType: doc-search-results
+rules:
+  - kind: ranked-hits
+    config: { maxHits: 24 }
+gates:
+  # The hits arrive pre-ranked; the first lines are the conclusion-relevant
+  # region and must survive verbatim, prose extraction set.
+  entityPatterns: prose
+  entityPreservationMinRatio: 1
+  relevantLinePattern: '\S'
+  relevantLineLimit: 12
+  # The raw is already a compact pre-ranked hit list and the distillate adds
+  # a header line, so on small lists the ratio can exceed 1; the cap only
+  # guards against a runaway distillate.
+  sizeMaxRatio: 1.5
+  minOutputBytes: 40
+llm:
+  enabled: false

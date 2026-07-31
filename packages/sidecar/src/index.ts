@@ -9,6 +9,7 @@ export * from './gates.js';
 export * from './llm.js';
 export * from './skeleton.js';
 export * from './distill.js';
+export * from './docs.js';
 export * from './codex.js';
 export * from './mirror.js';
 export * from './serve.js';

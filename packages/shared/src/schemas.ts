@@ -148,6 +148,12 @@ export const DistillProfileSchema = z.object({
   gates: z
     .object({
       entityPreservationMinRatio: z.number().min(0).max(1).default(0.95),
+      /**
+       * Which deterministic extraction set the entity gate applies: 'code'
+       * (paths, versions, error codes) or 'prose' (dates, defined terms,
+       * party names, section refs, figures) for document profiles.
+       */
+      entityPatterns: z.enum(['code', 'prose']).optional(),
       /** Raw lines matching this regex are the conclusion-relevant region; unset disables the entity gate. */
       relevantLinePattern: z.string().optional(),
       /** Only the first N matching lines form the region (build-log: the first error is the conclusion). */

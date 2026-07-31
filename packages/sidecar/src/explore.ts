@@ -3,6 +3,12 @@ import path from 'node:path';
 import { LIMITS, type DistillProfile } from '@redutok/shared';
 import type { AuditWriter } from './audit.js';
 import { distillArtifact, estimateTokens } from './distill.js';
+import {
+  searchDocumentSections,
+  sectionAnchor,
+  type DocHit,
+  type DocumentIndexEntry,
+} from './docs.js';
 import type { LlmPass } from './llm.js';
 import type { Store } from './store.js';
 
@@ -25,6 +31,13 @@ export interface ExploreRequest {
   budget?: ExploreBudget;
   sessionId: string;
   repoRoot: string;
+  /**
+   * Ingested document index entries (Vault Session 2): their stored extracted
+   * text is searched by section and served through the doc profiles, and the
+   * source files are skipped by the code walk (a .docx on disk is bytes; the
+   * store holds its text).
+   */
+  documents?: DocumentIndexEntry[];
 }
 
 export interface DossierEvidence {
@@ -68,7 +81,13 @@ interface Hit {
   text: string;
 }
 
-function walkSearch(roots: string[], keywords: string[], maxHits: number, deadline: number): Hit[] {
+function walkSearch(
+  roots: string[],
+  keywords: string[],
+  maxHits: number,
+  deadline: number,
+  skipFiles: Set<string> = new Set(),
+): Hit[] {
   const hits: Hit[] = [];
   const pattern = new RegExp(keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i');
   const walk = (dir: string): void => {
@@ -83,6 +102,7 @@ function walkSearch(roots: string[], keywords: string[], maxHits: number, deadli
       if (hits.length >= maxHits || Date.now() > deadline) return;
       if (SKIP_DIRS.has(name)) continue;
       const full = path.join(dir, name);
+      if (skipFiles.has(path.resolve(full))) continue;
       let stats;
       try {
         stats = statSync(full);
@@ -183,17 +203,78 @@ export async function exploreGoal(
     });
   }
 
+  // Document phase first: ingested documents are searched by section in the
+  // store (their on-disk bytes may be binary), the ranked hits become a
+  // doc-search artifact, and the top documents are served ask-relevant
+  // through doc-serve. Every step is a distillArtifact call like any other.
+  const docEntries = (request.documents ?? []).filter((d) => d.artifactId !== undefined);
+  const skipFiles = new Set(docEntries.map((d) => path.resolve(request.repoRoot, d.path)));
+  const evidence: DossierEvidence[] = [];
+  const docHits = docEntries.length === 0 ? [] : searchDocumentSections(store, docEntries, keywords);
+  if (docHits.length > 0) {
+    const byDoc = new Map<string, DocHit[]>();
+    for (const h of docHits) byDoc.set(h.path, [...(byDoc.get(h.path) ?? []), h]);
+    const rankedDocs = [...byDoc.entries()].sort((a, b) => b[1].length - a[1].length);
+    const hitLine = (h: DocHit): string =>
+      `${h.path} §${h.section.id}${h.section.page === undefined ? '' : ` p.${h.section.page}`}:${h.line}: ${h.text}`;
+    const docRaw = rankedDocs.flatMap(([, hs]) => hs).map(hitLine).join('\n');
+    rawTokensSeen += estimateTokens(docRaw);
+    const docSearchProfile = profiles.get('doc-search');
+    if (docSearchProfile !== undefined) {
+      const outcome = await distillArtifact(store, audit, {
+        raw: docRaw,
+        profile: docSearchProfile,
+        sessionId: request.sessionId,
+        tool: 'dcp__explore',
+      });
+      zoomHandles.push(outcome.artifactId);
+    }
+    stepsTaken += 1;
+    for (const [docPath, hs] of rankedDocs.slice(0, 6)) {
+      for (const h of hs.slice(0, 2)) {
+        evidence.push({
+          file: docPath,
+          line: h.line,
+          snippet: h.text.slice(0, 200),
+          why: `§${h.section.id} "${h.section.title}", ${sectionAnchor(h.section)}`,
+        });
+      }
+    }
+    const serveProfile = profiles.get('doc-serve');
+    const docBudget = Math.min(rankedDocs.length, 6, Math.max(0, stepCap - stepsTaken - 2));
+    for (const [docPath] of rankedDocs.slice(0, docBudget)) {
+      if (Date.now() > deadline) break;
+      const entry = docEntries.find((d) => d.path === docPath);
+      if (serveProfile === undefined || entry?.artifactId === undefined) continue;
+      const artifact = store.getArtifact(entry.artifactId);
+      if (artifact === undefined) continue;
+      rawTokensSeen += estimateTokens(artifact.raw);
+      const outcome = await distillArtifact(store, audit, {
+        raw: artifact.raw,
+        profile: serveProfile,
+        sessionId: request.sessionId,
+        tool: 'dcp__explore',
+        context: {
+          filePath: entry.path,
+          doc: { sections: entry.sections, pages: entry.pages, ask: request.goal },
+        },
+      });
+      zoomHandles.push(outcome.artifactId);
+      stepsTaken += 1;
+    }
+  }
+
   const roots = (request.scope !== undefined && request.scope.length > 0 ? request.scope : [request.repoRoot]).map(
     (p) => (path.isAbsolute(p) ? p : path.join(request.repoRoot, p)),
   );
-  const hits = walkSearch(roots, keywords, 500, deadline);
+  const hits = walkSearch(roots, keywords, 500, deadline, skipFiles);
   stepsTaken += 1; // the search sweep is one step regardless of how many files it touches
 
-  if (hits.length === 0) {
+  if (hits.length === 0 && evidence.length === 0) {
     return finish({
       verdict: `no matches for ${keywords.join(', ')} under ${roots.join(', ')}`,
       evidence: [],
-      zoomHandles: [],
+      zoomHandles,
       incomplete: {
         reason: 'no hits',
         continuationHint: 'broaden scope or restate the goal with different keywords',
@@ -201,17 +282,19 @@ export async function exploreGoal(
     });
   }
 
-  const searchRaw = hits.map((h) => `${path.relative(request.repoRoot, h.file)}:${h.line}:${h.text}`).join('\n');
-  rawTokensSeen += estimateTokens(searchRaw);
-  const searchProfile = profiles.get('search-results');
-  if (searchProfile !== undefined) {
-    const outcome = await distillArtifact(store, audit, {
-      raw: searchRaw,
-      profile: searchProfile,
-      sessionId: request.sessionId,
-      tool: 'dcp__explore',
-    });
-    zoomHandles.push(outcome.artifactId);
+  if (hits.length > 0) {
+    const searchRaw = hits.map((h) => `${path.relative(request.repoRoot, h.file)}:${h.line}:${h.text}`).join('\n');
+    rawTokensSeen += estimateTokens(searchRaw);
+    const searchProfile = profiles.get('search-results');
+    if (searchProfile !== undefined) {
+      const outcome = await distillArtifact(store, audit, {
+        raw: searchRaw,
+        profile: searchProfile,
+        sessionId: request.sessionId,
+        tool: 'dcp__explore',
+      });
+      zoomHandles.push(outcome.artifactId);
+    }
   }
 
   const byFile = new Map<string, Hit[]>();
@@ -221,7 +304,6 @@ export async function exploreGoal(
   const readBudget = Math.max(0, stepCap - stepsTaken);
   const filesToRead = rankedFiles.slice(0, readBudget);
   const skeletonProfile = profiles.get('file-skeleton');
-  const evidence: DossierEvidence[] = [];
   let incomplete: Dossier['incomplete'];
 
   for (const [file, fileHits] of filesToRead) {

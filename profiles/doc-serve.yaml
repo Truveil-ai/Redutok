@@ -1,0 +1,21 @@
+name: doc-serve
+version: "1"
+description: Long-document serve, the structure map plus the sections relevant to the ask
+match:
+  tools: [vault_ingest, vault_ask]
+  contentType: document
+rules:
+  - kind: relevant-sections
+    config: { maxSections: 4, maxSectionLines: 120 }
+gates:
+  # Prose discipline: dates, defined terms, party names, section numbers, and
+  # figures in the ask-matched (conclusion-relevant) region survive verbatim.
+  entityPatterns: prose
+  entityPreservationMinRatio: 1
+  # On a short document the structure map plus the ask-matched sections can
+  # approach or slightly exceed the raw size; the reduction claim lives on
+  # long documents, and this cap only guards against a runaway distillate.
+  sizeMaxRatio: 1.2
+  minOutputBytes: 40
+llm:
+  enabled: false
