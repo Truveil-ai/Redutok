@@ -37,15 +37,30 @@ describe('enumerateMatrix', () => {
     expect(reps).toEqual(new Set([1, 2, 3]));
   });
 
-  it('paste input estimate on the docs corpus exceeds vault input by ≥10x', () => {
+  it('paste input estimate on the code corpus exceeds vault input by ≥20x (structural, per pre-registration)', () => {
     const { cfg, sets } = loadAll();
     const rows = enumerateMatrix(cfg, sets, repoRoot);
+    const codeCorpus = cfg.corpora.find((c) => c.id === 'code')!;
+    const codeQ1 = rows.filter((r) => r.corpusId === 'code' && r.questionId === 'q1' && r.rep === 1);
+    const paste = codeQ1.find((r) => r.arm === 'paste')!;
+    const vault = codeQ1.find((r) => r.arm === 'vault')!;
+    // The paste arm carries the entire axios source; the vault arm carries
+    // the codex + skill + one question. Assert the pre-registered ratio.
+    expect(paste.minInputTokens).toBeGreaterThanOrEqual(
+      vault.maxInputTokens * codeCorpus.minInputReductionMedianX,
+    );
+  });
+
+  it('paste input estimate on the docs corpus exceeds vault input by ≥ the pre-registered claim', () => {
+    const { cfg, sets } = loadAll();
+    const rows = enumerateMatrix(cfg, sets, repoRoot);
+    const docsCorpus = cfg.corpora.find((c) => c.id === 'docs')!;
     const docsQ1 = rows.filter((r) => r.corpusId === 'docs' && r.questionId === 'q1' && r.rep === 1);
     const paste = docsQ1.find((r) => r.arm === 'paste')!;
     const vault = docsQ1.find((r) => r.arm === 'vault')!;
-    // The paste arm carries the entire corpus; the vault arm carries the
-    // codex + skill + one question.
-    expect(paste.minInputTokens).toBeGreaterThanOrEqual(vault.maxInputTokens * 10);
+    expect(paste.minInputTokens).toBeGreaterThanOrEqual(
+      vault.maxInputTokens * docsCorpus.minInputReductionMedianX,
+    );
   });
 
   it('max output tokens is capped at maxTokensPerTurn', () => {

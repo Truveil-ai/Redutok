@@ -17,7 +17,7 @@ describe('loadChatbenchConfig', () => {
   it('reads the pre-registered file and validates required fields', () => {
     const cfg = loadChatbenchConfig(configPath);
     expect(cfg.kind).toBe('chatbench');
-    expect(cfg.registrationId).toBe('chatbench-v1-2026-08-01');
+    expect(cfg.registrationId).toBe('chatbench-v1b-2026-08-01');
     expect(cfg.replications).toBe(3);
     expect(cfg.corpora.map((c) => c.id).sort()).toEqual(['code', 'docs']);
     expect(cfg.grader.parityFloor).toBe(0.75);
