@@ -22,6 +22,8 @@
     "prettier": "^3.3.3",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.2.0",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "docx": "^9.0.0",
+    "pdfkit": "^0.15.0"
   }
 }
