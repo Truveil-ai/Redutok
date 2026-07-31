@@ -73,10 +73,46 @@ secret comes from `REDUTOK_VAULT_SECRET` or `<corpus>/.dcp/vault.json`
   On a document artifact, a section reference (`§3`, `3`, or the exact
   title) or a page reference (`page 2`) recovers that slice byte-equal from
   the store.
-- `vault_receipt(scope?, corpus?)` — `session` (default) or `corpus`
-  lifetime rollups: tokens avoided with artifact backing, cost avoided at
-  the claude-sonnet-5 input rate from `prices.yaml`, Wh and gCO2e bands per
-  `docs/METHODOLOGY.md` (context multiplier held at 1.0).
+- `vault_receipt(scope?, day?, month?, json?, corpus?)` — rollups from the
+  persistent ledger. Scopes: `session` (default), `day` (YYYY-MM-DD, UTC),
+  `month` (YYYY-MM), `corpus` lifetime, and `document` (which documents are
+  consumed most, how often, at what avoided cost). Every rollup states
+  tokens avoided with artifact backing, cost avoided at the claude-sonnet-5
+  input rate from `prices.yaml` with the rate row cited, and Wh and gCO2e
+  bands per `docs/METHODOLOGY.md` (context multiplier held at 1.0).
+  `json: true` returns the rollup as JSON instead of the human render.
+
+## Ledger
+
+Every ask, zoom, and internal serve appends a line to the per-corpus
+ledger at `.dcp/ledger.db` (SQLite, alongside the store): session id,
+timestamp, tokens raw versus served, cost avoided at the rate row current
+when the line was written (model, rate, and source pinned into the line),
+Wh and gCO2e bands, per-document attribution, and the artifact and audit
+references backing the line. Serve lines mirror the measured audit events
+one-to-one, so ledger and audit reconcile by construction; the ask line on
+top records the dossier accounting without double-counting its serves. The
+ledger survives server restarts, and an explicit `X-Vault-Session`
+identity resumes its ask numbering from it.
+
+Counterfactual honesty, enforced in code and pinned by test: avoided
+tokens always compare served size against the raw size of what was
+actually touched. The whole-corpus figure appears only under its own
+"corpus resident size avoided" label; the two never conflate.
+
+## Monthly statement
+
+```bash
+node packages/vault/dist/main.js statement /path/to/corpus --corpus practice --month 2026-07
+```
+
+Renders the month's ledger as a statement ready to attach to an internal
+report: activity, token totals for what was touched, avoided cost with
+the rate row cited, avoided energy with bands, top documents by reads,
+top sessions by tokens avoided, the corpus-resident figure under its own
+label, and the methodology citation with the estimates-never-measurements
+framing. `--month` defaults to the current month (UTC); `--json` emits
+the rollup as JSON. Reads `.dcp` state directly; no server required.
 
 ## Guardrails
 
@@ -97,6 +133,7 @@ secret comes from `REDUTOK_VAULT_SECRET` or `<corpus>/.dcp/vault.json`
 ```bash
 node scripts/vault-verify.mjs
 node scripts/vault-verify-docs.mjs
+node scripts/vault-verify-ledger.mjs
 ```
 
 The first copies the axios fixture, initializes it with the real CLI,
@@ -111,3 +148,10 @@ document, section, and page with its accounting block, byte-equal section
 recovery via `vault_zoom("§3")`, the prose entity gate blocking a
 distillate that drops a date, and receipt attribution to an explicit
 `X-Vault-Session`.
+
+The third mounts both fixture corpora on one server and drives a dozen
+asks and zooms over two simulated sessions with a server restart
+mid-sequence, proving per-session receipts differ and reconcile to the
+audit trail, ledger continuity across the restart, correct per-document
+ranking, and month-statement totals that match the corpus-lifetime
+rollup. It prints the month statement.
