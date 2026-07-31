@@ -73,6 +73,16 @@ secret comes from `REDUTOK_VAULT_SECRET` or `<corpus>/.dcp/vault.json`
   On a document artifact, a section reference (`§3`, `3`, or the exact
   title) or a page reference (`page 2`) recovers that slice byte-equal from
   the store.
+- `vault_codex(corpus?, json?, maxTokens?)` — emits a compact Markdown
+  block for pasting into claude.ai Project instructions: the corpus map
+  (documents and their section anchors), glossary, graduated learned
+  entries, a four-line behavioral protocol, and a footer with the
+  emission version, corpus content hash, and pinned rate row. Hard
+  ceiling from `LIMITS.VAULT_CODEX.MAX_TOKENS`; when the graduated set
+  exceeds `LIMITS.VAULT_CODEX.GRADUATED_MAX_TOKENS`, entries are excluded
+  lowest-confidence first (same discipline `buildInjection` uses on
+  learned entries). Also available as `redutok-vault codex <path>
+  --corpus <name> [--json] [--max-tokens N]`.
 - `vault_receipt(scope?, day?, month?, json?, corpus?)` — rollups from the
   persistent ledger. Scopes: `session` (default), `day` (YYYY-MM-DD, UTC),
   `month` (YYYY-MM), `corpus` lifetime, and `document` (which documents are
@@ -128,12 +138,35 @@ the rollup as JSON. Reads `.dcp` state directly; no server required.
   without it the id is generated per initialize — over HTTP and over stdio
   alike, there is no shared per-process fallback identity.
 
+## Zero-turn channel and graduation
+
+The vault codex block emitted by `vault_codex` (or `redutok-vault codex`)
+is meant to live in the connected chat client's Project instructions, so
+stable structure and graduated knowledge ride every conversation at
+platform-cached prices. `vault_ask` accepts an optional `codex_version`
+matching the number in the block's footer; when the current emission is
+newer, the response appends exactly one line
+(`[vault codex refresh: pasted block is v<N>; current v<M> — ...]`) so a
+stale paste is detectable end-to-end.
+
+Graduation is conversational: `redutok-vault mine <path> --corpus <name>`
+scans `vault.ask` and `vault.zoom` audit events for recurring
+touched-sections neighborhoods and repeatedly-zoomed documents, keys them
+by signature, and persists graduated entries under
+`.dcp/vault-graduated.json`. The codex emitter reads that file on the
+next emission, and the version bumps when the corpus content hash
+changes.
+
+Behavioral rules for the connected chat client are packaged in
+`skills/redutok/SKILL.md`; the README beside it documents installation.
+
 ## Verify live (zero model cost)
 
 ```bash
 node scripts/vault-verify.mjs
 node scripts/vault-verify-docs.mjs
 node scripts/vault-verify-ledger.mjs
+node scripts/vault-verify-codex.mjs
 ```
 
 The first copies the axios fixture, initializes it with the real CLI,
@@ -155,3 +188,10 @@ mid-sequence, proving per-session receipts differ and reconcile to the
 audit trail, ledger continuity across the restart, correct per-document
 ranking, and month-statement totals that match the corpus-lifetime
 rollup. It prints the month statement.
+
+The fourth ingests the document corpus, emits codex v1, drives two
+simulated sessions asking the same neighborhood, runs graduation, emits
+codex v2 asserting the version bump and the appearance of a graduated
+line, prints the v1→v2 diff and the first 40 lines of v2, and finally
+asks with `codex_version` set to v1 to assert exactly one refresh line
+naming the current version. All zero model cost.

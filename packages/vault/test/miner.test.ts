@@ -25,7 +25,7 @@ function mount(root: string, name: string): Corpus {
  * sections into a persisted graduated set that the codex emitter reads.
  */
 
-let cleanups: Array<() => void> = [];
+const cleanups: Array<() => void> = [];
 
 afterEach(() => {
   // Reverse so mount closers (pushed after tmpdir cleanup) run before rmSync.

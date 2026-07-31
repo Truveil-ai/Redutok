@@ -32,7 +32,7 @@ function mount(root: string, name: string): Corpus {
  * exceeds its budget.
  */
 
-let cleanups: Array<() => void> = [];
+const cleanups: Array<() => void> = [];
 
 afterEach(() => {
   // Reverse so mount closers (pushed after tmpdir cleanup) run before rmSync.

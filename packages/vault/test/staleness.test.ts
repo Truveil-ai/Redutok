@@ -23,7 +23,7 @@ const fixturesRoot = path.join(
   'doc-corpus',
 );
 
-let cleanups: Array<() => void> = [];
+const cleanups: Array<() => void> = [];
 
 afterEach(() => {
   for (const c of cleanups.splice(0).reverse()) c();
