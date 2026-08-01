@@ -214,6 +214,27 @@ export class Store {
     };
   }
 
+  /**
+   * Bytes of raw content currently resident in the store, deduplicated to
+   * the latest artifact per file path (artifacts without a file path count
+   * individually). This backs the vault's "corpus resident size avoided"
+   * figure, which is deliberately distinct from any avoided-tokens claim:
+   * avoided tokens only ever count what was actually touched.
+   */
+  residentRawBytes(): number {
+    const row = this.db
+      .prepare(
+        `SELECT COALESCE(SUM(raw_bytes), 0) AS total FROM (
+           SELECT raw_bytes, ROW_NUMBER() OVER (
+             PARTITION BY COALESCE(json_extract(meta, '$.filePath'), id)
+             ORDER BY created_at DESC, rowid DESC
+           ) AS rn FROM artifacts
+         ) WHERE rn = 1`,
+      )
+      .get() as { total: number };
+    return row.total;
+  }
+
   insertAuditEvent(event: AuditEvent): void {
     const parsed = AuditEventSchema.parse(event);
     this.db

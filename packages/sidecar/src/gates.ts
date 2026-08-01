@@ -19,11 +19,19 @@ export interface GateReport {
 
 export interface EntityGateConfig {
   /** Raw lines matching this regex are the conclusion-relevant region. */
-  relevantLinePattern: string;
+  relevantLinePattern?: string;
+  /**
+   * An explicit conclusion-relevant region, overriding relevantLinePattern:
+   * document profiles pass the ask-matched sections here, computed by the
+   * same deterministic matcher the distiller uses.
+   */
+  region?: string;
   /** Fraction of extracted entities that must appear verbatim in the distillate. */
   minRatio: number;
   /** Only the first N matching lines form the region; unset means all matches. */
   limit?: number;
+  /** Which deterministic extraction set applies: code output (default) or prose. */
+  patternSet?: 'code' | 'prose';
 }
 
 export interface VerdictGateConfig {
@@ -64,14 +72,50 @@ const ENTITY_PATTERNS: RegExp[] = [
   /\b\d+(?:\.\d+)?\b/g,
 ];
 
-export function extractEntities(text: string): string[] {
+const MONTHS =
+  'January|February|March|April|May|June|July|August|September|October|November|December';
+
+/**
+ * The prose adaptation of the extraction set (Vault Session 2): dates,
+ * defined terms, party names, section references, and figures. Deterministic
+ * regexes only, same discipline as the code patterns above.
+ */
+const PROSE_ENTITY_PATTERNS: RegExp[] = [
+  // ISO dates.
+  /\b\d{4}-\d{2}-\d{2}\b/g,
+  // Written dates, month-first and day-first.
+  new RegExp(`\\b(?:${MONTHS})\\s+\\d{1,2},\\s+\\d{4}\\b`, 'g'),
+  new RegExp(`\\b\\d{1,2}\\s+(?:${MONTHS})\\s+\\d{4}\\b`, 'g'),
+  // Defined terms: quoted capitalized phrases, straight or curly quotes.
+  /["“]([A-Z][A-Za-z][^"“”\n]{0,38})["”]/g,
+  // Party names: capitalized runs ending in a corporate designator.
+  /\b(?:[A-Z][A-Za-z&.-]*\s+)+(?:Ltd|Limited|LLC|LLP|Inc|Incorporated|Corp|Corporation|GmbH|Company|Partners)\b/g,
+  // Section and clause references.
+  /\b(?:Section|Clause|Article|Schedule|Exhibit|Appendix|Paragraph)\s+\d+(?:\.\d+)*\b/gi,
+  /§\s?\d+(?:\.\d+)*/g,
+  // Figures: currency amounts, percentages, and separator-formatted numbers.
+  /\b(?:USD|EUR|GBP|INR|CHF|JPY|AUD|CAD)\s?\d[\d,]*(?:\.\d+)?\b/g,
+  /[$€£₹]\s?\d[\d,]*(?:\.\d+)?/g,
+  /\b\d+(?:\.\d+)?\s?%/g,
+  /\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b/g,
+];
+
+function collectEntities(text: string, patterns: RegExp[]): string[] {
   const entities = new Set<string>();
-  for (const pattern of ENTITY_PATTERNS) {
+  for (const pattern of patterns) {
     for (const match of text.matchAll(new RegExp(pattern.source, pattern.flags))) {
-      entities.add(match[1] ?? (match[0] as string));
+      entities.add((match[1] ?? (match[0] as string)).trim());
     }
   }
   return [...entities];
+}
+
+export function extractEntities(text: string): string[] {
+  return collectEntities(text, ENTITY_PATTERNS);
+}
+
+export function extractProseEntities(text: string): string[] {
+  return collectEntities(text, PROSE_ENTITY_PATTERNS);
 }
 
 export function entityPreservationGate(
@@ -79,11 +123,19 @@ export function entityPreservationGate(
   distilled: string,
   config: EntityGateConfig,
 ): GateResult {
-  const relevant = new RegExp(config.relevantLinePattern, 'i');
-  let matches = raw.split(/\r?\n/).filter((line) => relevant.test(line));
-  if (config.limit !== undefined) matches = matches.slice(0, config.limit);
-  const region = matches.join('\n');
-  const entities = extractEntities(region);
+  let region: string;
+  if (config.region !== undefined) {
+    region = config.region;
+  } else if (config.relevantLinePattern !== undefined) {
+    const relevant = new RegExp(config.relevantLinePattern, 'i');
+    let matches = raw.split(/\r?\n/).filter((line) => relevant.test(line));
+    if (config.limit !== undefined) matches = matches.slice(0, config.limit);
+    region = matches.join('\n');
+  } else {
+    region = '';
+  }
+  const entities =
+    config.patternSet === 'prose' ? extractProseEntities(region) : extractEntities(region);
   if (entities.length === 0) {
     return { gate: 'entity-preservation', passed: true, detail: 'no entities in relevant region' };
   }

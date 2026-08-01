@@ -119,6 +119,22 @@ importers:
         specifier: ^7.0.0
         version: 7.0.2
 
+  packages/vault:
+    dependencies:
+      '@redutok/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@redutok/sidecar':
+        specifier: workspace:*
+        version: link:../sidecar
+      better-sqlite3:
+        specifier: ^12.11.1
+        version: 12.11.1
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
+
 packages:
 
   '@esbuild/aix-ppc64@0.21.5':

@@ -1,0 +1,32 @@
+{
+  "name": "@redutok/vault",
+  "version": "0.0.1",
+  "description": "Redutok Vault: MCP server (streamable HTTP + stdio) exposing the sidecar engines over a mounted corpus",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "redutok-vault": "./dist/main.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@redutok/shared": "workspace:*",
+    "@redutok/sidecar": "workspace:*",
+    "better-sqlite3": "^12.11.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13"
+  }
+}

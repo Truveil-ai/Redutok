@@ -9,6 +9,13 @@ import {
   type DistillProfile,
 } from '@redutok/shared';
 import type { AuditWriter } from './audit.js';
+import {
+  matchedDocSections,
+  sectionAnchor,
+  sectionText,
+  type DocPage,
+  type DocSection,
+} from './docs.js';
 import { runGates, type GateConfig, type GateReport } from './gates.js';
 import { fileSkeleton, languageForPath, type SkeletonLanguage } from './skeleton.js';
 import { storeRedactedArtifact } from './redact.js';
@@ -146,8 +153,20 @@ function genericStdoutDistill(raw: string, profile: DistillProfile, context: Dis
   ].join('\n');
 }
 
+export interface DocDistillContext {
+  sections: DocSection[];
+  pages?: DocPage[];
+  /** The question being served; drives which sections ride along verbatim. */
+  ask?: string;
+}
+
 export interface DistillContext {
   filePath?: string;
+  /**
+   * Document structure for the doc-serve profile and for section/page zoom:
+   * stored on the artifact's meta so a cited section stays byte-recoverable.
+   */
+  doc?: DocDistillContext;
   /**
    * Artifact id the output will be stored under. Elision markers embed a
    * dcp__zoom reference to it so no content is dropped without a recovery
@@ -172,6 +191,60 @@ function zoomRef(context: DistillContext): string {
     : `zoom: dcp__zoom("${context.artifactId}", query?)`;
 }
 
+/**
+ * Long-document serve: the structure map (every section's citation line with
+ * anchor and one-line summary), plus the ask-matched sections verbatim. The
+ * verbatim inclusion is what lets the prose entity gate hold: the gate's
+ * region is computed by the same matcher over the same raw.
+ */
+function docServeDistill(raw: string, profile: DistillProfile, context: DistillContext): string {
+  const doc = context.doc;
+  if (doc === undefined || doc.sections.length === 0) return '';
+  const config = ruleConfig(profile, 'relevant-sections');
+  const maxSections = Number(config['maxSections'] ?? 4);
+  const maxSectionLines = Number(config['maxSectionLines'] ?? 120);
+  const out: string[] = [
+    `document ${context.filePath ?? '(unnamed)'}: ${doc.sections.length} sections${
+      doc.pages === undefined ? '' : `, ${doc.pages.length} pages`
+    }`,
+    `[full document elided, ${zoomRef(context)}; a section id or title recovers that section byte-exact]`,
+  ];
+  for (const section of doc.sections) {
+    out.push(`§${section.id} ${section.title} (${sectionAnchor(section)}) — ${section.summary}`);
+  }
+  const matched = matchedDocSections(raw, doc.sections, doc.ask, maxSections);
+  for (const { section, text } of matched) {
+    out.push('', `[§${section.id} ${section.title} (${sectionAnchor(section)})]`);
+    const lines = text.split(/\r?\n/);
+    out.push(...lines.slice(0, maxSectionLines));
+    if (lines.length > maxSectionLines) {
+      out.push(`[section truncated after ${maxSectionLines} lines, ${zoomRef(context)}]`);
+    }
+  }
+  return out.join('\n');
+}
+
+/**
+ * Cross-document search: the hit lines arrive pre-ranked (document, section,
+ * page context already inline), so the distillate is a header plus the head
+ * of the list, kept verbatim for the prose entity gate.
+ */
+function docSearchDistill(raw: string, profile: DistillProfile, context: DistillContext): string {
+  const config = ruleConfig(profile, 'ranked-hits');
+  const maxHits = Number(config['maxHits'] ?? 24);
+  const lines = raw.split(/\r?\n/).filter((l) => l.trim() !== '');
+  if (lines.length === 0) return '';
+  const docs = new Set(lines.map((l) => l.split(' §')[0] ?? l));
+  const shown = lines.slice(0, maxHits);
+  const out = [
+    `${lines.length} hits across ${docs.size} documents${
+      shown.length < lines.length ? ` (showing top ${shown.length}; full set: ${zoomRef(context)})` : ` (full set: ${zoomRef(context)})`
+    }`,
+    ...shown,
+  ];
+  return out.join('\n');
+}
+
 export async function runProfile(
   profile: DistillProfile,
   raw: string,
@@ -188,6 +261,10 @@ export async function runProfile(
       return searchResultsDistill(raw, profile, context);
     case 'generic-stdout':
       return genericStdoutDistill(raw, profile, context);
+    case 'doc-serve':
+      return docServeDistill(raw, profile, context);
+    case 'doc-search':
+      return docSearchDistill(raw, profile, context);
     default:
       throw new Error(`no distiller implemented for profile "${profile.name}"`);
   }
@@ -195,17 +272,40 @@ export async function runProfile(
 
 export function profileGateConfig(profile: DistillProfile): GateConfig {
   const g = profile.gates;
-  return {
-    entity:
-      g.relevantLinePattern === undefined
-        ? undefined
-        : {
-            relevantLinePattern: g.relevantLinePattern,
-            minRatio: g.entityPreservationMinRatio,
-            limit: g.relevantLineLimit,
-          },
+  const entityConfigured = g.relevantLinePattern !== undefined || g.entityPatterns !== undefined;
+  const config: GateConfig = {
+    entity: !entityConfigured
+      ? undefined
+      : {
+          relevantLinePattern: g.relevantLinePattern,
+          minRatio: g.entityPreservationMinRatio,
+          limit: g.relevantLineLimit,
+          patternSet: g.entityPatterns ?? 'code',
+        },
     verdict: g.verdict,
     size: { maxRatio: g.sizeMaxRatio, minBytes: g.minOutputBytes },
+  };
+  return config;
+}
+
+/**
+ * For document artifacts the conclusion-relevant region is the ask-matched
+ * section set — the exact text the doc-serve distiller promises to include —
+ * computed here with the same matcher and caps so gate and distiller can
+ * never drift apart.
+ */
+function withDocRegion(config: GateConfig, request: DistillRequest): GateConfig {
+  const doc = request.context?.doc;
+  if (doc === undefined || config.entity === undefined || config.entity.relevantLinePattern !== undefined) {
+    return config;
+  }
+  const maxSections = Number(
+    ruleConfig(request.profile, 'relevant-sections')['maxSections'] ?? 4,
+  );
+  const matched = matchedDocSections(request.raw, doc.sections, doc.ask, maxSections);
+  return {
+    ...config,
+    entity: { ...config.entity, region: matched.map((m) => m.text).join('\n') },
   };
 }
 
@@ -245,7 +345,7 @@ export async function distillArtifact(
     ...request.context,
     artifactId,
   });
-  const gateConfig = profileGateConfig(request.profile);
+  const gateConfig = withDocRegion(profileGateConfig(request.profile), request);
   const gateReport = runGates(request.raw, distilled, gateConfig);
   const served = gateReport.passed ? 'distilled' : 'raw';
   const stored = storeRedactedArtifact(store, audit, {
@@ -258,7 +358,13 @@ export async function distillArtifact(
     distilled: gateReport.passed ? distilled : undefined,
     profile: request.profile.name,
     gatesPassed: gateReport.passed,
-    meta: { gates: gateReport.results, filePath: request.context?.filePath },
+    meta: {
+      gates: gateReport.results,
+      filePath: request.context?.filePath,
+      ...(request.context?.doc === undefined
+        ? {}
+        : { doc: { sections: request.context.doc.sections, pages: request.context.doc.pages } }),
+    },
   });
   const bytesIn = Buffer.byteLength(request.raw, 'utf8');
   const bytesOut = Buffer.byteLength(gateReport.passed ? distilled : request.raw, 'utf8');
@@ -304,6 +410,11 @@ export async function distillArtifact(
 export interface ZoomResult {
   found: boolean;
   text: string;
+  /** Set when found: the resolved artifact behind the handle, its raw size,
+   * and its recorded file path, so callers can account the serve. */
+  artifactId?: string;
+  rawBytes?: number;
+  filePath?: string;
 }
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -383,6 +494,33 @@ function resolveFileRef(store: Store, ref: string): ArtifactRecord | undefined {
   return undefined;
 }
 
+/**
+ * Section/page addressing for document artifacts: a query naming a section
+ * (id, §id, or exact title) or a page ("page 2", "p.2") recovers that slice
+ * byte-exactly from the stored raw. Returns undefined when the query is not
+ * a structural reference, so text queries fall through to the line windows.
+ */
+function docSlice(
+  artifact: ArtifactRecord,
+  query: string,
+): string | undefined {
+  const doc = artifact.meta['doc'] as
+    | { sections?: DocSection[]; pages?: DocPage[] }
+    | undefined;
+  if (doc?.sections === undefined || doc.sections.length === 0) return undefined;
+  const q = query.trim();
+  const pageRef = /^(?:p|page)\.?\s*(\d+)$/i.exec(q);
+  if (pageRef !== null) {
+    const page = (doc.pages ?? []).find((p) => p.page === Number(pageRef[1]));
+    return page === undefined ? undefined : sectionText(artifact.raw, page);
+  }
+  const idRef = q.replace(/^§\s*/, '').toLowerCase();
+  const section =
+    doc.sections.find((s) => s.id.toLowerCase() === idRef) ??
+    doc.sections.find((s) => s.title.toLowerCase() === q.toLowerCase());
+  return section === undefined ? undefined : sectionText(artifact.raw, section);
+}
+
 export function zoom(
   store: Store,
   audit: AuditWriter,
@@ -393,7 +531,10 @@ export function zoom(
   const artifact = store.getArtifact(id) ?? resolveFileRef(store, id);
   if (artifact === undefined) return { found: false, text: `no artifact ${id} in the store` };
   let text = artifact.raw;
-  if (query !== undefined && query !== '') {
+  const sliced = query === undefined || query === '' ? undefined : docSlice(artifact, query);
+  if (sliced !== undefined) {
+    text = sliced;
+  } else if (query !== undefined && query !== '') {
     const lines = artifact.raw.split(/\r?\n/);
     const windowFor = (pattern: string): Set<number> => {
       const matcher = new RegExp(escapeRegExp(pattern), 'i');
@@ -442,5 +583,13 @@ export function zoom(
   };
   audit.write(event);
   store.insertAuditEvent(event);
-  return { found: true, text };
+  const result: ZoomResult = {
+    found: true,
+    text,
+    artifactId: artifact.id,
+    rawBytes: Buffer.byteLength(artifact.raw, 'utf8'),
+  };
+  const filePath = artifact.meta['filePath'];
+  if (typeof filePath === 'string' && filePath !== '') result.filePath = filePath;
+  return result;
 }
