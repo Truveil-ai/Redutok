@@ -704,11 +704,146 @@ export function askKeywords(ask: string): string[] {
   ];
 }
 
+// --- Section references and heading-aware ranking ---
+
 /**
- * The ask-relevant sections of one document: keyword-matched, ranked by
- * match volume, capped, then restored to document order. This is both what
- * the doc-serve distiller includes verbatim and the conclusion-relevant
- * region the prose entity gate holds it to.
+ * Section identity in the ask path (field failure vault-ask-retrieval-gap:
+ * six asks naming "Example 21" lost to keyword-frequency decoys because "21"
+ * fell under the 4-char keyword floor and headings carried no weight). A
+ * parsed reference targets its section directly; a heading match outranks
+ * any body-similarity score.
+ */
+
+export interface SectionRef {
+  /** Label half, lowercased ("example", "claim"); absent for bare/generic refs. */
+  label?: string;
+  /** Enumeration half, lowercased ("21", "2.1", "iv", "two"). */
+  number: string;
+  /** The phrase as written in the ask, for display. */
+  raw: string;
+}
+
+const WORD_NUMBERS = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve';
+/** Labels that name a section generically rather than a labeled kind. */
+const GENERIC_REF_LABELS = new Set(['section', 'sec']);
+const REF_LABEL = new RegExp(
+  `\\b(example|claim|part|section|sec|chapter|appendix|figure|table|exhibit|case|note)\\s+(\\d+(?:\\.\\d+)*|[ivxlcdm]+\\b|${WORD_NUMBERS})\\b`,
+  'gi',
+);
+const REF_MARK = /§\s*([A-Za-z0-9][\w.-]*)/g;
+const ID_HALVES = new RegExp(`^(?:([a-z]+)-)?(\\d+(?:\\.\\d+)*|[ivxlcdm]+|${WORD_NUMBERS})(?:-\\d+)?$`);
+
+/** Explicit section references in an ask: "Example 21", "§21", "section 21". */
+export function parseSectionRefs(ask: string): SectionRef[] {
+  const refs: SectionRef[] = [];
+  for (const m of ask.matchAll(REF_LABEL)) {
+    const label = (m[1] as string).toLowerCase();
+    const number = (m[2] as string).toLowerCase();
+    refs.push(GENERIC_REF_LABELS.has(label) ? { number, raw: m[0] } : { label, number, raw: m[0] });
+  }
+  for (const m of ask.matchAll(REF_MARK)) {
+    const id = (m[1] as string).toLowerCase();
+    const halves = ID_HALVES.exec(id);
+    const label = halves?.[1];
+    if (halves === null) refs.push({ number: id, raw: m[0] });
+    else if (label !== undefined && !GENERIC_REF_LABELS.has(label))
+      refs.push({ label, number: halves[2] as string, raw: m[0] });
+    else refs.push({ number: halves[2] as string, raw: m[0] });
+  }
+  const seen = new Set<string>();
+  return refs.filter((r) => {
+    const key = `${r.label ?? ''}#${r.number}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * Whether a reference targets a section. Numbers must agree; labels must
+ * agree only when both sides carry one — the real corpus mixes "21. Title"
+ * ids with "Example 21" phrasings, so a labeled ref matches an unlabeled id.
+ */
+export function sectionMatchesRef(section: DocSection, ref: SectionRef): boolean {
+  const halves = ID_HALVES.exec(section.id.toLowerCase());
+  if (halves === null) {
+    // Positional/slug ids carry no enumeration: match on the title carrying
+    // the reference phrase verbatim ("Example 21 – ..." under an s<N> id).
+    return section.title.toLowerCase().includes(ref.raw.toLowerCase());
+  }
+  const label = halves[1];
+  if ((halves[2] as string) !== ref.number) return false;
+  return ref.label === undefined || label === undefined || ref.label === label;
+}
+
+export type HeadingMatch = 'exact' | 'strong' | 'partial' | 'none';
+
+const HEADING_STOPWORDS = new Set([
+  'of', 'the', 'and', 'for', 'to', 'in', 'a', 'an', 'on', 'at', 'by', 'with', 'from', 'or', 'as', 'but', 'vs',
+]);
+
+const normWords = (s: string): string[] =>
+  s
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w !== '');
+
+/**
+ * Heading-match strength of one section title against the ask: exact (the
+ * ask contains the whole title), strong (every significant title word
+ * appears), partial (at least two, or the only one), none.
+ */
+export function headingMatch(title: string, ask: string): HeadingMatch {
+  const significant = normWords(title).filter((w) => !HEADING_STOPWORDS.has(w));
+  if (significant.length === 0) return 'none';
+  const askNorm = ` ${normWords(ask).join(' ')} `;
+  if (askNorm.includes(` ${normWords(title).join(' ')} `)) return 'exact';
+  const askWords = new Set(normWords(ask));
+  const matched = significant.filter((w) => askWords.has(w)).length;
+  if (matched === significant.length && significant.length >= 2) return 'strong';
+  if (matched >= 2 || (significant.length === 1 && matched === 1)) return 'partial';
+  return 'none';
+}
+
+/** Ranking tier of a section for an ask; 'ref' means explicitly enumerated. */
+export type SectionTier = 'ref' | HeadingMatch;
+
+export const TIER_RANK: Record<SectionTier, number> = { ref: 4, exact: 3, strong: 2, partial: 1, none: 0 };
+
+export interface SectionScore {
+  section: DocSection;
+  tier: SectionTier;
+  /** Keyword match volume over the section body — the tie-breaker, never the ranking. */
+  bodyScore: number;
+  text: string;
+}
+
+/** Every section scored against the ask: identity tier first, body volume second. */
+export function scoreSections(
+  text: string,
+  sections: DocSection[],
+  ask: string,
+  refs: SectionRef[] = parseSectionRefs(ask),
+): SectionScore[] {
+  const keywords = askKeywords(ask);
+  const pattern =
+    keywords.length === 0 ? undefined : new RegExp(keywords.map(escapeRegExp).join('|'), 'gi');
+  return sections.map((section) => {
+    const body = sectionText(text, section);
+    const tier: SectionTier = refs.some((r) => sectionMatchesRef(section, r))
+      ? 'ref'
+      : headingMatch(section.title, ask);
+    const bodyScore = pattern === undefined ? 0 : [...body.matchAll(pattern)].length;
+    return { section, tier, bodyScore, text: body };
+  });
+}
+
+/**
+ * The ask-relevant sections of one document: ranked by section identity
+ * (reference and heading matches) before body match volume, capped, then
+ * restored to document order. This is both what the doc-serve distiller
+ * includes verbatim and the conclusion-relevant region the prose entity
+ * gate holds it to.
  */
 export function matchedDocSections(
   text: string,
@@ -717,18 +852,60 @@ export function matchedDocSections(
   maxSections: number,
 ): { section: DocSection; text: string }[] {
   if (ask === undefined || ask.trim() === '') return [];
-  const keywords = askKeywords(ask);
-  if (keywords.length === 0) return [];
-  const pattern = new RegExp(keywords.map(escapeRegExp).join('|'), 'gi');
-  const scored = sections
-    .map((section) => {
-      const body = sectionText(text, section);
-      return { section, text: body, score: [...body.matchAll(pattern)].length };
-    })
-    .filter((s) => s.score > 0);
-  scored.sort((a, b) => b.score - a.score);
+  const scored = scoreSections(text, sections, ask).filter(
+    (s) => TIER_RANK[s.tier] > 0 || s.bodyScore > 0,
+  );
+  scored.sort((a, b) => TIER_RANK[b.tier] - TIER_RANK[a.tier] || b.bodyScore - a.bodyScore);
   return scored
     .slice(0, Math.max(0, maxSections))
     .sort((a, b) => a.section.startLine - b.section.startLine)
     .map(({ section, text: body }) => ({ section, text: body }));
+}
+
+export interface RankedDocument {
+  entry: DocumentIndexEntry;
+  hits: DocHit[];
+  scores: SectionScore[];
+  /** Highest section tier in this document. */
+  tier: SectionTier;
+}
+
+/**
+ * Corpus-aware cross-document ranking: a document whose section identity
+ * matches the ask outranks any document that merely accumulates keyword
+ * hits, and a document reachable only by enumeration (zero keyword hits)
+ * still ranks. Hit count and body volume break ties, path keeps it stable.
+ */
+export function rankDocuments(
+  store: Store,
+  entries: DocumentIndexEntry[],
+  ask: string,
+  hits: DocHit[],
+): RankedDocument[] {
+  const refs = parseSectionRefs(ask);
+  const byPath = new Map<string, DocHit[]>();
+  for (const h of hits) byPath.set(h.path, [...(byPath.get(h.path) ?? []), h]);
+  const ranked: RankedDocument[] = [];
+  for (const entry of entries) {
+    if (entry.artifactId === undefined) continue;
+    const artifact = store.getArtifact(entry.artifactId);
+    if (artifact === undefined) continue;
+    const scores = scoreSections(artifact.raw, entry.sections, ask, refs);
+    const docHits = byPath.get(entry.path) ?? [];
+    const tier = scores.reduce<SectionTier>(
+      (best, s) => (TIER_RANK[s.tier] > TIER_RANK[best] ? s.tier : best),
+      'none',
+    );
+    if (docHits.length === 0 && TIER_RANK[tier] === 0) continue;
+    ranked.push({ entry, hits: docHits, scores, tier });
+  }
+  const bodyTotal = (d: RankedDocument): number => d.scores.reduce((n, s) => n + s.bodyScore, 0);
+  ranked.sort(
+    (a, b) =>
+      TIER_RANK[b.tier] - TIER_RANK[a.tier] ||
+      b.hits.length - a.hits.length ||
+      bodyTotal(b) - bodyTotal(a) ||
+      a.entry.path.localeCompare(b.entry.path),
+  );
+  return ranked;
 }

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import type { EnergyBand } from '@redutok/shared';
+import type { ConfidenceBand } from './confidence.js';
 import { loadReferenceRates, priceAvoidedTokens } from './rates.js';
 
 /**
@@ -38,6 +39,9 @@ export interface LedgerLine {
   document?: string;
   /** Display label (the distill profile for serve lines). */
   label?: string;
+  /** Retrieval-confidence band: the ask's band on ask and serve lines, the
+   * query grade on zoom lines. Absent on lines written before schema v2. */
+  confidence?: ConfidenceBand;
   artifactRefs: string[];
   auditIds: string[];
 }
@@ -53,6 +57,7 @@ export interface LedgerLineInput {
   servedBytes: number;
   document?: string;
   label?: string;
+  confidence?: ConfidenceBand;
   artifactRefs?: string[];
   auditIds?: string[];
 }
@@ -104,6 +109,7 @@ export function makeLedgerLine(input: LedgerLineInput): LedgerLine {
   if (input.askId !== undefined) line.askId = input.askId;
   if (input.document !== undefined) line.document = input.document;
   if (input.label !== undefined) line.label = input.label;
+  if (input.confidence !== undefined) line.confidence = input.confidence;
   return line;
 }
 
@@ -134,6 +140,7 @@ CREATE TABLE IF NOT EXISTS ledger (
   region TEXT NOT NULL,
   document TEXT,
   label TEXT,
+  confidence TEXT CHECK (confidence IN ('high', 'medium', 'low')),
   artifact_refs TEXT NOT NULL DEFAULT '[]',
   audit_ids TEXT NOT NULL DEFAULT '[]'
 );
@@ -148,12 +155,21 @@ export class VaultLedger {
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
     // Single-file schema versioned via user_version, mirroring the store's
-    // migration discipline at ledger scale (one table today).
+    // migration discipline at ledger scale (one table today). v2 adds the
+    // per-line confidence band; pre-existing lines stay NULL (unrated).
     const version = this.db.pragma('user_version', { simple: true }) as number;
     if (version < 1) {
       const apply = this.db.transaction(() => {
         this.db.exec(SCHEMA);
-        this.db.pragma('user_version = 1');
+        this.db.pragma('user_version = 2');
+      });
+      apply();
+    } else if (version < 2) {
+      const apply = this.db.transaction(() => {
+        this.db.exec(
+          "ALTER TABLE ledger ADD COLUMN confidence TEXT CHECK (confidence IN ('high', 'medium', 'low'))",
+        );
+        this.db.pragma('user_version = 2');
       });
       apply();
     }
@@ -166,8 +182,8 @@ export class VaultLedger {
            raw_bytes, served_bytes, raw_tokens, served_tokens, avoided_tokens,
            cost_avoided_usd, reference_model, input_per_mtok_usd, price_source,
            wh_base, wh_low, wh_high, g_co2e_base, g_co2e_low, g_co2e_high,
-           region, document, label, artifact_refs, audit_ids)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           region, document, label, confidence, artifact_refs, audit_ids)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         line.id,
@@ -194,6 +210,7 @@ export class VaultLedger {
         line.region,
         line.document ?? null,
         line.label ?? null,
+        line.confidence ?? null,
         JSON.stringify(line.artifactRefs),
         JSON.stringify(line.auditIds),
       );
@@ -251,6 +268,9 @@ export class VaultLedger {
       if (row['ask_id'] !== null) line.askId = row['ask_id'] as string;
       if (row['document'] !== null) line.document = row['document'] as string;
       if (row['label'] !== null) line.label = row['label'] as string;
+      if (row['confidence'] !== null && row['confidence'] !== undefined) {
+        line.confidence = row['confidence'] as ConfidenceBand;
+      }
       return line;
     });
   }
