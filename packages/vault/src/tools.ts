@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readAuditFile, type AuditEvent } from '@redutok/shared';
-import { exploreGoal, redact, zoom, type Dossier } from '@redutok/sidecar';
+import { exploreGoal, holdsRef, redact, zoom, type Dossier } from '@redutok/sidecar';
 import { emitCodex, readCodexState, type EmitOptions } from './codex.js';
 import {
   assessAskConfidence,
@@ -54,10 +54,23 @@ export function resumeAskCounter(corpora: Map<string, Corpus>, session: VaultSes
 const fmt = (n: number): string => n.toLocaleString('en-US');
 const bytesToTokens = (bytes: number): number => Math.round(bytes / 4);
 
+/**
+ * Corpus resolution for a call that names one. Without a name the only
+ * mounted corpus serves, but several mounted corpora are refused by name:
+ * silently picking the first mount reported an empty ledger for the wrong
+ * corpus while the session's work sat in another (field failure, corpus idf
+ * 2026-08-02). An empty answer must never be confusable with a wrong-target
+ * answer, so a tool that cannot aggregate says which names it would accept.
+ */
 function pickCorpus(corpora: Map<string, Corpus>, arg: unknown): Corpus {
   if (arg === undefined || arg === null || arg === '') {
     const first = corpora.values().next();
     if (first.done === true) throw new VaultError('no corpus mounted');
+    if (corpora.size > 1) {
+      throw new VaultError(
+        `corpus is required: ${corpora.size} corpora are mounted (${[...corpora.keys()].join(', ')}); name one with the corpus argument`,
+      );
+    }
     return first.value;
   }
   const corpus = corpora.get(String(arg));
@@ -352,19 +365,25 @@ function documentFor(corpus: Corpus, artifactId: string | undefined): string | u
  * first mount sends handles minted by a later-mounted corpus to the wrong
  * store (2026-08-02 idf field regression). A handle held by several corpora
  * (random ids can collide across stores) is refused by name rather than
- * served from an arbitrary one; F-id@hash refs and absent ids fall through
- * to the default corpus so its zoom can resolve or report them.
+ * served from an arbitrary one. A handle no mounted corpus holds — including
+ * an unresolvable F-id@hash ref — reports which corpora were searched, so a
+ * genuine miss never reads like the first mount's private miss.
  */
 function corpusForHandle(corpora: Map<string, Corpus>, arg: unknown, ref: string): Corpus {
   if (arg !== undefined && arg !== null && arg !== '') return pickCorpus(corpora, arg);
-  const holders = [...corpora.values()].filter((c) => c.store.getArtifact(ref) !== undefined);
+  const holders = [...corpora.values()].filter((c) => holdsRef(c.store, ref));
   if (holders.length === 1 && holders[0] !== undefined) return holders[0];
   if (holders.length > 1) {
     throw new VaultError(
       `handle ${ref} is ambiguous: held by corpora ${holders.map((c) => c.name).join(', ')}; pass corpus explicitly`,
     );
   }
-  return pickCorpus(corpora, undefined);
+  const first = corpora.values().next();
+  if (first.done === true) throw new VaultError('no corpus mounted');
+  if (corpora.size === 1) return first.value;
+  throw new VaultError(
+    `no artifact ${ref} in any mounted corpus (searched: ${[...corpora.keys()].join(', ')})`,
+  );
 }
 
 export function vaultZoom(
@@ -500,7 +519,6 @@ export function vaultReceipt(
     throw new VaultError(`unknown scope "${String(scopeArg)}" (${SCOPES.join(' | ')})`);
   }
   const scope = (scopeArg ?? 'session') as RollupScope;
-  const corpus = pickCorpus(corpora, args['corpus']);
   const query: RollupQuery = { scope };
   if (scope === 'session') query.sessionId = session.id;
   if (scope === 'day' && args['day'] !== undefined) {
@@ -515,17 +533,39 @@ export function vaultReceipt(
     }
     query.month = String(args['month']);
   }
-  const receipt = buildVaultReceipt(corpus, query);
-  writeVaultEvent(corpus, {
-    id: `vault-receipt-${randomUUID()}`,
-    timestamp: new Date().toISOString(),
-    sessionId: session.id,
-    module: 'vault.receipt',
-    action: 'summarize',
-    reason: `receipt (${scope}) on corpus ${corpus.name}: ${receipt.avoidedTokens} tokens avoided across ${receipt.lines} ledger lines`,
-    details: { scope, corpus: corpus.name, avoidedTokens: receipt.avoidedTokens },
+  // Unlike ask and codex, a receipt has a truthful answer for every mount at
+  // once, so an unspecified corpus resolves across all of them with per-name
+  // attribution rather than refusing. Reading one corpus's empty ledger as
+  // "nothing was served" while the work sat in another is the exact failure
+  // this replaces (field failure, corpus idf 2026-08-02).
+  const named = args['corpus'];
+  const targets =
+    named === undefined || named === null || named === ''
+      ? [...corpora.values()]
+      : [pickCorpus(corpora, named)];
+  if (targets.length === 0) throw new VaultError('no corpus mounted');
+  const receipts = targets.map((corpus) => {
+    const receipt = buildVaultReceipt(corpus, query);
+    writeVaultEvent(corpus, {
+      id: `vault-receipt-${randomUUID()}`,
+      timestamp: new Date().toISOString(),
+      sessionId: session.id,
+      module: 'vault.receipt',
+      action: 'summarize',
+      reason: `receipt (${scope}) on corpus ${corpus.name}: ${receipt.avoidedTokens} tokens avoided across ${receipt.lines} ledger lines`,
+      details: { scope, corpus: corpus.name, avoidedTokens: receipt.avoidedTokens },
+    });
+    return receipt;
   });
+  const single = receipts.length === 1 ? (receipts[0] as VaultRollup) : undefined;
   const text =
-    args['json'] === true ? JSON.stringify(receipt, null, 2) : renderVaultReceipt(receipt);
+    args['json'] === true
+      ? JSON.stringify(single ?? receipts, null, 2)
+      : single !== undefined
+        ? renderVaultReceipt(single)
+        : [
+            `Redutok vault receipt across ${receipts.length} mounted corpora (${targets.map((c) => c.name).join(', ')}); no corpus named, so each is reported separately.`,
+            ...receipts.map(renderVaultReceipt),
+          ].join('\n\n');
   return redact(text).text;
 }

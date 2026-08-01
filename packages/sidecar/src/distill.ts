@@ -483,6 +483,13 @@ function extractDefinition(raw: string, name: string): string | undefined {
  * full serve, else the registry's own copy of that content version. Every
  * reference the system hands out must be recoverable by zoom.
  */
+/** Whether a store can serve a zoom reference — artifact id or file ref.
+ * Callers holding several stores use this to route a handle to the one that
+ * actually minted it instead of guessing. */
+export function holdsRef(store: Store, ref: string): boolean {
+  return (store.getArtifact(ref) ?? resolveFileRef(store, ref)) !== undefined;
+}
+
 function resolveFileRef(store: Store, ref: string): ArtifactRecord | undefined {
   const match = /^(F[0-9a-f]{4})@([0-9a-f]{16})$/.exec(ref);
   if (match === null) return undefined;
