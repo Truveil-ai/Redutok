@@ -129,6 +129,28 @@ function renderDossier(d: Dossier): string {
   return lines.join('\n');
 }
 
+/**
+ * The dossier guard: a dossier must never offer a handle whose artifact is
+ * absent from the corpus store — such a handle can only fail at query time
+ * with "no artifact in the store". Unservable handles are dropped before
+ * rendering, with a 'drop' audit event; the invariant tests fail loudly on
+ * any regression here so the client never sees a dead handle.
+ */
+export function servableZoomHandles(corpus: Corpus, askId: string, handles: string[]): string[] {
+  const dropped = handles.filter((h) => corpus.store.getArtifact(h) === undefined);
+  if (dropped.length === 0) return handles;
+  writeVaultEvent(corpus, {
+    id: `vault-ask-drop-${randomUUID()}`,
+    timestamp: new Date().toISOString(),
+    sessionId: askId,
+    module: 'vault.ask',
+    action: 'drop',
+    reason: `dossier minted ${dropped.length} unservable zoom handle(s) (${dropped.join(', ')}); dropped before serving`,
+    details: { askId, dropped },
+  });
+  return handles.filter((h) => !dropped.includes(h));
+}
+
 export async function vaultAsk(
   corpora: Map<string, Corpus>,
   session: VaultSession,
@@ -155,6 +177,7 @@ export async function vaultAsk(
     // section, and page context alongside any code evidence.
     documents: corpus.documents,
   });
+  dossier.zoomHandles = servableZoomHandles(corpus, askId, dossier.zoomHandles);
   // Accounting honesty: the confidence assessment is deterministic on the
   // dossier, and a low band puts a plain-language warning ABOVE the answer —
   // the reduction figure alone must never be readable as answer quality.
@@ -322,6 +345,28 @@ function documentFor(corpus: Corpus, artifactId: string | undefined): string | u
   return corpus.documents.find((d) => d.artifactId === artifactId)?.path;
 }
 
+/**
+ * The corpus behind a zoom handle. An explicit corpus argument is
+ * authoritative. Without one, the handle is looked up in every mounted
+ * corpus: dossier handles carry no corpus identity, and defaulting to the
+ * first mount sends handles minted by a later-mounted corpus to the wrong
+ * store (2026-08-02 idf field regression). A handle held by several corpora
+ * (random ids can collide across stores) is refused by name rather than
+ * served from an arbitrary one; F-id@hash refs and absent ids fall through
+ * to the default corpus so its zoom can resolve or report them.
+ */
+function corpusForHandle(corpora: Map<string, Corpus>, arg: unknown, ref: string): Corpus {
+  if (arg !== undefined && arg !== null && arg !== '') return pickCorpus(corpora, arg);
+  const holders = [...corpora.values()].filter((c) => c.store.getArtifact(ref) !== undefined);
+  if (holders.length === 1 && holders[0] !== undefined) return holders[0];
+  if (holders.length > 1) {
+    throw new VaultError(
+      `handle ${ref} is ambiguous: held by corpora ${holders.map((c) => c.name).join(', ')}; pass corpus explicitly`,
+    );
+  }
+  return pickCorpus(corpora, undefined);
+}
+
 export function vaultZoom(
   corpora: Map<string, Corpus>,
   session: VaultSession,
@@ -331,7 +376,7 @@ export function vaultZoom(
   if (typeof ref !== 'string' || ref === '') {
     throw new VaultError('handle is required (id is an accepted alias)');
   }
-  const corpus = pickCorpus(corpora, args['corpus']);
+  const corpus = corpusForHandle(corpora, args['corpus'], ref);
   const query = args['query'] === undefined ? undefined : String(args['query']);
   const result = zoom(corpus.store, corpus.audit, ref, query, corpus.codex);
   if (!result.found) throw new VaultError(result.text);
