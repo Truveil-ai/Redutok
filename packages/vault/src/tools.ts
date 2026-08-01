@@ -2,6 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { readAuditFile, type AuditEvent } from '@redutok/shared';
 import { exploreGoal, redact, zoom, type Dossier } from '@redutok/sidecar';
 import { emitCodex, readCodexState, type EmitOptions } from './codex.js';
+import {
+  assessAskConfidence,
+  renderConfidenceLine,
+  renderLowConfidenceNotice,
+  type AskConfidence,
+} from './confidence.js';
 import type { Corpus } from './corpus.js';
 import { makeLedgerLine } from './ledger.js';
 import { TOUCHED_SECTIONS_KEY, type TouchedSection } from './miner.js';
@@ -97,12 +103,13 @@ function askAccounting(events: AuditEvent[], askId: string, servedText: string):
   };
 }
 
-function renderAccountingBlock(a: AskAccounting): string {
+function renderAccountingBlock(a: AskAccounting, confidence: AskConfidence): string {
   return [
     `[vault accounting: ask ${a.askId}]`,
     `  raw touched  ${fmt(a.rawBytes)} bytes (~${fmt(a.rawTokens)} tok) across ${a.internalEvents} audited internal steps`,
     `  served       ${fmt(a.servedBytes)} bytes (~${fmt(a.servedTokens)} tok) in this dossier`,
-    `  reduction    ${a.reduction.toFixed(1)}x raw-versus-served`,
+    `  reduction    ${a.reduction.toFixed(1)}x raw-versus-served (compression only, never answer quality)`,
+    renderConfidenceLine(confidence),
   ].join('\n');
 }
 
@@ -148,7 +155,15 @@ export async function vaultAsk(
     // section, and page context alongside any code evidence.
     documents: corpus.documents,
   });
-  const body = renderDossier(dossier);
+  // Accounting honesty: the confidence assessment is deterministic on the
+  // dossier, and a low band puts a plain-language warning ABOVE the answer —
+  // the reduction figure alone must never be readable as answer quality.
+  const confidence = assessAskConfidence(question, dossier);
+  const dossierBody = renderDossier(dossier);
+  const body =
+    confidence.band === 'low'
+      ? `${renderLowConfidenceNotice(confidence)}\n\n${dossierBody}`
+      : dossierBody;
   const askEvents = readAuditFile(corpus.auditPath).events.filter((e) => e.sessionId === askId);
   const accounting = askAccounting(askEvents, askId, body);
   const touchedSections = touchedSectionsFromDossier(dossier);
@@ -170,6 +185,15 @@ export async function vaultAsk(
       rawBytes: accounting.rawBytes,
       servedBytes: accounting.servedBytes,
       evidence: dossier.evidence.length,
+      confidence: {
+        band: confidence.band,
+        headingMatch: confidence.headingMatch,
+        sectionRefs: confidence.sectionRefs,
+        resolvedRefs: confidence.resolvedRefs,
+        termsMatched: confidence.termsMatched,
+        termsTotal: confidence.termsTotal,
+        incomplete: confidence.incomplete,
+      },
       // The touched-sections signature is what the vault miner keys on to
       // detect recurring neighborhoods (Session 4 conversational graduation).
       [TOUCHED_SECTIONS_KEY]: touchedSections,
@@ -196,6 +220,7 @@ export async function vaultAsk(
           typeof e.details?.['profile'] === 'string' ? (e.details['profile'] as string) : e.module,
         artifactRefs: e.inputRef === undefined ? [] : [e.inputRef],
         auditIds: [e.id],
+        confidence: confidence.band,
         ...(doc === undefined ? {} : { document: doc }),
       }),
     );
@@ -211,12 +236,13 @@ export async function vaultAsk(
       servedBytes: accounting.servedBytes,
       artifactRefs: dossier.zoomHandles,
       auditIds: [askEventId],
+      confidence: confidence.band,
     }),
   );
   const stale = staleCodexNotice(corpus, clientCodexVersion);
   const full = stale === undefined
-    ? `${body}\n\n${renderAccountingBlock(accounting)}`
-    : `${body}\n\n${renderAccountingBlock(accounting)}\n${stale}`;
+    ? `${body}\n\n${renderAccountingBlock(accounting, confidence)}`
+    : `${body}\n\n${renderAccountingBlock(accounting, confidence)}\n${stale}`;
   return redact(full).text;
 }
 
@@ -339,6 +365,9 @@ export function vaultZoom(
       servedBytes,
       artifactRefs: [artifactId],
       auditIds: [eventId],
+      // A zoom that resolved its query (or asked for the raw outright) is a
+      // high-confidence serve; the unmatched-query raw fallback is low.
+      confidence: result.queryMatched === false ? 'low' : 'high',
       ...(doc === undefined ? {} : { document: doc }),
     }),
   );
@@ -372,8 +401,10 @@ export function renderVaultReceipt(r: VaultRollup): string {
   if (r.sessionId !== undefined) lines.push(`  session      ${r.sessionId}`);
   if (r.day !== undefined) lines.push(`  day          ${r.day}`);
   if (r.month !== undefined) lines.push(`  month        ${r.month}`);
+  const c = r.asksByConfidence;
   lines.push(
     `  ledger lines ${fmt(r.lines)} (${fmt(r.asks)} asks, ${fmt(r.zooms)} zooms, ${fmt(r.serves)} serves; ${fmt(r.sessions)} sessions)`,
+    `  asks by confidence ${fmt(c.high)} high / ${fmt(c.medium)} medium / ${fmt(c.low)} low${c.unrated === 0 ? '' : ` / ${fmt(c.unrated)} unrated`}`,
     `  raw touched  ${fmt(r.rawTokens)} tok; served ${fmt(r.servedTokens)} tok; avoided ${fmt(r.avoidedTokens)} tok`,
   );
   if (r.topDistillations.length > 0 && r.scope !== 'document') {

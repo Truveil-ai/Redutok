@@ -43,6 +43,14 @@ export interface TopDistillation {
   avoidedTokens: number;
 }
 
+/** Ask counts per retrieval-confidence band; unrated covers pre-v2 lines. */
+export interface ConfidenceRollup {
+  high: number;
+  medium: number;
+  low: number;
+  unrated: number;
+}
+
 export interface VaultRollup {
   scope: RollupScope;
   corpus: string;
@@ -67,6 +75,9 @@ export interface VaultRollup {
   topDistillations: TopDistillation[];
   documents: DocumentRollup[];
   topSessions: SessionRollup[];
+  /** Retrieval quality alongside the volume figures: asks per confidence
+   * band, so a green avoided total can never hide a run of weak answers. */
+  asksByConfidence: ConfidenceRollup;
   /** Raw size of everything resident in the corpus store, as tokens. A
    * deliberately distinct figure: it may be rendered only under its own
    * "corpus resident size avoided" label, never as avoided tokens. */
@@ -132,6 +143,14 @@ export function rollupLines(
     sessions.set(l.sessionId, s);
   }
 
+  const askLines = lines.filter((l) => l.kind === 'ask');
+  const asksByConfidence: ConfidenceRollup = {
+    high: askLines.filter((l) => l.confidence === 'high').length,
+    medium: askLines.filter((l) => l.confidence === 'medium').length,
+    low: askLines.filter((l) => l.confidence === 'low').length,
+    unrated: askLines.filter((l) => l.confidence === undefined).length,
+  };
+
   const rates = loadReferenceRates();
   const rollup: VaultRollup = {
     scope: q.scope,
@@ -166,6 +185,7 @@ export function rollupLines(
       (a, b) => b.reads - a.reads || b.avoidedTokens - a.avoidedTokens,
     ),
     topSessions: [...sessions.values()].sort((a, b) => b.avoidedTokens - a.avoidedTokens),
+    asksByConfidence,
     corpusResidentTokens: context.corpusResidentTokens,
   };
   if (q.sessionId !== undefined) rollup.sessionId = q.sessionId;
