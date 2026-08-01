@@ -4,10 +4,15 @@ import { LIMITS, type DistillProfile } from '@redutok/shared';
 import type { AuditWriter } from './audit.js';
 import { distillArtifact, estimateTokens } from './distill.js';
 import {
+  TIER_RANK,
+  parseSectionRefs,
+  rankDocuments,
   searchDocumentSections,
   sectionAnchor,
+  sectionMatchesRef,
   type DocHit,
   type DocumentIndexEntry,
+  type HeadingMatch,
 } from './docs.js';
 import type { LlmPass } from './llm.js';
 import type { Store } from './store.js';
@@ -47,6 +52,18 @@ export interface DossierEvidence {
   why: string;
 }
 
+/**
+ * How the document phase resolved the ask's section identity: the explicit
+ * references parsed from the goal, how many resolved to a real section, and
+ * the strongest heading match seen. Deterministic inputs for the vault's
+ * retrieval-confidence assessment; absent when no documents were searched.
+ */
+export interface DossierRetrieval {
+  sectionRefs: string[];
+  resolvedRefs: number;
+  headingMatch: HeadingMatch;
+}
+
 export interface Dossier {
   verdict: string;
   evidence: DossierEvidence[];
@@ -54,6 +71,7 @@ export interface Dossier {
   stepsTaken: number;
   distillationRatio: number;
   incomplete?: { reason: string; continuationHint: string };
+  retrieval?: DossierRetrieval;
 }
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.dcp', '.claude', 'coverage', 'backup']);
@@ -168,6 +186,7 @@ export async function exploreGoal(
         stepsTaken,
         distillationRatio: dossier.distillationRatio,
         incomplete: dossier.incomplete ?? null,
+        retrieval: dossier.retrieval ?? null,
       },
     };
     audit.write(event);
@@ -191,7 +210,10 @@ export async function exploreGoal(
   }
 
   const keywords = keywordsFrom(request.goal);
-  if (keywords.length === 0) {
+  const goalRefs = parseSectionRefs(request.goal);
+  // A goal carrying only a section reference ("§21") has no 4-char keywords
+  // but is the opposite of vague: the enumeration is the search.
+  if (keywords.length === 0 && goalRefs.length === 0) {
     return finish({
       verdict: '',
       evidence: [],
@@ -204,34 +226,48 @@ export async function exploreGoal(
   }
 
   // Document phase first: ingested documents are searched by section in the
-  // store (their on-disk bytes may be binary), the ranked hits become a
-  // doc-search artifact, and the top documents are served ask-relevant
-  // through doc-serve. Every step is a distillArtifact call like any other.
+  // store (their on-disk bytes may be binary), ranked corpus-aware — section
+  // identity (explicit references, heading matches) before hit volume — and
+  // the top documents are served ask-relevant through doc-serve. Every step
+  // is a distillArtifact call like any other.
   const docEntries = (request.documents ?? []).filter((d) => d.artifactId !== undefined);
   const skipFiles = new Set(docEntries.map((d) => path.resolve(request.repoRoot, d.path)));
   const evidence: DossierEvidence[] = [];
+  const refs = goalRefs;
   const docHits = docEntries.length === 0 ? [] : searchDocumentSections(store, docEntries, keywords);
-  if (docHits.length > 0) {
-    const byDoc = new Map<string, DocHit[]>();
-    for (const h of docHits) byDoc.set(h.path, [...(byDoc.get(h.path) ?? []), h]);
-    const rankedDocs = [...byDoc.entries()].sort((a, b) => b[1].length - a[1].length);
+  const rankedDocs = docEntries.length === 0 ? [] : rankDocuments(store, docEntries, request.goal, docHits);
+  let retrieval: Dossier['retrieval'];
+  if (docEntries.length > 0) {
+    const bestTier = rankedDocs[0]?.tier ?? 'none';
+    retrieval = {
+      sectionRefs: refs.map((r) => r.raw),
+      resolvedRefs: refs.filter((r) =>
+        rankedDocs.some((d) => d.scores.some((s) => sectionMatchesRef(s.section, r))),
+      ).length,
+      headingMatch: bestTier === 'ref' ? 'exact' : bestTier,
+    };
+  }
+  if (rankedDocs.length > 0) {
     const hitLine = (h: DocHit): string =>
       `${h.path} §${h.section.id}${h.section.page === undefined ? '' : ` p.${h.section.page}`}:${h.line}: ${h.text}`;
-    const docRaw = rankedDocs.flatMap(([, hs]) => hs).map(hitLine).join('\n');
-    rawTokensSeen += estimateTokens(docRaw);
-    const docSearchProfile = profiles.get('doc-search');
-    if (docSearchProfile !== undefined) {
-      const outcome = await distillArtifact(store, audit, {
-        raw: docRaw,
-        profile: docSearchProfile,
-        sessionId: request.sessionId,
-        tool: 'dcp__explore',
-      });
-      zoomHandles.push(outcome.artifactId);
+    const docRaw = rankedDocs.flatMap((d) => d.hits).map(hitLine).join('\n');
+    if (docRaw !== '') {
+      rawTokensSeen += estimateTokens(docRaw);
+      const docSearchProfile = profiles.get('doc-search');
+      if (docSearchProfile !== undefined) {
+        const outcome = await distillArtifact(store, audit, {
+          raw: docRaw,
+          profile: docSearchProfile,
+          sessionId: request.sessionId,
+          tool: 'dcp__explore',
+        });
+        zoomHandles.push(outcome.artifactId);
+      }
+      stepsTaken += 1;
     }
-    stepsTaken += 1;
-    // Evidence per document: the densest hit lines, not the earliest — the
-    // line naming the fee outranks the parties boilerplate above it.
+    // Evidence per document: identity-matched sections lead (their heading
+    // line plus their densest hit lines), then the densest hits elsewhere —
+    // the line naming the fee outranks the parties boilerplate above it.
     const matchCount = (text: string): number => {
       const pattern = new RegExp(
         keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
@@ -239,23 +275,51 @@ export async function exploreGoal(
       );
       return [...text.matchAll(pattern)].length;
     };
-    for (const [docPath, hs] of rankedDocs.slice(0, 6)) {
-      const ranked = [...hs].sort((a, b) => matchCount(b.text) - matchCount(a.text) || a.line - b.line);
-      for (const h of ranked.slice(0, 2)) {
+    for (const doc of rankedDocs.slice(0, 6)) {
+      const matchedSections = doc.scores
+        .filter((s) => TIER_RANK[s.tier] > 0)
+        .sort((a, b) => TIER_RANK[b.tier] - TIER_RANK[a.tier] || b.bodyScore - a.bodyScore)
+        .slice(0, 2);
+      for (const s of matchedSections) {
+        const headingLine = s.text.split(/\r?\n/)[0] ?? s.section.title;
         evidence.push({
-          file: docPath,
-          line: h.line,
-          snippet: h.text.slice(0, 200),
-          why: `§${h.section.id} "${h.section.title}", ${sectionAnchor(h.section)}`,
+          file: doc.entry.path,
+          line: s.section.startLine,
+          snippet: headingLine.slice(0, 200),
+          why: `§${s.section.id} "${s.section.title}", ${sectionAnchor(s.section)} — heading match (${s.tier})`,
         });
+        const inSection = doc.hits
+          .filter((h) => h.section.id === s.section.id && h.line !== s.section.startLine)
+          .sort((a, b) => matchCount(b.text) - matchCount(a.text) || a.line - b.line);
+        for (const h of inSection.slice(0, 2)) {
+          evidence.push({
+            file: doc.entry.path,
+            line: h.line,
+            snippet: h.text.slice(0, 200),
+            why: `§${h.section.id} "${h.section.title}", ${sectionAnchor(h.section)}`,
+          });
+        }
+      }
+      if (matchedSections.length === 0) {
+        const ranked = [...doc.hits].sort(
+          (a, b) => matchCount(b.text) - matchCount(a.text) || a.line - b.line,
+        );
+        for (const h of ranked.slice(0, 2)) {
+          evidence.push({
+            file: doc.entry.path,
+            line: h.line,
+            snippet: h.text.slice(0, 200),
+            why: `§${h.section.id} "${h.section.title}", ${sectionAnchor(h.section)}`,
+          });
+        }
       }
     }
     const serveProfile = profiles.get('doc-serve');
     const docBudget = Math.min(rankedDocs.length, 6, Math.max(0, stepCap - stepsTaken - 2));
-    for (const [docPath] of rankedDocs.slice(0, docBudget)) {
+    for (const doc of rankedDocs.slice(0, docBudget)) {
       if (Date.now() > deadline) break;
-      const entry = docEntries.find((d) => d.path === docPath);
-      if (serveProfile === undefined || entry?.artifactId === undefined) continue;
+      const entry = doc.entry;
+      if (serveProfile === undefined || entry.artifactId === undefined) continue;
       const artifact = store.getArtifact(entry.artifactId);
       if (artifact === undefined) continue;
       rawTokensSeen += estimateTokens(artifact.raw);
@@ -277,7 +341,9 @@ export async function exploreGoal(
   const roots = (request.scope !== undefined && request.scope.length > 0 ? request.scope : [request.repoRoot]).map(
     (p) => (path.isAbsolute(p) ? p : path.join(request.repoRoot, p)),
   );
-  const hits = walkSearch(roots, keywords, 500, deadline, skipFiles);
+  // Empty keywords (a pure section-reference goal) would compile to a
+  // match-everything pattern; the code walk has nothing to find then.
+  const hits = keywords.length === 0 ? [] : walkSearch(roots, keywords, 500, deadline, skipFiles);
   stepsTaken += 1; // the search sweep is one step regardless of how many files it touches
 
   if (hits.length === 0 && evidence.length === 0) {
@@ -289,6 +355,7 @@ export async function exploreGoal(
         reason: 'no hits',
         continuationHint: 'broaden scope or restate the goal with different keywords',
       },
+      ...(retrieval === undefined ? {} : { retrieval }),
     });
   }
 
@@ -372,5 +439,11 @@ export async function exploreGoal(
           .map((e) => `${e.file}:${e.line} (${e.snippet})`)
           .join('; ')}`);
 
-  return finish({ verdict, evidence, zoomHandles, incomplete });
+  return finish({
+    verdict,
+    evidence,
+    zoomHandles,
+    incomplete,
+    ...(retrieval === undefined ? {} : { retrieval }),
+  });
 }
