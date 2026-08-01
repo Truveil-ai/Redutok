@@ -19,7 +19,7 @@ import {
   type DocumentIndex,
   type DocumentIndexEntry,
 } from '../src/docs.js';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { NoopLlmPass } from '../src/llm.js';
 import { storeRedactedArtifact } from '../src/redact.js';
 import { openStore } from '../src/store.js';
@@ -350,6 +350,104 @@ describe('pdf logical-line joining (real USPTO operator excerpts)', () => {
       sections.find((s) => s.title.startsWith('continue scanning')),
       'lowercase list item stays body text',
     ).toBeUndefined();
+  });
+});
+
+describe('pdf CID hex-string text (real USPTO pages 40-43)', () => {
+  // Field finding on the 109-page USPTO 101 examples PDF: §21's introductory
+  // paragraph extracted cleanly but the body — hypothetical claims 1 and 2
+  // and the Step 2A/2B analysis — came out as whitespace. Those pages
+  // typeset body text in Type0/CID fonts as hex strings, which the literal-
+  // only tokenizer skipped; all that survived were the literal space
+  // fragments between words. The fonts and their ToUnicode CMaps sit in
+  // compressed /ObjStm containers the object scan also could not see. The
+  // loss predates the line-joining pass (the pre-join tokenizer was equally
+  // literal-only). Fixture: the real pages sliced byte-verbatim, ObjStm
+  // containers intact (scripts/slice-pdf-fixture.mjs); the .ref.txt beside
+  // it is an independent pypdf extraction of the same pages used as a
+  // volume baseline, not a byte-exact expectation.
+  const fixture = path.join(here, 'fixtures', 'uspto-101-p40-43.pdf');
+  const refFixture = path.join(here, 'fixtures', 'uspto-101-p40-43.ref.txt');
+  const norm = (s: string): string => s.replace(/\s+/g, ' ');
+
+  it('decodes Type0 hex-string body text through ObjStm-resident ToUnicode CMaps', () => {
+    const extraction = extractDocument(fixture);
+    expect(extraction.kind).toBe('pdf');
+    expect(extraction.outOfScope).toBeUndefined();
+    expect(extraction.pages).toHaveLength(4);
+    const text = norm(extraction.text);
+    // The literal-string layer that always extracted stays intact.
+    expect(text).toContain('21. Transmission Of Stock Quote Data');
+    // The CID-hex body that used to extract as whitespace: claim 1's own
+    // words, both eligibility conclusions, and the two-step analysis.
+    expect(text).toContain('A method of distributing stock quotes');
+    expect(text).toContain('remote subscriber computer');
+    expect(text).toContain('Claim 1: Ineligible');
+    expect(text).toContain('Claim 2: Eligible');
+    expect(text).toContain('Step 2A');
+    expect(text).toContain('Step 2B');
+    expect(text).toContain('significantly more');
+  });
+
+  it('holds per-page non-whitespace volume near the independent reference', () => {
+    const extraction = extractDocument(fixture);
+    const chunks = readFileSync(refFixture, 'utf8').split('\f');
+    // The first chunk carries the provenance header comment.
+    chunks[0] = (chunks[0] as string)
+      .split('\n')
+      .filter((l) => !l.startsWith('#'))
+      .join('\n');
+    const ink = (s: string): number => s.replace(/\s+/g, '').length;
+    expect(chunks).toHaveLength(4);
+    for (const [i, page] of (extraction.pages ?? []).entries()) {
+      const ours = ink(
+        sectionText(extraction.text, { startLine: page.startLine, endLine: page.endLine }),
+      );
+      const reference = ink(chunks[i] as string);
+      expect(ours, `page ${40 + i} ink ${ours} vs reference ${reference}`).toBeGreaterThanOrEqual(
+        Math.floor(reference * 0.9),
+      );
+      expect(ours, `page ${40 + i} ink ${ours} vs reference ${reference}`).toBeLessThanOrEqual(
+        Math.ceil(reference * 1.2),
+      );
+    }
+  });
+
+  it('the recovered body forms §21, claim, and analysis sections in the structure map', async () => {
+    const extraction = extractDocument(fixture);
+    const sections = await buildStructureMap(extraction, noop);
+    const s21 = sections.find((s) => /Transmission Of Stock Quote Data/i.test(s.title));
+    expect(s21, 'Example 21 heading detected').toBeDefined();
+    expect(s21?.page).toBe(1);
+    // The claims and their analyses — pure CID-hex text — become sections of
+    // their own, which is what §21 zooms and asks resolve against.
+    const claim1 = sections.find((s) => s.id === 'claim-1');
+    const claim2 = sections.find((s) => s.id === 'claim-2');
+    expect(norm(claim1?.title ?? '')).toContain('Ineligible');
+    expect(norm(claim2?.title ?? '')).toContain('Eligible');
+    expect(norm(sectionText(extraction.text, byId(sections, '1')))).toContain(
+      'A method of distributing stock quotes',
+    );
+    expect(norm(sectionText(extraction.text, claim1 as DocSection))).toContain('Step 2A');
+  });
+
+  it('hex strings under simple or unknown fonts decode as raw bytes', () => {
+    // Tokenizer-level coverage without CMaps: hex Tj and hex-in-TJ items are
+    // text like their literal siblings, decoded bytewise when no Type0 font
+    // is in effect.
+    const stream = [
+      'BT',
+      '0 Tc 0 Tw 12 0 0 12 72 720 Tm',
+      '<48656C6C6F20>Tj',
+      '[(from )<6D69786564>( array)]TJ',
+      'ET',
+    ].join('\n');
+    const d = mkdtempSync(path.join(os.tmpdir(), 'uspto-hex-'));
+    indexDirs.push(d);
+    const file = path.join(d, 'hex.pdf');
+    writeFileSync(file, makeRawStreamPdf([stream]));
+    const extraction = extractDocument(file);
+    expect(extraction.text.split('\n')[0]).toBe('Hello from mixed array');
   });
 });
 

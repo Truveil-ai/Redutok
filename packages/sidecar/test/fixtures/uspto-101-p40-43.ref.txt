@@ -1,0 +1,321 @@
+# Reference extraction of USPTO 101_examples_1to36.pdf pages 40-43,
+# produced by pypdf 6.10.2 (scripts/slice-pdf-fixture.mjs documents the
+# fixture itself). Pages separated by form-feed. Used as an independent
+# coverage baseline, not as a byte-exact expectation: extractors differ
+# in whitespace and kerning treatment, so tests compare normalized
+# phrases and non-whitespace volume.
+	 	 	 	 	 	
+    
+	 	 	 	
+	 	 	 	 	
+	 	 	 	
+	 	 	
+	
+	
+	
+	
+	 	 	 	 	 	
+	 	 	 	 	 	 	 	 	 	 	 	
+	 	 	 	 	 	 	 	 	 	 	 	 	 	
+	 	 	 	 	 	 	 	 		 	 	 	 	 	 	
+	 	 	 	 	 	 	 	 	 	 	 	
+	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	
+	 	 	 	 	 		 	 	 	 	 	 	 	 	
+	 	 	 	 	 	 	 	 	 	 	 	 	
+	 	 	 	 	 	 	 	 	 	 	 	 	 	
+	 	
+	 	 	 	 	
+	 	 	 	
+	 	
+	
+	
+	
+	
+	 	 	 	
+	 	 	 	 	
+	 	 	 	 	
+	 	 	
+	 	 	
+	 	 	 	
+	 	
+	 	 	
+	 	 	 	
+	 	 	 	 	
+	 	 	
+	
+	 	 	 	
+July 2015 Update Appendix 1: Examples 
+The	 following	 examples	 should	 be	 used	 in	 conjunction	 with	 the	 2014 Interim Guidance on 
+Subject Matter Eligibility (2014	 IEG).	 As	 the	 examples	 are	 intended	 to	 be	 illustrative only, 
+they	 should	 be	 interpreted	 based on	 the	 fact	 patterns	 set	 forth 	below. Other fact 	patterns 
+m a y h a v e d i f f e r e n t e l i g i b i l i t y 	o u t c o m e s . 	W h i l e 	s o m e o f 	t h e f a c t patterns	 draw	 from	 U.S.	 
+Supreme	 Court	 and	 U.S.	 Court	 of	 Appeals	 for	 the	 Federal	 Circuit decisions,	 each	 of	 the	
+examples	 shows	 how	 claims	 should	 be	 analyzed	 under	 the	 2014	 IEG.	 All	 of	 the claims	 are	
+analyzed	for eligibility	 in	accordance	with	their	broadest	reasonable	 interpretation.	
+Note	 that	 the	 examples	 herein	 are	 numbered	 consecutively	 beginning	 with	 number	 21,	 
+because	 20	 examples	 were	 previously	 issued.	 A	 comprehensive	 index	 of	 all	 examples	 for	
+use	with	the 	2014	 IEG	is	provided	 in	Appendix	2	to	the	July	2015	Update. 
+21. Transmission Of Stock Quote Data 
+The following hypothetical claims and background are modeled after the technology in 
+Google Inc. v. Simpleair, Inc., Covered Business Method Case No. CBM 2014‐00170 (Jan. 22, 
+2015), but are revised to emphasize certain teaching points. The patent at issue was U.S. 
+Patent No. 7,035,914 entitled “System and Method for Transmission of Data.” Hypothetical 
+claim 1 is directed to an abstract idea and does not have additional elements that amount to 
+significantly more than the abstract idea. Hypothetical claim 2 also recites an abstract idea 
+but does contain additional elements that amount to significantly more because there are 
+meaningful limitations beyond generally linking the use of the abstract idea to a particular 
+technological environment.
+Background	
+T h e i n v e n t i o n i s d i r e c t e d t o a 	s t o c k 	q u o t e a l e r t 	s u b s c r i p t i o n s e r v i c e 	w h e r e 	s u b s c r i b e r s 
+receive customizable 	stock 	quotes on 	their local 	computers from a 	remote data 	source. 		At 
+the	 time	 of	 the	 invention,	 stock	 quote	 subscription	 services	 over 	the Internet were 	known 
+in	 the	 art.	 However,	 existing	 services	 experienced	 challenges	 when	 attempting	 to	 notify	 a	
+subscriber	 whose	 computer	 was	 offline	 (not connected	 to	 the	 Internet)	 at	 the	 time	 of	 the	
+alert,	 since	 many	 stock	 quotes	 are	 time	 sensitive.	 Further,	 many	 previous	 subscription	
+services	 simply	 transmitted	 all	 available	 stock	 quote	 information	 to	 the	 user	 at	 a	 given
+time,	 which	 required the	 subscriber	 to	 sort	 through	 large	 amount s o f d a t a 	t o i d e n t i f y
+r e l e v a n t 	s t o c k 	q u o t e s , 	a n d o f t e n 	s e n t i n f o r m a t i o n a t 	a n i n c o n v enient	 time (e.g.,	 after the	 
+s t o c k e x c h a n g e s a r e c l o s e d ) . 		T h e 	s t o c k 	q u o t e a l e r t 	s u b s c r i p t i on	 service	 of the	 present 
+invention	addresses	these	problems.			
+D u r i n g 	e n r o l l m e n t t o 	t h e 	s u b s c r iption	 service,	 the	 subscriber	 provides preference 
+i n f o r m a t i o n i n 	t h e f o r m o f 	s t o c k s o f i n t e r e s t , 	s t o c k 	p r i c e 	t h r eshold	 (e.g.,	 when	 the	 price	
+reaches	 $100	 per	 share),	 a	 destination	 address	 of	 a wireless	 dev i c e 	( e . g . , a n u m b e r f o r a
+cellular	 phone,	 pager	 or	 PDA),	 preferred format	 of	 the	 alert,	 an d a 	t r a n s m i s s i o n 	s c h e d u l e
+i n d i c a t i n g 	t h e t i m e / d a t e 	t h a t a l e r t s 	s h o u l d b e 	s e n t . 		T h e 	s u b s cription	 service	 uses	 a 
+transmission server	 to receive	 data	 from a	 data	 source	 and	 send selected	 data	 to	 
+subscribers.	 The	 transmission server includes	 a memory,	 a transm i t t e r , 	a n d a
+microprocessor.	 The	 subscription	 service	 provides a stock	 viewer	 application	 to
+subscribers	 for	 installation	 on	 their	 individual	 computers.	 After	 a subscriber	 enrolls,	 the	
+s e r v i c e r e c e i v e s 	s t o c k 	q u o t e i n f o r m a t i o n 	s e n t f r o m a 	d a t a s o u r ce	 to	 the	 transmission 
+1 	 	 	 	 	 	
+    
+	
+	 	
+	 	
+	 	 	 	 	 	 	 	
+	
+	 	 	 	 	 	 	
+	 	
+	
+	 	
+	 	 	 	 	
+	 	 	
+	 	 	
+	
+	
+	 	 	 	 	 	
+	
+	
+	
+	 	 	
+	
+	 	 	
+	 	 	
+	
+	 	
+	
+	 	 	 	 	 	
+	
+	 	
+	
+	 	 	 	
+July 2015 Update Appendix 1: Examples 
+server.	The	server filters 	the 	stock 	quote	information 	based	upon 	the 	subscriber	preference 
+information that	 is	 stored	 in	 memory	 on	 the	 server.	 That	 is,	 the	 server	 compares	 the	 
+received 	stock 	quote information to	 the	 stored	 stocks	 of	 interest 	and 	stock 	price 	threshold 
+preferences to 	determine 	which 	stock 	quotes to 	drop and which to further process. 		Next, a
+stock	 quote	 alert	 is	 built	 containing	 the	 filtered	 stocks’	 name 	and 	price i nformation 	and a 
+universal resource l ocator 	(URL) 	to a web page 	at the data 	source	 which	 contains	 further 
+information	on	the	stock	quote. 		The	alert	is	then	formatted	into	data	 blocks	based	upon	the	
+alert	 format	 preference	 informati o n . 		S u b s e q u e n t l y , 	t h e f o r m a t t e d 	d a t a b l o c k s 	a r e 
+transmitted	 to	 the	 subscriber’s	 wireless	 device	 in	 accordance	 with	 the	 transmission 
+schedule.	 After	 receiving	 the	 alert,	 the	 subscriber	 can connect	 the	 wireless	 device	 to	 the	
+subscriber’s	computer.		The	alert 	causes	the	subscriber’s	computer	to	auto‐launch	the	stock	
+viewer	 application provided by	 the	 service	 to display	 the	 alert.	 When	 connected	 to	 the 
+Internet,	 the	 subscriber	 may	 then click	 on	 the	 URL	 in	 the	 alert to	 use	 the	 stock	 viewer
+application to	 access	 more	 detailed	 information about	 the	 stock quote	 from	 the	 data	 
+source.	 
+Claims 
+1. A method of distributing stock quotes 	over a network to a 	remote	 subscriber	 computer,	 
+the	method	comprising:
+receiving	 stock	 quotes	 at	 a	 transmission	 server	 sent	 from	 a	 data	 source	 over	 the 
+Internet,	 the	 transmission	 server	 comprising	 a microprocessor	 and	 memory	 that	 stores	 the	
+remote	 subscriber’s	 preferences	 for	 information	 format,	 destination	 address,	 specified	
+stock	price	 values,	and	 transmission 	schedule,	wherein	the 	microprocessor	 
+f i l t e r s t h e r e c e i v e d 	s t o c k 	q u o t e s b y 	c o m p a r i n g 	t h e 	r e c e i v e d 	s t ock	 quotes	 to	 the	 
+specified	stock	price	values;		
+generates	 a	 stock	 quote	 alert	 from the	 filtered	 stock	 quotes	 that	 contains	 a	 stock	 
+name,	 stock	 price	 and a	 universal	 resource	 locator	 (URL),	 which 	s p e c i f i e s 	t h e l o c a t i o n o f
+the	data	source;	
+formats	 the	 stock	 quote	 alert into	 data	 blocks	 according	 to said information	 format;	 
+and 
+transmits	 the	 formatted	 stock	 quote	 alert	 to a computer	 of	 the	 remote	 subscriber	
+based	upon	the	destination	address	and	transmission	schedule.	 
+2. A 	method of distributing stock quotes 	over a network to a 	remote	 subscriber	 computer,	 
+the	method	comprising:
+providing	 a stock	 viewer	 application	 to	 a subscriber	 for	 installation	 on	 the	 remote	
+subscriber	computer;	
+receiving	 stock	 quotes	 at	 a	 transmission	 server	 sent	 from	 a	 data	 source	 over	 the 
+Internet,	 the	 transmission	 server	 comprising a microprocessor	 an d a 	m e m o ry t h a t 	s t o r e s 
+2 	 	 	 	 	 	
+    
+	 	 	
+	
+	 	 	
+	 	 	
+	
+	
+	 	
+	 	
+	
+	 	
+	
+	
+	
+		
+	
+	 	
+	 	 	 	
+	 	
+	 	
+	 	 	 	 	 	
+	 	 	 	 	
+	 	
+	 	 	 	 	 	 	 	
+	 	 	 	 	
+	 	 	 	 	 	
+	 	 	 	
+	 	
+	 	 	
+	 	 	 	
+	
+	 	
+	
+	 	 	 	 	 	
+July 2015 Update Appendix 1: Examples 
+the	 remote	 subscriber’s	 preferences	 for	 information	 format,	 destination	 address,	 specified	
+stock	price	 values,	and	 transmission 	schedule,	wherein	the 	microprocessor	 
+f i l t e r s t h e r e c e i v e d 	s t o c k 	q u o t e s b y 	c o m p a r i n g 	t h e 	r e c e i v e d 	s t ock	 quotes	 to	 the	 
+specified	stock	price	values;		
+generates	 a	 stock	 quote	 alert	 from the	 filtered	 stock	 quotes	 that	 contains	 a	 stock	 
+name,	 stock	 price	 and a	 universal	 resource	 locator	 (URL),	 which 	s p e c i f i e s 	t h e l o c a t i o n o f
+the	data	source;	
+formats	 the	 stock	 quote	 alert into	 data	 blocks	 according	 to said information	 format;	 
+and 
+transmits	 the	 formatted	 stock	 quote	 alert	 over	 a wireless	 communication	 channel	 to	
+a	 wireless	 device	 associated	 with a	 subscriber	 based	 upon	 the	 destination address	 and	
+transmission schedule,	
+wherein	 the	 alert	 activates the	 stock	 viewer	 application	 to	 caus e 	t h e 	s t o c k 	q u o t e 
+alert	to	 display	 on	 the	remote	 subscriber	 computer	 and	to	 enable	 connection	 via	 the	 URL	 to 
+the	 data source	 over	 the	 Internet when	 the	 wireless	 device	 is	 locally	 connected	 to	 the	
+remote	subscriber	computer	and	the	remote	subscriber	computer	comes	online. 
+Analysis
+Claim	1:		Ineligible	
+The	 claim	 recites	 a	 series	 of	 acts	 for	 distributing	 stock	 quotes	 to	 selected	 remote	 devices. 
+Thus,	the	claim	is	directed	to	a 	process,	which	is	one	of	the	statutory categories	 of	invention	 
+(Step 1: YES).	 
+Next,	 the	 claim	 is	 analyzed	 to	 determine	 whether	 it	 is	 directed 	to a judicial 	exception. 	The 
+claim	 recites	 the	 steps	 of	 receiving,	 filtering,	 formatting	 and transmitting	 stock	 quote 
+i n f o r m a t i o n . I n o t h e r w o r d s , 	t h e c l a i m 	r e c i t e s 	c o m p a r i n g 	a n d formatting	 information	 for	
+t r a n s m i s s i o n . 		T h i s i s s i m p l y t h e o r g a n i z a t i o n 	a n d 	c o m p a r i s o n o f d a t a 	w h i c h 	c a n 	b e 
+performed mentally 	and i s an i dea of i tself. I t is s imilar 	to other	 concepts	 that	 have	 been	
+identified as	 abstract	 by	 the	 courts,	 such	 as	 using	 categories	 to 	organize, 	store 	and 	transmit
+information in	 Cyberfone, o r 	c o m p a r i n g 	n e w 	a n d 	s t o r e d i n f o r m a t i o n a n d u s i n g r u l e s t o 
+identify	 options	 in	 SmartGene.	 Therefore,	 the	 claim	 is	 directed to	 an	 abstract idea	 (Step 2A: 
+YES).	
+Next, 	the c laim 	as a whole is 	analyzed to 	determine 	whether 	any e lement, or 	combination 
+o f e l e m e n t s , i s s u f f i c i e n t t o 	e n s u r e t h a t 	t h e c l a i m 	a m o u n t s 	t o significantly	 more	 than	 the	
+exception.		The	claim	recites	the	additional	limitations	of	using	a	transmission	server	with	a	
+memory	 that	 stores subscriber	 preferences,	 a transmitter	 that	 receives	 and	 sends	
+information over	 the	 Internet,	 and	 a microprocessor	 that	 performs	 the generic	 functions	 of	 
+comparing and formatting information. 		The 	transmission 	server is	 recited	 at	 a	 high	 level	 of
+generality	 and	 its	 broadest	 reasonable	 interpretation	 comprises only	 a	 microprocessor,	 
+m e m o r y 	a n d 	t r a n s m i t t e r 	t o s i m p l y 	p e r f o r m 	t h e 	g e n e r i c 	c o m p u t e r functions	 of	 receiving,	
+processing	and	 transmitting	 information.	 Generic	 computers	 performing	 generic	 computer	
+f u n c t i o n s , a l o n e , d o 	n o t 	a m o u n t t o s i g n i f i c a n t l y 	m o r e t h a n 	t h e a b s t r a c t i d e a . F i n a l l y , t h e 
+3 	 	 	 	 	 	
+    
+	
+	 	 	 	 	 	
+	 	 	 	 	
+	
+	 	
+	 	
+	 	 	 	 	 	 	 	
+	
+	 	 	 	 	 	
+	
+	 	
+		
+	
+	 	
+	 	 	 	
+	
+	 	 	
+	 	
+	 	 	 	 	 	 	
+	 	 	 	 	
+	
+	 	 	
+	 	 	 	 	
+	 	 	 	 	
+	 	
+	 	 	 	
+	
+	 	 	 	 	 	
+	 	 	 	
+	 	 	
+	 	
+	 	 	
+	 	 	
+	 	 	 	
+	
+	 	 	 	 	
+	 	 	
+	
+	 	 	 	
+	 	
+July 2015 Update Appendix 1: Examples 
+Internet	 limitations	 are	 simply	 a	 field	 of	 use	 that	 is	 an	 attempt	 to	 limit	 the	 abstract	 idea	 to	 a
+particular	 technological	 environment and, so do	 not add	 significantly	 more.	 Viewing the	
+limitations	 as	 an	 ordered	 combina t i o n d o e s 	n o t 	a d d a n y t h i n g f u r t h e r 	t h a n l o o k i n g a t 	t h e
+limitations	 individually.	 When	 viewed	 either	 individually,	 or	 as	 an	 ordered	 combination,	
+the	 additional	 limitations	 do	 not	 amount	 to	 a	 claim	 as	 a whole	 that	 is	 significantly	 more 
+than	the	abstract	 idea	(Step 2B: NO).		The	claim	is	not	 patent	eligible.	 
+A rejection of c laim 1 	should identify 	the 	exception 	by pointing to	 the filtering, generating
+and	 formatting steps	 and	 explain	 that	 the	 comparing	 and	 formatting	 of	 information	 is	 a	 
+m ental 	p ro c ess th at i s sim il ar to 	th e 	c o nc ep ts th at 	c o u rts h ave previously	 found	 abstract.		
+The	 rejection	 should	 also	 identify	 the	 additional	 limitations	 regarding	 the	 transmission
+s e r v e r 	a n d 	e x p l a i n 	w h y 	t h o s e l i m i t a t i o n s 	c o m p r i s e o n l y a 	g e n e r ic computer	 performing	 
+generic	computer	functions	that	 do	not	impose	meaningful	limits 	on	the	claimed	method.	 
+Claim	2:		Eligible	
+The	 claim	 recites	 a	 series	 of	 acts	 for	 distributing	 stock	 quotes	 to	 selected	 remote	 devices. 
+Thus,	the	claim	is	directed	to	a 	process,	which	is	one	of	the	statutory categories	 of	invention	 
+(Step 1: YES).	 
+The	 claim	 is	 then	 analyzed	 to	 determine	 if	 the claim	 is	 directed	 to	 a judicial	 exception.	 As 
+discussed	 above,	 the	 recited	 steps	 of	 comparing	 and	 organizing	 data for 	transmission 	are a
+mental	 process	 and	 similar	 to	 other	 concepts	 found	 to	 be	 abstract 	by the courts. 		The claim
+is	directed	 to 	an	abstract	idea	(Step 2A: YES).			
+Next, 	the claim 	as a whole is 	evaluated 	to determine if 	there 	are additional	 limitations	 that 
+a m o u n t 	t o s i g n i f i c a n t l y m o r e 	t h a n t h e a b s t r a c t i d e a . 		T h e c l a i m recites	 the	 additional	
+limitations	 of	 using	 a transmission	 server	 with	 a	 microprocessor	 and	 a	 memory	 to	 store	
+subscriber	 preferences,	 transmitting	 a stock quote	 alert	 from	 the	 transmission server	 over	
+a	 data channel	 to	 a	 wireless	 device,	 and providing a	 stock	 viewer application	 that	 causes
+the	 stock	 quote	 alert to display on	 the	 subscriber	 computer	 and 	enables a 	connection from 
+the	 subscriber	 computer	 to	 the	 data	 source	 over	 the	 Internet whe n 	t h e 	s u b s c r i b e r 
+computer 	comes 	online. I t is 	noted 	that, 	as discussed above, 	some	 of	 the	 limitations	 when 
+viewed	 individually	 do	 not	 amount	 to	 significantly	 more than	 the	 abstract	 idea	 (such	 as	 
+s t o r i n g s u b s c r i b e r 	p r e f e r e n c e s 	o r t r a n s m i t t i n g 	a n a l e r t ) . 		H o w e v e r , 	w h e n l o o k i n g a t 	t h e 
+additional	 limitations as	 an ordered	 combination, the	 invention as	 a	 whole	 amounts	 to	
+significantly	 more	 than	 simply	 organizing	 and	 comparing	 data.	 The	 claimed invention
+addresses	 the	 Internet‐centric	 challenge	 of	 alerting a subscriber	 with	 time	 sensitive	
+information when	 the	 subscriber’s	 computer	 is	 offline.	 This	 is addressed	 by	 transmitting	
+the	 alert	 over	 a wireless	 communication	 channel	 to	 activate	 the stock	 viewer	 application,
+which	 causes	 the	 alert to	 display	 and enables	 the	 connection of the	 remote	 subscriber	 
+computer	 to	 the	 data source	 over	 the	 Internet	 when	 the	 remote	 subscriber	 computer	 
+c o m e s o n l i n e . 		T h e s e 	a r e 	m e a n i n g f u l l i m i t a t i o n s t h a t 	a d d 	m o r e than	 generally linking	 the	 
+use	 of	 the	 abstract	 idea	 (the	 general	 concept	 of	 organizing and 	c o m p a r i n g 	d a t a ) 	t o t h e
+Internet,	 because	 they	 solve	 an	 Internet‐centric	 problem	 with	 a claimed	 solution	 that	 is	
+necessarily rooted	 in computer	 technology,	 similar	 to the	 additional	 elements	 in	 DDR 
+Holdings.	 These	 limitations,	 when	 taken	 as	 an ordered combination,	 provide	 
+4 

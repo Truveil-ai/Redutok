@@ -95,6 +95,100 @@ function pdfDecodeString(body: string): string {
 }
 
 /**
+ * One font resource as the text extractor needs it: whether hex strings are
+ * 2-byte CIDs (Type0 composite fonts) and the ToUnicode CMap when present.
+ */
+interface PdfFont {
+  wide: boolean;
+  toUnicode?: Map<number, string>;
+}
+
+/** A ToUnicode CMap's bfchar/bfrange entries; destinations are UTF-16BE. */
+function pdfParseCMap(cmap: string): Map<number, string> {
+  const map = new Map<number, string>();
+  const decodeDst = (hex: string): string => {
+    let out = '';
+    for (let i = 0; i + 4 <= hex.length; i += 4) {
+      out += String.fromCharCode(parseInt(hex.slice(i, i + 4), 16));
+    }
+    // A malformed single-byte destination still means that code point.
+    if (out === '' && hex.length >= 2) out = String.fromCharCode(parseInt(hex.slice(0, 2), 16));
+    return out;
+  };
+  for (const block of cmap.matchAll(/beginbfchar([\s\S]*?)endbfchar/g)) {
+    for (const pair of (block[1] as string).matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g)) {
+      map.set(parseInt(pair[1] as string, 16), decodeDst(pair[2] as string));
+    }
+  }
+  for (const block of cmap.matchAll(/beginbfrange([\s\S]*?)endbfrange/g)) {
+    const range =
+      /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*(?:<([0-9A-Fa-f]+)>|\[((?:\s*<[0-9A-Fa-f]+>)+)\s*\])/g;
+    for (const trip of (block[1] as string).matchAll(range)) {
+      const lo = parseInt(trip[1] as string, 16);
+      const hi = parseInt(trip[2] as string, 16);
+      if (trip[3] !== undefined) {
+        const dst = decodeDst(trip[3]);
+        const last = dst.charCodeAt(dst.length - 1);
+        for (let code = lo; code <= hi; code += 1) {
+          map.set(code, dst.slice(0, -1) + String.fromCharCode(last + (code - lo)));
+        }
+      } else if (trip[4] !== undefined) {
+        [...trip[4].matchAll(/<([0-9A-Fa-f]+)>/g)].forEach((item, index) => {
+          map.set(lo + index, decodeDst(item[1] as string));
+        });
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * The /Font resources of one page, resolved to PdfFont entries by resource
+ * name. Font dictionaries commonly live inside compressed /ObjStm containers
+ * (pdfObjectBodies surfaces them) and hex-string text is unreadable without
+ * them; a font without a usable ToUnicode CMap still records its width so
+ * hex payloads are consumed at the right stride.
+ */
+function pdfPageFonts(
+  objects: Map<number, string>,
+  pageBody: string,
+  cache: Map<number, PdfFont>,
+): Map<string, PdfFont> {
+  const fonts = new Map<string, PdfFont>();
+  // /Font only ever appears inside /Resources, so scan the page dictionary
+  // directly rather than isolating the (arbitrarily nested) Resources dict;
+  // resolve one level of indirection for /Resources-as-ref and /Font-as-ref.
+  const dictOf = (body: string): string | undefined => {
+    const flat = /\/Font\s*<<((?:\s*\/[\w.]+\s+\d+\s+0\s+R)*)\s*>>/.exec(body)?.[1];
+    if (flat !== undefined) return flat;
+    // /Font as an indirect ref: the referenced object body is the dict.
+    const ref = /\/Font\s+(\d+)\s+0\s+R/.exec(body)?.[1];
+    return ref === undefined ? undefined : objects.get(Number(ref));
+  };
+  const resourcesRef = /\/Resources\s+(\d+)\s+0\s+R/.exec(pageBody)?.[1];
+  const fontDict =
+    dictOf(pageBody) ??
+    (resourcesRef === undefined ? undefined : dictOf(objects.get(Number(resourcesRef)) ?? '')) ??
+    '';
+  for (const entry of fontDict.matchAll(/\/([\w.]+)\s+(\d+)\s+0\s+R/g)) {
+    const id = Number(entry[2]);
+    let font = cache.get(id);
+    if (font === undefined) {
+      const body = objects.get(id) ?? '';
+      font = { wide: /\/Subtype\s*\/Type0\b/.test(body) };
+      const toUnicodeRef = /\/ToUnicode\s+(\d+)\s+0\s+R/.exec(body)?.[1];
+      if (toUnicodeRef !== undefined) {
+        const cmap = pdfStreamOf(objects.get(Number(toUnicodeRef)) ?? '');
+        if (cmap !== undefined) font.toUnicode = pdfParseCMap(cmap);
+      }
+      cache.set(id, font);
+    }
+    fonts.set(entry[1] as string, font);
+  }
+  return fonts;
+}
+
+/**
  * Text lines from one decoded content stream, reassembled into LOGICAL lines
  * by baseline. Real-world producers (the USPTO 101 examples PDF is the field
  * case) emit one visual line as several text-showing fragments: a label
@@ -110,11 +204,19 @@ function pdfDecodeString(body: string): string {
  * and mid-word splits ("/Gen" + "erating") must join unspaced. T* and '
  * always advance a line. The 0.6em threshold keeps superscript rises (≈0.33em)
  * inline while real line advances (≥1em leading) still break.
+ *
+ * Strings come in two shapes. Literal (...) strings decode bytewise as
+ * before. Hex <...> strings — the whole §21 body of the field PDF, typeset
+ * in Type0/CID fonts — decode through the font selected by the last Tf:
+ * 2-byte CIDs through the font's ToUnicode CMap for wide fonts (a CID with
+ * no mapping contributes nothing; silence beats garbage), single bytes with
+ * ToUnicode fallback to latin1 otherwise.
  */
-function pdfStreamLines(stream: string): string[] {
+function pdfStreamLines(stream: string, fonts?: Map<string, PdfFont>): string[] {
   const lines: string[] = [];
   let current = '';
   let sawText = false;
+  let font: PdfFont | undefined;
   // Baseline state: y in user space, scale from the last Tm's d component.
   let baselineY: number | undefined;
   let scale = 12;
@@ -122,28 +224,50 @@ function pdfStreamLines(stream: string): string[] {
     if (current !== '') lines.push(current);
     current = '';
   };
+  const decodeHex = (hex: string): string => {
+    const digits = hex.replace(/\s+/g, '');
+    const padded = digits.length % 2 === 1 ? `${digits}0` : digits;
+    let out = '';
+    if (font?.wide === true) {
+      for (let i = 0; i + 4 <= padded.length; i += 4) {
+        out += font.toUnicode?.get(parseInt(padded.slice(i, i + 4), 16)) ?? '';
+      }
+    } else {
+      for (let i = 0; i + 2 <= padded.length; i += 2) {
+        const code = parseInt(padded.slice(i, i + 2), 16);
+        out += font?.toUnicode?.get(code) ?? String.fromCharCode(code);
+      }
+    }
+    return out;
+  };
   const token =
-    /\(((?:\\.|[^\\)])*)\)\s*(Tj|')|\[((?:\\.|[^\]])*)\]\s*TJ|T\*|(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+Tm|(-?[\d.]+)\s+(-?[\d.]+)\s+T[dD]/g;
+    /\(((?:\\.|[^\\)])*)\)\s*(Tj|')|<([0-9A-Fa-f\s]*)>\s*(Tj|')|\[((?:\\.|[^\]])*)\]\s*TJ|\/([\w.]+)\s+-?[\d.]+\s+Tf|T\*|(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+Tm|(-?[\d.]+)\s+(-?[\d.]+)\s+T[dD]/g;
   for (const match of stream.matchAll(token)) {
     if (match[1] !== undefined) {
       if (match[2] === "'") flush();
       current += pdfDecodeString(match[1]);
       sawText = true;
     } else if (match[3] !== undefined) {
-      for (const part of match[3].matchAll(/\(((?:\\.|[^\\)])*)\)/g)) {
-        current += pdfDecodeString(part[1] as string);
+      if (match[4] === "'") flush();
+      current += decodeHex(match[3]);
+      sawText = true;
+    } else if (match[5] !== undefined) {
+      for (const part of match[5].matchAll(/\(((?:\\.|[^\\)])*)\)|<([0-9A-Fa-f\s]*)>/g)) {
+        current += part[1] !== undefined ? pdfDecodeString(part[1]) : decodeHex(part[2] as string);
       }
       sawText = true;
-    } else if (match[4] !== undefined) {
+    } else if (match[6] !== undefined) {
+      font = fonts?.get(match[6]);
+    } else if (match[7] !== undefined) {
       // Tm: absolute text matrix [a b c d e f]; f is the baseline y.
-      const d = Number(match[7]);
-      const y = Number(match[9]);
+      const d = Number(match[10]);
+      const y = Number(match[12]);
       if (Number.isFinite(d) && d !== 0) scale = Math.abs(d);
       if (baselineY !== undefined && Math.abs(y - baselineY) > 0.6 * scale) flush();
       baselineY = y;
-    } else if (match[10] !== undefined) {
+    } else if (match[13] !== undefined) {
       // Td/TD: relative move in text space; ty is scaled by the matrix.
-      const ty = Number(match[11]);
+      const ty = Number(match[14]);
       if (Math.abs(ty) > 0.6) flush();
       if (baselineY !== undefined) baselineY += ty * scale;
     } else {
@@ -159,6 +283,25 @@ function pdfObjectBodies(raw: string): Map<number, string> {
   const objects = new Map<number, string>();
   for (const match of raw.matchAll(/(\d+)\s+0\s+obj\b([\s\S]*?)endobj/g)) {
     objects.set(Number(match[1]), match[2] as string);
+  }
+  // Modern producers tuck non-stream dictionaries — fonts above all — into
+  // compressed /ObjStm containers, invisible to the scan above. Surface the
+  // members; streams cannot nest inside an ObjStm, so one pass suffices.
+  for (const [, body] of [...objects]) {
+    if (!/\/Type\s*\/ObjStm\b/.test(body)) continue;
+    const count = Number(/\/N\s+(\d+)/.exec(body)?.[1]);
+    const first = Number(/\/First\s+(\d+)/.exec(body)?.[1]);
+    const data = pdfStreamOf(body);
+    if (data === undefined || !Number.isFinite(count) || !Number.isFinite(first)) continue;
+    const header = data.slice(0, first).trim().split(/\s+/).map(Number);
+    for (let i = 0; i < count; i += 1) {
+      const id = header[2 * i] as number;
+      const at = first + (header[2 * i + 1] as number);
+      const end = i + 1 < count ? first + (header[2 * (i + 1) + 1] as number) : data.length;
+      if (!objects.has(id) && Number.isFinite(id) && Number.isFinite(at)) {
+        objects.set(id, data.slice(at, end));
+      }
+    }
   }
   return objects;
 }
@@ -187,22 +330,27 @@ function pdfStreamOf(body: string): string | undefined {
 function extractPdf(buffer: Buffer): DocExtraction {
   const raw = buffer.toString('latin1');
   const objects = pdfObjectBodies(raw);
-  const pageIds: number[] = [];
+  const kidIds: number[] = [];
+  const scanIds: number[] = [];
   for (const [id, body] of objects) {
     if (/\/Type\s*\/Pages\b/.test(body)) {
       const kids = /\/Kids\s*\[([^\]]*)\]/.exec(body)?.[1] ?? '';
-      for (const kid of kids.matchAll(/(\d+)\s+0\s+R/g)) pageIds.push(Number(kid[1]));
-    } else if (/\/Type\s*\/Page\b/.test(body) && !pageIds.includes(id)) {
-      // Fallback for files without a Kids array we can read.
-      pageIds.push(id);
+      for (const kid of kids.matchAll(/(\d+)\s+0\s+R/g)) kidIds.push(Number(kid[1]));
+    } else if (/\/Type\s*\/Page\b/.test(body)) {
+      scanIds.push(id);
     }
   }
+  // A readable Kids array is the authoritative page order; the scan order is
+  // the fallback for files whose page tree we cannot see. Never both — a
+  // page reached both ways would be extracted twice.
+  const pageIds = [...new Set(kidIds.length > 0 ? kidIds : scanIds)];
   const orderedPages = pageIds.filter((id) => {
     const body = objects.get(id);
     return body !== undefined && /\/Type\s*\/Page\b/.test(body);
   });
   const pages: DocPage[] = [];
   const allLines: string[] = [];
+  const fontCache = new Map<number, PdfFont>();
   for (const [index, id] of orderedPages.entries()) {
     const body = objects.get(id) as string;
     const contentRefs = [
@@ -210,10 +358,11 @@ function extractPdf(buffer: Buffer): DocExtraction {
         /(\d+)\s+0\s+R/g,
       ),
     ].map((m) => Number(m[1]));
+    const fonts = pdfPageFonts(objects, body, fontCache);
     const lines: string[] = [];
     for (const ref of contentRefs) {
       const stream = pdfStreamOf(objects.get(ref) ?? '');
-      if (stream !== undefined) lines.push(...pdfStreamLines(stream));
+      if (stream !== undefined) lines.push(...pdfStreamLines(stream, fonts));
     }
     if (lines.length === 0) continue;
     pages.push({ page: index + 1, startLine: allLines.length + 1, endLine: allLines.length + lines.length });
@@ -366,9 +515,12 @@ export function extractDocument(absPath: string): DocExtraction {
  * so old corpora upgrade to the new structure without a manual --force flag
  * and without losing the ledger (which lives beside documents.json, not
  * inside it). v3: pdfStreamLines joins baseline fragments into logical lines,
- * so the extracted text itself changes for fragmented PDFs.
+ * so the extracted text itself changes for fragmented PDFs. v4: hex-string
+ * text decodes through Type0 ToUnicode CMaps (ObjStm-resident fonts
+ * surfaced), recovering CID-typeset bodies that previously extracted as
+ * whitespace.
  */
-export const DETECTOR_VERSION = 3;
+export const DETECTOR_VERSION = 4;
 
 const NUMBERED_HEADING = /^(\d+(?:\.\d+)*)[.)]\s+(\S.*)$/;
 /**
