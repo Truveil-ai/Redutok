@@ -94,18 +94,36 @@ function pdfDecodeString(body: string): string {
   return out;
 }
 
-/** Text lines from one decoded content stream: every text-showing operator
- * appends to the current line; T*, Td, TD, and ' start a new one. */
+/**
+ * Text lines from one decoded content stream, reassembled into LOGICAL lines
+ * by baseline. Real-world producers (the USPTO 101 examples PDF is the field
+ * case) emit one visual line as several text-showing fragments: a label
+ * "(1. )Tj" then a continuation positioned by "1.5 0 Td" (ty = 0, same
+ * baseline), or separate BT/ET blocks whose Tm shares the same y. Treating
+ * every positioning operator as a newline shredded those into fragments no
+ * heading detector could match.
+ *
+ * The joining rule: a positioning operator starts a new line only when it
+ * moves the baseline by more than 0.6em (Tm: |Δy| in user space against the
+ * vertical scale; Td/TD: |ty| in text space). Same-baseline fragments are
+ * concatenated verbatim — the glyph strings already carry their own spacing,
+ * and mid-word splits ("/Gen" + "erating") must join unspaced. T* and '
+ * always advance a line. The 0.6em threshold keeps superscript rises (≈0.33em)
+ * inline while real line advances (≥1em leading) still break.
+ */
 function pdfStreamLines(stream: string): string[] {
   const lines: string[] = [];
   let current = '';
   let sawText = false;
+  // Baseline state: y in user space, scale from the last Tm's d component.
+  let baselineY: number | undefined;
+  let scale = 12;
   const flush = (): void => {
     if (current !== '') lines.push(current);
     current = '';
   };
   const token =
-    /\(((?:\\.|[^\\)])*)\)\s*(Tj|')|\[((?:\\.|[^\]])*)\]\s*TJ|T\*|-?[\d.]+\s+-?[\d.]+\s+T[dD]/g;
+    /\(((?:\\.|[^\\)])*)\)\s*(Tj|')|\[((?:\\.|[^\]])*)\]\s*TJ|T\*|(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+Tm|(-?[\d.]+)\s+(-?[\d.]+)\s+T[dD]/g;
   for (const match of stream.matchAll(token)) {
     if (match[1] !== undefined) {
       if (match[2] === "'") flush();
@@ -116,7 +134,20 @@ function pdfStreamLines(stream: string): string[] {
         current += pdfDecodeString(part[1] as string);
       }
       sawText = true;
+    } else if (match[4] !== undefined) {
+      // Tm: absolute text matrix [a b c d e f]; f is the baseline y.
+      const d = Number(match[7]);
+      const y = Number(match[9]);
+      if (Number.isFinite(d) && d !== 0) scale = Math.abs(d);
+      if (baselineY !== undefined && Math.abs(y - baselineY) > 0.6 * scale) flush();
+      baselineY = y;
+    } else if (match[10] !== undefined) {
+      // Td/TD: relative move in text space; ty is scaled by the matrix.
+      const ty = Number(match[11]);
+      if (Math.abs(ty) > 0.6) flush();
+      if (baselineY !== undefined) baselineY += ty * scale;
     } else {
+      // T*: next line, always.
       flush();
     }
   }
@@ -334,9 +365,10 @@ export function extractDocument(absPath: string): DocExtraction {
  * value as an invalidation trigger even when the source hash is unchanged —
  * so old corpora upgrade to the new structure without a manual --force flag
  * and without losing the ledger (which lives beside documents.json, not
- * inside it).
+ * inside it). v3: pdfStreamLines joins baseline fragments into logical lines,
+ * so the extracted text itself changes for fragmented PDFs.
  */
-export const DETECTOR_VERSION = 2;
+export const DETECTOR_VERSION = 3;
 
 const NUMBERED_HEADING = /^(\d+(?:\.\d+)*)[.)]\s+(\S.*)$/;
 /**
@@ -397,7 +429,10 @@ function detectHeadings(
     }
 
     const numbered = NUMBERED_HEADING.exec(trimmed);
-    if (numbered !== null && !trimmed.endsWith('.')) {
+    // Lowercase guard: with logical-line joining, list items arrive as full
+    // lines ("3. continue scanning until ...") that would otherwise pass; a
+    // real numbered heading's title never starts lowercase.
+    if (numbered !== null && !trimmed.endsWith('.') && !/^[a-z]/.test(numbered[2] as string)) {
       headings.push({
         line: i + 1,
         level: (numbered[1] as string).split('.').length,
