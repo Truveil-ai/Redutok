@@ -260,6 +260,15 @@ export async function exploreGoal(
           profile: docSearchProfile,
           sessionId: request.sessionId,
           tool: 'dcp__explore',
+          context: {
+            // Zoom reach-through: the hits handle records its source
+            // documents so any query resolves to document raw, not to
+            // whatever subset of lines happened to hit.
+            docRefs: rankedDocs
+              .slice(0, 8)
+              .filter((d) => d.entry.artifactId !== undefined)
+              .map((d) => ({ path: d.entry.path, artifactId: d.entry.artifactId as string })),
+          },
         });
         zoomHandles.push(outcome.artifactId);
       }

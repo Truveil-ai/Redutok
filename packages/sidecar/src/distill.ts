@@ -11,7 +11,9 @@ import {
 import type { AuditWriter } from './audit.js';
 import {
   matchedDocSections,
+  parseSectionRefs,
   sectionAnchor,
+  sectionMatchesRef,
   sectionText,
   type DocPage,
   type DocSection,
@@ -173,6 +175,13 @@ export interface DistillContext {
    * path. Absent only when a distiller is exercised outside distillArtifact.
    */
   artifactId?: string;
+  /**
+   * Source documents behind a hits artifact (doc-search): stored on meta so
+   * zoom can reach through the hit lines to the referenced document raw —
+   * a handle must recover source content even when the query names lines
+   * the hit list never carried.
+   */
+  docRefs?: { path: string; artifactId: string }[];
   /**
    * Skeleton enrichment (docs/GRADUATION.md): symbols whose full bodies the
    * file-skeleton profile keeps, from a graduated zoom-hotspot directive.
@@ -364,6 +373,7 @@ export async function distillArtifact(
       ...(request.context?.doc === undefined
         ? {}
         : { doc: { sections: request.context.doc.sections, pages: request.context.doc.pages } }),
+      ...(request.context?.docRefs === undefined ? {} : { docRefs: request.context.docRefs }),
     },
   });
   const bytesIn = Buffer.byteLength(request.raw, 'utf8');
@@ -415,6 +425,11 @@ export interface ZoomResult {
   artifactId?: string;
   rawBytes?: number;
   filePath?: string;
+  /**
+   * Set when a query was given: false means nothing matched it anywhere and
+   * the full raw artifact was served as the unconditional fallback.
+   */
+  queryMatched?: boolean;
 }
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -494,16 +509,55 @@ function resolveFileRef(store: Store, ref: string): ArtifactRecord | undefined {
   return undefined;
 }
 
+/** Serve bound for query windows; matches beyond it are elided WITH a marker. */
+const ZOOM_WINDOW_CAP = 200;
+
+/**
+ * ±2-line windows around every raw line matching the query: whole phrase
+ * first, per-word fallback (a multi-word query almost never appears verbatim
+ * on one line). Matches beyond the cap are elided with an explicit marker —
+ * the field failure hid a citation behind a silent slice(0, 200).
+ */
+function textWindows(raw: string, query: string): string | undefined {
+  const lines = raw.split(/\r?\n/);
+  const windowFor = (pattern: string): Set<number> => {
+    const matcher = new RegExp(escapeRegExp(pattern), 'i');
+    const keep = new Set<number>();
+    lines.forEach((line, i) => {
+      if (matcher.test(line)) {
+        for (let j = Math.max(0, i - 2); j <= Math.min(lines.length - 1, i + 2); j += 1) keep.add(j);
+      }
+    });
+    return keep;
+  };
+  const words = query.trim().split(/\s+/);
+  let keep = windowFor(query);
+  if (keep.size === 0 && words.length > 1) {
+    keep = new Set<number>();
+    for (const w of words) for (const i of windowFor(w)) keep.add(i);
+  }
+  if (keep.size === 0) return undefined;
+  const ordered = [...keep].sort((a, b) => a - b);
+  const slice = ordered.slice(0, ZOOM_WINDOW_CAP);
+  const out = slice.map((i) => lines[i] ?? '');
+  if (ordered.length > slice.length) {
+    out.push(
+      `[dcp: omitted ${ordered.length - slice.length} more matching lines; zoom with a section reference, a narrower query, or no query for the full raw]`,
+    );
+  }
+  return out.join('\n');
+}
+
 /**
  * Section/page addressing for document artifacts: a query naming a section
- * (id, §id, or exact title) or a page ("page 2", "p.2") recovers that slice
- * byte-exactly from the stored raw. Returns undefined when the query is not
- * a structural reference, so text queries fall through to the line windows.
+ * (id, §id, exact title, or a parsed reference like "Example 21") or a page
+ * ("page 2", "p.2") recovers that slice byte-exactly from the stored raw.
+ * Residual query terms beyond the reference narrow within the recovered
+ * slice; when they match nothing the whole slice serves anyway — recovery
+ * never depends on the residual hitting. Returns undefined when the query
+ * is not a structural reference, so text queries fall through to windows.
  */
-function docSlice(
-  artifact: ArtifactRecord,
-  query: string,
-): string | undefined {
+function docSlice(artifact: ArtifactRecord, query: string): string | undefined {
   const doc = artifact.meta['doc'] as
     | { sections?: DocSection[]; pages?: DocPage[] }
     | undefined;
@@ -514,11 +568,90 @@ function docSlice(
     const page = (doc.pages ?? []).find((p) => p.page === Number(pageRef[1]));
     return page === undefined ? undefined : sectionText(artifact.raw, page);
   }
-  const idRef = q.replace(/^§\s*/, '').toLowerCase();
-  const section =
+  const idRef = q.replace(/^§\s*/, '').toLowerCase().replace(/\s+/g, '-');
+  const exact =
     doc.sections.find((s) => s.id.toLowerCase() === idRef) ??
     doc.sections.find((s) => s.title.toLowerCase() === q.toLowerCase());
-  return section === undefined ? undefined : sectionText(artifact.raw, section);
+  if (exact !== undefined) return sectionText(artifact.raw, exact);
+  const refs = parseSectionRefs(q);
+  if (refs.length === 0) return undefined;
+  const matched = doc.sections.filter((s) => refs.some((r) => sectionMatchesRef(s, r)));
+  if (matched.length === 0) return undefined;
+  const slice = matched.map((s) => sectionText(artifact.raw, s)).join('\n\n');
+  let residual = q;
+  for (const r of refs) residual = residual.split(r.raw).join(' ');
+  residual = residual.replace(/§\s*[\w.-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (residual !== '') {
+    const window = textWindows(slice, residual);
+    if (window !== undefined) return window;
+  }
+  return slice;
+}
+
+/** Referenced source documents recorded on a hits artifact (doc-search). */
+function docRefTargets(store: Store, artifact: ArtifactRecord): ArtifactRecord[] {
+  const refs = artifact.meta['docRefs'];
+  if (!Array.isArray(refs)) return [];
+  const targets: ArtifactRecord[] = [];
+  for (const ref of refs) {
+    const artifactId = (ref as { artifactId?: unknown }).artifactId;
+    if (typeof artifactId !== 'string') continue;
+    const target = store.getArtifact(artifactId);
+    if (target !== undefined) targets.push(target);
+  }
+  return targets;
+}
+
+interface QueryResolution {
+  text: string;
+  matched: boolean;
+  /** The artifact actually served; differs from the handle on reach-through. */
+  source: ArtifactRecord;
+}
+
+/**
+ * Query resolution order: structural on the artifact itself, structural
+ * through its recorded source documents, codex symbol bodies, text windows
+ * on the artifact, text windows through the sources, and finally — the
+ * byte-recoverability contract — the full raw artifact, unconditionally.
+ * A query can only narrow what a handle serves, never gate access to it.
+ */
+function resolveQuery(
+  store: Store,
+  artifact: ArtifactRecord,
+  query: string,
+  codex: CodexFile | undefined,
+): QueryResolution {
+  const sliced = docSlice(artifact, query);
+  if (sliced !== undefined) return { text: sliced, matched: true, source: artifact };
+  const targets = docRefTargets(store, artifact);
+  for (const target of targets) {
+    const reach = docSlice(target, query);
+    if (reach !== undefined) return { text: reach, matched: true, source: target };
+  }
+  // Symbol pass before text windows: a query word naming a codex symbol for
+  // this file gets the symbol's whole definition body, not a line window —
+  // the h02 session needed createStyler's body and the ±2 window could not
+  // carry it.
+  const words = query.trim().split(/\s+/);
+  const bodies = words
+    .filter((w) => symbolsForFile(codex, artifact.meta['filePath']).includes(w))
+    .map((w) => extractDefinition(artifact.raw, w))
+    .filter((b): b is string => b !== undefined);
+  if (bodies.length > 0) return { text: bodies.join('\n\n'), matched: true, source: artifact };
+  const windows = textWindows(artifact.raw, query);
+  if (windows !== undefined) return { text: windows, matched: true, source: artifact };
+  for (const target of targets) {
+    const reach = textWindows(target.raw, query);
+    if (reach !== undefined) return { text: reach, matched: true, source: target };
+  }
+  return {
+    text: `[dcp: no lines match "${query}" in artifact ${artifact.id}${
+      targets.length === 0 ? '' : ' or its source documents'
+    }; serving the full raw artifact]\n${artifact.raw}`,
+    matched: false,
+    source: artifact,
+  };
 }
 
 export function zoom(
@@ -530,66 +663,37 @@ export function zoom(
 ): ZoomResult {
   const artifact = store.getArtifact(id) ?? resolveFileRef(store, id);
   if (artifact === undefined) return { found: false, text: `no artifact ${id} in the store` };
-  let text = artifact.raw;
-  const sliced = query === undefined || query === '' ? undefined : docSlice(artifact, query);
-  if (sliced !== undefined) {
-    text = sliced;
-  } else if (query !== undefined && query !== '') {
-    const lines = artifact.raw.split(/\r?\n/);
-    const windowFor = (pattern: string): Set<number> => {
-      const matcher = new RegExp(escapeRegExp(pattern), 'i');
-      const keep = new Set<number>();
-      lines.forEach((line, i) => {
-        if (matcher.test(line)) {
-          for (let j = Math.max(0, i - 2); j <= Math.min(lines.length - 1, i + 2); j += 1) keep.add(j);
-        }
-      });
-      return keep;
-    };
-    const words = query.trim().split(/\s+/);
-    // Symbol pass first: a query word naming a codex symbol for this file
-    // gets the symbol's whole definition body, not a line window — the h02
-    // session needed createStyler's body and the ±2 window could not carry it.
-    const bodies = words
-      .filter((w) => symbolsForFile(codex, artifact.meta['filePath']).includes(w))
-      .map((w) => extractDefinition(artifact.raw, w))
-      .filter((b): b is string => b !== undefined);
-    if (bodies.length > 0) {
-      text = bodies.join('\n\n');
-    } else {
-      let keep = windowFor(query);
-      if (keep.size === 0 && words.length > 1) {
-        // Per-word fallback: a multi-word query almost never appears verbatim
-        // on one line; match each word before declaring no match.
-        keep = new Set<number>();
-        for (const w of words) for (const i of windowFor(w)) keep.add(i);
-      }
-      const slice = [...keep].sort((a, b) => a - b).slice(0, 200);
-      text =
-        slice.length === 0
-          ? `no lines matching "${query}" in artifact ${id}; zoom without a query for the full raw artifact`
-          : slice.map((i) => lines[i]).join('\n');
-    }
-  }
+  const resolution =
+    query === undefined || query === ''
+      ? undefined
+      : resolveQuery(store, artifact, query, codex);
+  const source = resolution?.source ?? artifact;
+  const text = resolution?.text ?? artifact.raw;
   const event: AuditEvent = {
     id: `zoom-${id}-${randomBytes(2).toString('hex')}`,
     timestamp: new Date().toISOString(),
     sessionId: artifact.sessionId,
     module: 'sidecar.zoom',
     action: 'zoom',
-    reason: query === undefined || query === '' ? `raw artifact ${id} served` : `query slice of ${id} for "${query}"`,
+    reason:
+      resolution === undefined
+        ? `raw artifact ${id} served`
+        : resolution.matched
+          ? `query slice of ${source.id === id ? id : `${id} via ${source.id}`} for "${query}"`
+          : `query "${query}" matched nothing; full raw artifact ${id} served`,
     inputRef: id,
-    details: { query: query ?? null },
+    details: { query: query ?? null, matched: resolution?.matched ?? null, servedFrom: source.id },
   };
   audit.write(event);
   store.insertAuditEvent(event);
   const result: ZoomResult = {
     found: true,
     text,
-    artifactId: artifact.id,
-    rawBytes: Buffer.byteLength(artifact.raw, 'utf8'),
+    artifactId: source.id,
+    rawBytes: Buffer.byteLength(source.raw, 'utf8'),
   };
-  const filePath = artifact.meta['filePath'];
+  if (resolution !== undefined) result.queryMatched = resolution.matched;
+  const filePath = source.meta['filePath'];
   if (typeof filePath === 'string' && filePath !== '') result.filePath = filePath;
   return result;
 }
