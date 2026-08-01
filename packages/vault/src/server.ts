@@ -69,7 +69,7 @@ export const TOOLS = [
   {
     name: 'vault_zoom',
     description:
-      'Recover the raw artifact behind a vault handle (artifact id like a1b2c3 or file ref like F1a2b@hash), byte-recoverable, optionally sliced by a query. id is an accepted alias for handle.',
+      'Recover the raw artifact behind a vault handle (artifact id like a1b2c3 or file ref like F1a2b@hash), byte-recoverable, optionally sliced by a query. id is an accepted alias for handle. corpus may be omitted: the handle is resolved across all mounted corpora.',
     inputSchema: {
       type: 'object',
       properties: {
