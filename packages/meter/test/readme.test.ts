@@ -42,6 +42,38 @@ describe('README claim hygiene', () => {
     }
   });
 
+  // Sentence-level checks. Wrapping splits a claim across lines, so these read
+  // the flowed text and look at one sentence at a time.
+  const sentences = readme
+    .replace(/\s+/g, ' ')
+    .split(/(?<=\.) /)
+    .map((s) => s.toLowerCase());
+
+  it('never presents a cost avoided figure as anything but an estimate', () => {
+    for (const sentence of sentences) {
+      if (sentence.includes('usd') && sentence.includes('avoided')) {
+        expect(sentence, `unestimated cost-avoided claim: ${sentence}`).toContain('estimat');
+      }
+    }
+  });
+
+  it('never presents energy or carbon as measured', () => {
+    // Nothing in this project measures energy. Every Wh and CO2 figure is a
+    // banded estimate, and the README has to say so wherever it mentions one.
+    for (const sentence of sentences) {
+      if (sentence.includes('co2') || sentence.includes('watt-hour')) {
+        const hedged = sentence.includes('band') || sentence.includes('estimat');
+        expect(hedged, `energy stated as measured: ${sentence}`).toBe(true);
+      }
+    }
+  });
+
+  it('says the npm package is a placeholder wherever it tells you to npx it', () => {
+    if (readme.includes('npx redutok')) {
+      expect(readme).toContain('placeholder release');
+    }
+  });
+
   it('never claims a chat-savings multiple before the chatbench has run', () => {
     // Wrapping is a formatting choice; the sentence has to survive it.
     const flowed = readme.replace(/\s+/g, ' ');
