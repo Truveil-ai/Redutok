@@ -1,0 +1,56 @@
+# Reference extraction of USPTO 101_examples_1to36.pdf page 14, produced by
+# pypdf 6.10.2 from the full source document (the sliced fixture drops objects
+# pypdf resolves through the xref, so the reference is taken from the source;
+# scripts/slice-pdf-fixture.mjs documents the fixture itself).
+#
+# Read this reference with its defect in mind: page 14 paints every glyph that
+# straddles a clip-region boundary TWICE, once per clip, and pypdf reproduces
+# the doubling verbatim ("Exampless: Abstractt Ideas", "innvention", "claimm").
+# A renderer shows each glyph once because the clip admits only one draw. So
+# this file is a coverage and volume baseline only; it is NOT the expected
+# text, and the phrase assertions in the tests encode the de-duplicated
+# reading, cross-checked against the same running header on pages 1-13.
+ 
+ 
+ 
+ 
+  
+ 
+ 
+ 
+ 
+ 
+Exampless: Abstractt Ideas 
+In this innvention, as sseen in Fig. 1 reproducedd below, a ddevice profilee is created bbased on 
+informatiion from a soource devicee 2, such as aa digital cammera, and froom a destinattion device 66, 
+such as aa printer. T hhe device proofile is used to produce tthe processedd image signnal 18 from tthe 
+input imaage signal 166. Spatial c hharacteristic informationn 12, 20 and color characcteristic 
+informatiion 14, 22 arre provided ffrom each deevice to an iimage processsor 4, alongg with the innput 
+image siggnal 16. Th iis characteri stic informaation is used to generate first data rellating to coloor 
+informatiion content oof the imagee and secondd data relatin ng to spatial iinformation content of thhe 
+image ussing known mmathematicaal techniquess, such as Foourier analyssis to yield a Wiener Noiise 
+Power Sppectrum (maathematical pprocessing teechniques). The generatted data is inncorporated iinto 
+the devicce profile. 
+Represenntative Claimm 
+10. A method of gennerating a deevice profile that describ bes properties of a devicee in a digitall 
+image repproduction ssystem for caapturing, transforming oor rendering an image, saaid method 
+comprisinng: 
+generating firrst data for ddescribing a ddevice depenndent transfoformation of color 
+informatiion content oof the imagee to a device independennt color spacee through usse of measured 
+chromatic stimuli andd device respponse characcteristic funcctions; 
+generating se cond data foor describingg a device deependent trannsformation of spatial 
+informatiion content oof the imagee in said deviice independdent color sppace throughh use of spatiial 
+stimuli annd device reesponse char acteristic funnctions;  andd 
+coombining saaid first and ssecond data into the dev vice profile. 
+Analysis 
+Claim 100: Ineligible . 
+The claimm is directedd to a statutorry category, because a s eries of stepps for generaating data 
+satisfies tthe requiremments of a proocess (a seriies of acts) (SStep 1: YE SS). 
+Next, thee claim is anaalyzed to de termine wheether it is dirrected to a juudicial excepption. The cclaim 
+recites a method of ggenerating firrst data and second data using matheematical techhniques and 
+combininng the first aand second ddata into a deevice profile.. In other wwords, the claaimed methood 
+simply deescribes the concept of ggathering an d combiningg data by recciting steps oof organizingg 
+informatiion through mathematicaal relationshhips. The ga tthering and combining mmerely emplloys 
+mathemaatical relationnships to maanipulate exiisting informmation to gennerate additioonal informaation 
+in the forrm of a ‘deviice profile,’ without limiit to any usee of the devicce profile.  TThis idea is 
+14 

@@ -216,6 +216,12 @@ function pdfPageFonts(
  * no mapping contributes nothing; silence beats garbage), single bytes with
  * ToUnicode fallback to latin1 otherwise.
  */
+/** How far two draws of the same text may sit apart and still be one glyph
+ * painted twice. Observed on the field document: 0.06-0.12pt. A genuine
+ * repeated character advances by its glyph width, several points at any
+ * readable size. */
+const REPAINT_EPSILON = 0.5;
+
 function pdfStreamLines(stream: string, fonts?: Map<string, PdfFont>): string[] {
   const lines: string[] = [];
   let current = '';
@@ -224,6 +230,91 @@ function pdfStreamLines(stream: string, fonts?: Map<string, PdfFont>): string[] 
   // Baseline state: y in user space, scale from the last Tm's d component.
   let baselineY: number | undefined;
   let scale = 12;
+  // Position state for clipped repaints: the text-origin x carried through
+  // Tm and Td, whether an operator placed it since the last show, the
+  // previous show actually emitted, and whether we are inside a clip region.
+  let penX: number | undefined;
+  let placed = false;
+  let xScale = 12;
+  let lastShow: { x: number; y: number | undefined; text: string } | undefined;
+  let lastShowClipped = false;
+  const clips: boolean[] = [];
+  const inClip = (): boolean => clips.includes(true);
+  /**
+   * Whether this show only repaints ink the page already carries.
+   *
+   * Field failure (corpus idf, 2026-08-02): page 14 of the USPTO examples
+   * PDF extracted "claimm is directedd" and "Claim 100" for "Claim 10". The
+   * producer paints each line as unclipped runs, then re-paints every glyph
+   * that straddles a clip-region boundary inside its own `q <rect> re W n`
+   * block. A renderer shows the glyph once — each draw is clipped to its own
+   * sliver — while a position-blind extractor concatenates every draw.
+   *
+   * Three shapes, all observed on page 14:
+   *   - the straddling glyph drawn once per neighbouring clip, at the same
+   *     baseline and within a tenth of a point of the same x ("m", then "m "
+   *     — the repaint may carry its own trailing space, which is kept);
+   *   - a clipped single glyph repeating the LAST character of the run that
+   *     just painted it, inside that run's span (": Abstract" then "t");
+   *   - a clipped single glyph repeating the FIRST character of the run that
+   *     paints it next, at the same x ("i", then "into ") — caught after the
+   *     fact, by taking the glyph back off the line.
+   * Real repeated characters advance by a glyph width, several points at any
+   * readable size, so no shape can swallow genuine text.
+   */
+  const sameInk = (a: string, b: string): boolean => a.trim() !== '' && a.trim() === b.trim();
+  const show = (text: string): void => {
+    // Only a show whose origin an operator has just placed can be compared:
+    // consecutive shows with no positioning between them advance the pen by
+    // the glyphs themselves, a width this extractor does not know.
+    const x = placed ? penX : undefined;
+    placed = false;
+    const near = (at: number, to: number): boolean => Math.abs(at - to) <= REPAINT_EPSILON;
+    if (x !== undefined && lastShow !== undefined && lastShow.y === baselineY) {
+      if (sameInk(lastShow.text, text) && near(x, lastShow.x)) {
+        // The same ink twice. Keep any whitespace the repaint adds: it
+        // separates this word from the next, and dropping it joins them.
+        const extra = text.startsWith(lastShow.text) ? text.slice(lastShow.text.length) : '';
+        if (extra !== '' && extra.trim() === '') {
+          current += extra;
+          lastShow = { x, y: baselineY, text };
+        }
+        return;
+      }
+      if (
+        inClip() &&
+        text.length === 1 &&
+        lastShow.text.endsWith(text) &&
+        x > lastShow.x &&
+        x < lastShow.x + lastShow.text.length * scale
+      ) {
+        return;
+      }
+      // Deliberately NOT extended to a run ending in whitespace. The
+      // producer also leaves a blank where a clipped glyph sits ("that
+      // describ " then a clipped "b", for "that describes"), which looks
+      // identical to a run whose last word simply ends in the same letter
+      // ("vention, as " then a clipped "s", for "as seen"). Telling those
+      // apart needs the glyph widths of a proportional font, which this
+      // extractor does not have; guessing corrupts correct text.
+      if (
+        lastShowClipped &&
+        lastShow.text.trim().length === 1 &&
+        near(x, lastShow.x) &&
+        text.startsWith(lastShow.text)
+      ) {
+        // The clipped glyph came first; the run that repaints it is the one
+        // to keep, so take the glyph back off the line.
+        current = current.slice(0, current.length - lastShow.text.length);
+      }
+    }
+    if (x !== undefined) {
+      lastShow = { x, y: baselineY, text };
+      lastShowClipped = inClip();
+    }
+    current += text;
+    sawText = true;
+  };
   const flush = (): void => {
     if (current !== '') lines.push(current);
     current = '';
@@ -245,38 +336,57 @@ function pdfStreamLines(stream: string, fonts?: Map<string, PdfFont>): string[] 
     return out;
   };
   const token =
-    /\(((?:\\.|[^\\)])*)\)\s*(Tj|')|<([0-9A-Fa-f\s]*)>\s*(Tj|')|\[((?:\\.|[^\]])*)\]\s*TJ|\/([\w.]+)\s+-?[\d.]+\s+Tf|T\*|(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+Tm|(-?[\d.]+)\s+(-?[\d.]+)\s+T[dD]/g;
+    /\(((?:\\.|[^\\)])*)\)\s*(Tj|')|<([0-9A-Fa-f\s]*)>\s*(Tj|')|\[((?:\\.|[^\]])*)\]\s*TJ|\/([\w.]+)\s+-?[\d.]+\s+Tf|T\*|(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+Tm|(-?[\d.]+)\s+(-?[\d.]+)\s+T[dD]|(q)\b|(Q)\b|(W)\s+n\b/g;
   for (const match of stream.matchAll(token)) {
     if (match[1] !== undefined) {
       if (match[2] === "'") flush();
-      current += pdfDecodeString(match[1]);
-      sawText = true;
+      show(pdfDecodeString(match[1]));
     } else if (match[3] !== undefined) {
       if (match[4] === "'") flush();
-      current += decodeHex(match[3]);
-      sawText = true;
+      show(decodeHex(match[3]));
     } else if (match[5] !== undefined) {
+      let text = '';
       for (const part of match[5].matchAll(/\(((?:\\.|[^\\)])*)\)|<([0-9A-Fa-f\s]*)>/g)) {
-        current += part[1] !== undefined ? pdfDecodeString(part[1]) : decodeHex(part[2] as string);
+        text += part[1] !== undefined ? pdfDecodeString(part[1]) : decodeHex(part[2] as string);
       }
-      sawText = true;
+      show(text);
     } else if (match[6] !== undefined) {
       font = fonts?.get(match[6]);
     } else if (match[7] !== undefined) {
-      // Tm: absolute text matrix [a b c d e f]; f is the baseline y.
+      // Tm: absolute text matrix [a b c d e f]; e is the x origin, f the
+      // baseline y.
+      const a = Number(match[7]);
       const d = Number(match[10]);
+      const x = Number(match[11]);
       const y = Number(match[12]);
       if (Number.isFinite(d) && d !== 0) scale = Math.abs(d);
+      if (Number.isFinite(a) && a !== 0) xScale = Math.abs(a);
       if (baselineY !== undefined && Math.abs(y - baselineY) > 0.6 * scale) flush();
       baselineY = y;
+      penX = Number.isFinite(x) ? x : undefined;
+      placed = true;
     } else if (match[13] !== undefined) {
-      // Td/TD: relative move in text space; ty is scaled by the matrix.
+      // Td/TD: relative move in text space, scaled by the text matrix — the
+      // producer positions continuation runs this way, so the pen must follow
+      // it or a repaint of such a run's last glyph goes unrecognised.
+      const tx = Number(match[13]);
       const ty = Number(match[14]);
       if (Math.abs(ty) > 0.6) flush();
       if (baselineY !== undefined) baselineY += ty * scale;
+      if (penX !== undefined && Number.isFinite(tx)) penX += tx * xScale;
+      placed = true;
+    } else if (match[15] !== undefined) {
+      clips.push(false);
+    } else if (match[16] !== undefined) {
+      clips.pop();
+    } else if (match[17] !== undefined) {
+      // W n: the pending path becomes the clip of the innermost q block.
+      if (clips.length > 0) clips[clips.length - 1] = true;
     } else {
       // T*: next line, always.
       flush();
+      penX = undefined;
+      placed = false;
     }
   }
   flush();
@@ -523,9 +633,11 @@ export function extractDocument(absPath: string): DocExtraction {
  * text decodes through Type0 ToUnicode CMaps (ObjStm-resident fonts
  * surfaced), recovering CID-typeset bodies that previously extracted as
  * whitespace. v5: sections carry the running page header as part context, so
- * a repeated enumeration can be told apart by the part it sits in.
+ * a repeated enumeration can be told apart by the part it sits in. v6: a
+ * glyph re-painted inside a clip region is extracted once, so text that
+ * straddles clip boundaries reads as written.
  */
-export const DETECTOR_VERSION = 5;
+export const DETECTOR_VERSION = 6;
 
 const NUMBERED_HEADING = /^(\d+(?:\.\d+)*)[.)]\s+(\S.*)$/;
 /**
