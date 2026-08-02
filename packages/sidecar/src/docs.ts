@@ -37,6 +37,10 @@ export interface DocSection {
   endLine: number;
   page?: number;
   summary: string;
+  /** The document part this section sits in, from the running page header
+   * ("Nature-Based Products"). The only in-document signal separating two
+   * sections that carry the same enumeration or even the same title. */
+  context?: string;
 }
 
 export type DocKind = 'markdown' | 'text' | 'pdf' | 'docx';
@@ -518,9 +522,10 @@ export function extractDocument(absPath: string): DocExtraction {
  * so the extracted text itself changes for fragmented PDFs. v4: hex-string
  * text decodes through Type0 ToUnicode CMaps (ObjStm-resident fonts
  * surfaced), recovering CID-typeset bodies that previously extracted as
- * whitespace.
+ * whitespace. v5: sections carry the running page header as part context, so
+ * a repeated enumeration can be told apart by the part it sits in.
  */
-export const DETECTOR_VERSION = 4;
+export const DETECTOR_VERSION = 5;
 
 const NUMBERED_HEADING = /^(\d+(?:\.\d+)*)[.)]\s+(\S.*)$/;
 /**
@@ -634,6 +639,41 @@ function pageOf(pages: DocPage[] | undefined, line: number): number | undefined 
   return pages?.find((p) => line >= p.startLine && line <= p.endLine)?.page;
 }
 
+/** Header lines carry no information when they are page furniture. */
+const RUNNING_HEADER_NOISE = /^[\s\d.,;:|/\\-]*$/;
+/** A running header repeated on fewer pages than this is just a first line. */
+const MIN_RUNNING_HEADER_PAGES = 3;
+
+/**
+ * The running page header of each page, when the document has one: the first
+ * non-empty line of a page, kept only where the same line leads at least
+ * three pages. A paginated corpus states its own part structure this way
+ * ("Examples: Abstract Ideas" for pages 1-20, "Nature-Based Products" for
+ * 21-37), and that part is the signal that separates the two Example 5s the
+ * flat section list cannot tell apart (field failure, corpus idf
+ * 2026-08-02). Documents without repeated headers simply get no context.
+ */
+export function runningHeaders(text: string, pages: DocPage[]): Map<number, string> {
+  const lines = text.split(/\r?\n/);
+  const firstLines = new Map<number, string>();
+  const counts = new Map<string, number>();
+  for (const page of pages) {
+    const first = lines
+      .slice(page.startLine - 1, page.endLine)
+      .find((l) => l.trim() !== '')
+      ?.trim()
+      .replace(/\s+/g, ' ');
+    if (first === undefined || first.length > 80 || RUNNING_HEADER_NOISE.test(first)) continue;
+    firstLines.set(page.page, first);
+    counts.set(first, (counts.get(first) ?? 0) + 1);
+  }
+  const headers = new Map<number, string>();
+  for (const [page, first] of firstLines) {
+    if ((counts.get(first) ?? 0) >= MIN_RUNNING_HEADER_PAGES) headers.set(page, first);
+  }
+  return headers;
+}
+
 /**
  * The document skeleton equivalent: flat sections from headings (style-based
  * when the format carries styles, detected otherwise), each with a one-line
@@ -670,6 +710,7 @@ export async function buildStructureMap(
   });
 
   const sections: DocSection[] = [];
+  const headers = runningHeaders(extraction.text, extraction.pages ?? []);
   // Semantic ids collide occasionally (two "Example 1"s in different parts,
   // an outline that repeats "A."); suffix the second and later with -2, -3
   // so citations stay unambiguous without silently dropping a section.
@@ -739,6 +780,9 @@ export async function buildStructureMap(
     };
     const page = pageOf(extraction.pages, bound.startLine);
     if (page !== undefined) section.page = page;
+    const context = page === undefined ? undefined : headers.get(page);
+    // A section that IS the running header carries no context of its own.
+    if (context !== undefined && context !== title) section.context = context;
     sections.push(section);
   }
   return sections;
@@ -962,11 +1006,87 @@ export type SectionTier = 'ref' | HeadingMatch;
 
 export const TIER_RANK: Record<SectionTier, number> = { ref: 4, exact: 3, strong: 2, partial: 1, none: 0 };
 
+/**
+ * How one reference in an ask resolved against a document that repeats its
+ * enumeration (field failure, corpus idf 2026-08-02: "Example 5" matches six
+ * sections across four parts of the USPTO examples PDF). Every candidate is
+ * kept so the caller can disclose the collision instead of resolving it
+ * silently.
+ */
+export interface RefResolution {
+  ref: SectionRef;
+  /** Every section the reference matches, in document order. */
+  candidates: DocSection[];
+  chosen: DocSection;
+  /** Whether the ask itself picked the chosen candidate. False means the
+   * choice fell back to document order and the reader must be told. */
+  discriminated: boolean;
+}
+
+/** Ask words that agree with a candidate's own title or part context. */
+function contextAgreement(section: DocSection, ask: string): number {
+  const askWords = new Set(normWords(ask));
+  const own = [...new Set(normWords(`${section.title} ${section.context ?? ''}`))].filter(
+    (w) => !HEADING_STOPWORDS.has(w) && w.length > 1,
+  );
+  return own.filter((w) => askWords.has(w)).length;
+}
+
+/**
+ * Resolve each reference against the sections it matches. A reference that
+ * matches once is simply that section. A reference that matches several is
+ * decided by what the ask itself says — the part it names ("Nature-Based
+ * Products"), or the title it names ("genetically modified bacterium") — and
+ * only when the ask says nothing discriminating does it fall back to
+ * document order, which is what a bare "Example 5" means: the first one.
+ * Body keyword volume never decides between two reference matches; that is
+ * exactly how the eligibility boilerplate of a later example used to win.
+ */
+export function resolveSectionRefs(
+  sections: DocSection[],
+  refs: SectionRef[],
+  ask: string,
+): RefResolution[] {
+  const resolutions: RefResolution[] = [];
+  for (const ref of refs) {
+    const candidates = sections.filter((s) => sectionMatchesRef(s, ref));
+    const first = candidates[0];
+    if (first === undefined) continue;
+    if (candidates.length === 1) {
+      resolutions.push({ ref, candidates, chosen: first, discriminated: true });
+      continue;
+    }
+    // The reference phrase itself ("Example 5") is common to every candidate,
+    // so it must not count as agreement; score on what is left of the ask.
+    const rest = ask.replace(new RegExp(escapeRegExp(ref.raw), 'gi'), ' ');
+    const scored = candidates.map((section) => ({
+      section,
+      agreement: contextAgreement(section, rest),
+    }));
+    const best = scored.reduce((a, b) => (b.agreement > a.agreement ? b : a));
+    const runnerUp = scored
+      .filter((s) => s.section !== best.section)
+      .reduce((n, s) => Math.max(n, s.agreement), 0);
+    const discriminated = best.agreement > 0 && best.agreement > runnerUp;
+    resolutions.push({
+      ref,
+      candidates,
+      chosen: discriminated ? best.section : first,
+      discriminated,
+    });
+  }
+  return resolutions;
+}
+
 export interface SectionScore {
   section: DocSection;
   tier: SectionTier;
   /** Keyword match volume over the section body — the tie-breaker, never the ranking. */
   bodyScore: number;
+  /** 2 for the section a reference resolved to, 1 for a colliding candidate
+   * it did not, 0 for no reference match. Ranks above body volume so a
+   * repeated enumeration is decided on identity. */
+  refRank: number;
   text: string;
 }
 
@@ -976,17 +1096,19 @@ export function scoreSections(
   sections: DocSection[],
   ask: string,
   refs: SectionRef[] = parseSectionRefs(ask),
+  resolutions: RefResolution[] = resolveSectionRefs(sections, refs, ask),
 ): SectionScore[] {
   const keywords = askKeywords(ask);
   const pattern =
     keywords.length === 0 ? undefined : new RegExp(keywords.map(escapeRegExp).join('|'), 'gi');
+  const chosen = new Set(resolutions.map((r) => r.chosen));
   return sections.map((section) => {
     const body = sectionText(text, section);
-    const tier: SectionTier = refs.some((r) => sectionMatchesRef(section, r))
-      ? 'ref'
-      : headingMatch(section.title, ask);
+    const isRef = refs.some((r) => sectionMatchesRef(section, r));
+    const tier: SectionTier = isRef ? 'ref' : headingMatch(section.title, ask);
     const bodyScore = pattern === undefined ? 0 : [...body.matchAll(pattern)].length;
-    return { section, tier, bodyScore, text: body };
+    const refRank = !isRef ? 0 : chosen.has(section) ? 2 : 1;
+    return { section, tier, bodyScore, refRank, text: body };
   });
 }
 
@@ -1007,7 +1129,10 @@ export function matchedDocSections(
   const scored = scoreSections(text, sections, ask).filter(
     (s) => TIER_RANK[s.tier] > 0 || s.bodyScore > 0,
   );
-  scored.sort((a, b) => TIER_RANK[b.tier] - TIER_RANK[a.tier] || b.bodyScore - a.bodyScore);
+  scored.sort(
+    (a, b) =>
+      TIER_RANK[b.tier] - TIER_RANK[a.tier] || b.refRank - a.refRank || b.bodyScore - a.bodyScore,
+  );
   return scored
     .slice(0, Math.max(0, maxSections))
     .sort((a, b) => a.section.startLine - b.section.startLine)
@@ -1020,6 +1145,9 @@ export interface RankedDocument {
   scores: SectionScore[];
   /** Highest section tier in this document. */
   tier: SectionTier;
+  /** How each reference in the ask resolved inside this document, including
+   * the candidates it collided with. */
+  resolutions: RefResolution[];
 }
 
 /**
@@ -1042,19 +1170,24 @@ export function rankDocuments(
     if (entry.artifactId === undefined) continue;
     const artifact = store.getArtifact(entry.artifactId);
     if (artifact === undefined) continue;
-    const scores = scoreSections(artifact.raw, entry.sections, ask, refs);
+    const resolutions = resolveSectionRefs(entry.sections, refs, ask);
+    const scores = scoreSections(artifact.raw, entry.sections, ask, refs, resolutions);
     const docHits = byPath.get(entry.path) ?? [];
     const tier = scores.reduce<SectionTier>(
       (best, s) => (TIER_RANK[s.tier] > TIER_RANK[best] ? s.tier : best),
       'none',
     );
     if (docHits.length === 0 && TIER_RANK[tier] === 0) continue;
-    ranked.push({ entry, hits: docHits, scores, tier });
+    ranked.push({ entry, hits: docHits, scores, tier, resolutions });
   }
   const bodyTotal = (d: RankedDocument): number => d.scores.reduce((n, s) => n + s.bodyScore, 0);
+  // A document holding the section a reference resolved to outranks one that
+  // merely holds a same-numbered namesake.
+  const chosenRefs = (d: RankedDocument): number => d.scores.filter((s) => s.refRank === 2).length;
   ranked.sort(
     (a, b) =>
       TIER_RANK[b.tier] - TIER_RANK[a.tier] ||
+      chosenRefs(b) - chosenRefs(a) ||
       b.hits.length - a.hits.length ||
       bodyTotal(b) - bodyTotal(a) ||
       a.entry.path.localeCompare(b.entry.path),

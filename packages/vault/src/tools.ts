@@ -128,6 +128,20 @@ function renderAccountingBlock(a: AskAccounting, confidence: AskConfidence): str
 
 function renderDossier(d: Dossier): string {
   const lines: string[] = [d.verdict === '' ? 'no verdict' : d.verdict];
+  // Only a genuinely undecided collision is called out. When the ask named
+  // the part or the title, the evidence line already cites the section with
+  // its part context, and a warning would be noise.
+  const undecided = (d.ambiguity ?? []).filter((a) => !a.discriminated);
+  if (undecided.length > 0) {
+    lines.push('', 'ambiguous section references (this corpus reuses these numbers):');
+    for (const a of undecided) {
+      lines.push(
+        `- "${a.ref}" in ${a.document} matches ${a.candidates.length + 1} sections; answered from ${a.chosen}, the first in document order, because the question named nothing that separates them`,
+        `  also matches: ${a.candidates.join('; ')}`,
+      );
+    }
+    lines.push('  Name the part or the section title to target another one.');
+  }
   if (d.evidence.length > 0) {
     lines.push('', 'evidence:');
     for (const e of d.evidence) lines.push(`- ${e.file}:${e.line} — ${e.snippet} (${e.why})`);
