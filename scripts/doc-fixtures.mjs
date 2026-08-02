@@ -274,6 +274,110 @@ export function makeUsptoExamplesPdf() {
   });
 }
 
+/** Pages supplied verbatim as line arrays, one array per page. */
+export function makePagesPdf(pages) {
+  return assemblePdf(pages.map(pageStream));
+}
+
+/**
+ * The collision shapes of the real 109-page USPTO examples PDF, at fixture
+ * scale (field failure, corpus idf 2026-08-02: an ask for "Example 5"
+ * surfaced the Nature-Based bacterium at p.27 instead of the Abstract-Ideas
+ * Digital Image Processing at p.13). Three collisions, all real:
+ *   - the same Example number in two parts (5 in Abstract Ideas, 5 again in
+ *     Nature-Based Products), likewise 3;
+ *   - the same section title twice inside one part (Digital Image Processing
+ *     as both Example 3 and Example 5);
+ *   - a running page header naming the part, which is the only in-document
+ *     signal separating the two Example 5s.
+ * The bacterium body is deliberately dense in the generic eligibility
+ * vocabulary that used to win the tie on keyword volume alone.
+ */
+export function makeCollidingExamplesPdf() {
+  const abstractIdeas = 'Examples: Abstract Ideas';
+  const natureBased = 'Nature-Based Products';
+  return makePagesPdf([
+    [
+      abstractIdeas,
+      '',
+      'Part One',
+      '',
+      '1. Isolating and Removing Malicious Code',
+      '',
+      ...wrap(
+        'The claimed method scans an electronic message for malicious code and removes it before delivery to the recipient computer.',
+      ),
+      '',
+    ],
+    [
+      abstractIdeas,
+      '',
+      '3. Digital Image Processing',
+      '',
+      ...wrap(
+        'A computer-implemented method for halftoning a gray scale image using a blue noise mask stored in an array.',
+      ),
+      '',
+    ],
+    [
+      abstractIdeas,
+      '',
+      'Part Two',
+      '',
+      '5. Digital Image Processing',
+      '',
+      ...wrap(
+        'A method of generating a device profile that describes properties of a device in a digital image reproduction system for capturing, transforming, or rendering an image.',
+      ),
+      '',
+      'Claim 10: Ineligible.',
+      '',
+      ...wrap(
+        'The claim is directed to the abstract idea of gathering and combining data, and the additional elements do not integrate it into a practical application.',
+      ),
+      '',
+    ],
+    [
+      natureBased,
+      '',
+      '3. Amazonic Acid, Pharmaceutical Compositions, and Methods of Treatment',
+      '',
+      ...wrap(
+        'A composition comprising an acid produced by a process which comprises providing amazonic acid from the leaves of the Amazonian cherry tree.',
+      ),
+      '',
+    ],
+    [
+      natureBased,
+      '',
+      '5. Genetically Modified Bacterium',
+      '',
+      ...wrap(
+        'A bacterium from the genus Pseudomonas containing therein at least two stable energy-generating plasmids, each providing a separate hydrocarbon degradative pathway.',
+      ),
+      '',
+      ...wrap(
+        'The eligibility analysis of this claim proceeds claim by claim. The claim eligibility analysis asks whether the claim recites a product of nature, and the eligibility analysis of the claim concludes that the claim has markedly different characteristics. This eligibility analysis, like every claim eligibility analysis in these examples, repeats the words claim, eligibility, analysis, and example often enough to win any contest decided by keyword volume.',
+      ),
+      '',
+      'Claim 2: Eligible.',
+      '',
+      ...wrap('The claim is eligible under the eligibility analysis above.'),
+      '',
+    ],
+    [
+      natureBased,
+      '',
+      '6. Bacterial Mixtures',
+      '',
+      ...wrap(
+        'A mixture of bacteria comprising a first bacterium of the genus Rhizobium and a second bacterium of the genus Bradyrhizobium.',
+      ),
+      '',
+    ],
+  ]);
+}
+
 /** The doc-corpus binary fixtures, written into dir. */
 export function writeDocFixtures(dir) {
   mkdirSync(dir, { recursive: true });

@@ -45,7 +45,11 @@ export const TOOLS = [
           description:
             'Version number from the pasted vault codex footer (v<N>); triggers a one-line refresh notice when the current emission is newer.',
         },
-        corpus: { type: 'string', description: 'Corpus name when more than one is mounted' },
+        corpus: {
+          type: 'string',
+          description:
+            'Corpus name. Required when more than one corpus is mounted: the call is refused by name rather than answered from an arbitrary corpus.',
+        },
       },
       required: ['question'],
     },
@@ -57,7 +61,11 @@ export const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        corpus: { type: 'string', description: 'Corpus name when more than one is mounted' },
+        corpus: {
+          type: 'string',
+          description:
+            'Corpus name. Required when more than one corpus is mounted: the call is refused by name rather than answered from an arbitrary corpus.',
+        },
         json: { type: 'boolean', description: 'Return the emission struct as JSON' },
         maxTokens: {
           type: 'number',
@@ -75,7 +83,11 @@ export const TOOLS = [
       properties: {
         handle: { type: 'string', description: 'Reference from a dossier or elision marker' },
         query: { type: 'string', description: 'Optional slice query (symbol name or text)' },
-        corpus: { type: 'string', description: 'Corpus name when more than one is mounted' },
+        corpus: {
+          type: 'string',
+          description:
+            'Corpus name. May be omitted: the handle is resolved across all mounted corpora, and a handle no corpus holds names the corpora searched.',
+        },
       },
       required: ['handle'],
     },
@@ -94,7 +106,11 @@ export const TOOLS = [
           description: 'YYYY-MM (UTC) for scope "month"; defaults to the current month',
         },
         json: { type: 'boolean', description: 'Return the rollup as JSON' },
-        corpus: { type: 'string', description: 'Corpus name when more than one is mounted' },
+        corpus: {
+          type: 'string',
+          description:
+            'Corpus name. May be omitted: every mounted corpus is reported separately, attributed by name (json returns an array), so an empty ledger is never confusable with the wrong corpus.',
+        },
       },
     },
   },

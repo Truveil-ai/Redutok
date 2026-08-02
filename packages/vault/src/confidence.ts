@@ -61,6 +61,20 @@ export function assessAskConfidence(question: string, dossier: Dossier): AskConf
       reasons.push(`only ${termsMatched} of ${termsTotal} question terms appear in the evidence`);
     }
   }
+  // A reference that matched several sections was answered from one of them.
+  // resolvedRefs counts it fully resolved, which alone would read as high
+  // confidence on a section the reader never asked for (field failure,
+  // corpus idf 2026-08-02), so an undiscriminated collision holds the band
+  // down and says why.
+  const undiscriminated = (dossier.ambiguity ?? []).filter((a) => !a.discriminated);
+  if (undiscriminated.length > 0) {
+    if (band === 'high') band = 'medium';
+    for (const a of undiscriminated) {
+      reasons.push(
+        `"${a.ref}" matches ${a.candidates.length + 1} sections in ${a.document} and the question named nothing that separates them`,
+      );
+    }
+  }
   if (incomplete) {
     band = band === 'high' ? 'medium' : 'low';
     reasons.push('the internal exploration ended incomplete');

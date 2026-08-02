@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import readline from 'node:readline';
 import { pathToFileURL } from 'node:url';
-import { resolveSecret } from './auth.js';
+import { resolveCorporaSecret } from './auth.js';
 import { emitCodex } from './codex.js';
 import { mountCorpus, type Corpus } from './corpus.js';
 import { startVaultServer } from './http.js';
@@ -279,9 +279,9 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     await runStdio(corpora);
     return;
   }
-  const first = corpora.values().next();
-  if (first.done === true) throw new Error('no corpus mounted');
-  const secret = resolveSecret(first.value.dcpDir);
+  const secret = resolveCorporaSecret(
+    [...corpora.values()].map((c) => ({ name: c.name, dcpDir: c.dcpDir })),
+  );
   if (secret === undefined) {
     throw new Error(
       'no agent secret: set REDUTOK_VAULT_SECRET or write { "secret": "..." } to <corpus>/.dcp/vault.json',

@@ -64,6 +64,22 @@ export interface DossierRetrieval {
   headingMatch: HeadingMatch;
 }
 
+/**
+ * A section reference in the ask that the corpus answers more than once
+ * (field failure, corpus idf 2026-08-02: "Example 5" names six sections
+ * across four parts of the USPTO examples PDF). The dossier states which
+ * candidate it took and what the alternatives are, with the part each sits
+ * in, rather than resolving the collision out of sight.
+ */
+export interface RefAmbiguity {
+  ref: string;
+  document: string;
+  chosen: string;
+  /** Whether the ask itself picked the chosen candidate. */
+  discriminated: boolean;
+  candidates: string[];
+}
+
 export interface Dossier {
   verdict: string;
   evidence: DossierEvidence[];
@@ -72,6 +88,8 @@ export interface Dossier {
   distillationRatio: number;
   incomplete?: { reason: string; continuationHint: string };
   retrieval?: DossierRetrieval;
+  /** Present only when a reference matched several sections. */
+  ambiguity?: RefAmbiguity[];
 }
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.dcp', '.claude', 'coverage', 'backup']);
@@ -236,6 +254,22 @@ export async function exploreGoal(
   const refs = goalRefs;
   const docHits = docEntries.length === 0 ? [] : searchDocumentSections(store, docEntries, keywords);
   const rankedDocs = docEntries.length === 0 ? [] : rankDocuments(store, docEntries, request.goal, docHits);
+  // A reference the corpus answers more than once is disclosed, never
+  // silently resolved: the chosen section and every namesake, each with the
+  // document part that tells them apart.
+  const describe = (s: { id: string; title: string; page?: number; context?: string }): string =>
+    `§${s.id} "${s.title}", ${s.page === undefined ? 'no page' : `p.${s.page}`}${s.context === undefined ? '' : ` (${s.context})`}`;
+  const ambiguity: RefAmbiguity[] = rankedDocs.flatMap((d) =>
+    d.resolutions
+      .filter((r) => r.candidates.length > 1)
+      .map((r) => ({
+        ref: r.ref.raw,
+        document: d.entry.path,
+        chosen: describe(r.chosen),
+        discriminated: r.discriminated,
+        candidates: r.candidates.filter((c) => c !== r.chosen).map(describe),
+      })),
+  );
   let retrieval: Dossier['retrieval'];
   if (docEntries.length > 0) {
     const bestTier = rankedDocs[0]?.tier ?? 'none';
@@ -287,7 +321,12 @@ export async function exploreGoal(
     for (const doc of rankedDocs.slice(0, 6)) {
       const matchedSections = doc.scores
         .filter((s) => TIER_RANK[s.tier] > 0)
-        .sort((a, b) => TIER_RANK[b.tier] - TIER_RANK[a.tier] || b.bodyScore - a.bodyScore)
+        .sort(
+          (a, b) =>
+            TIER_RANK[b.tier] - TIER_RANK[a.tier] ||
+            b.refRank - a.refRank ||
+            b.bodyScore - a.bodyScore,
+        )
         .slice(0, 2);
       for (const s of matchedSections) {
         const headingLine = s.text.split(/\r?\n/)[0] ?? s.section.title;
@@ -295,7 +334,7 @@ export async function exploreGoal(
           file: doc.entry.path,
           line: s.section.startLine,
           snippet: headingLine.slice(0, 200),
-          why: `§${s.section.id} "${s.section.title}", ${sectionAnchor(s.section)} — heading match (${s.tier})`,
+          why: `§${s.section.id} "${s.section.title}", ${sectionAnchor(s.section)}${s.section.context === undefined ? '' : ` (${s.section.context})`} — heading match (${s.tier})`,
         });
         const inSection = doc.hits
           .filter((h) => h.section.id === s.section.id && h.line !== s.section.startLine)
@@ -365,6 +404,7 @@ export async function exploreGoal(
         continuationHint: 'broaden scope or restate the goal with different keywords',
       },
       ...(retrieval === undefined ? {} : { retrieval }),
+      ...(ambiguity.length === 0 ? {} : { ambiguity }),
     });
   }
 
@@ -454,5 +494,6 @@ export async function exploreGoal(
     zoomHandles,
     incomplete,
     ...(retrieval === undefined ? {} : { retrieval }),
+    ...(ambiguity.length === 0 ? {} : { ambiguity }),
   });
 }
