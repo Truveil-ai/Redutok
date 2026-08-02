@@ -1,53 +1,86 @@
 # Quickstart: fresh machine to first graded session
 
 The definition-of-done budget for this path is five minutes on a fresh
-machine with node 20+ installed. Timings below are what each step costs at
-most on an ordinary connection; they sum comfortably under the budget.
+machine with node 20 or newer installed. Timings below are what each step
+costs at most on an ordinary connection; they sum comfortably under the
+budget.
 
-1. Install and wire into your repo (about two minutes, mostly npm):
+1. Build Redutok (about two minutes, mostly the install):
 
-       cd your-repo
-       npx redutok init
+       git clone https://github.com/imkaran7/redutok
+       cd redutok
+       pnpm install
+       pnpm -r build
 
-   This writes hooks to .claude/settings.local.json, registers the MCP
-   server in .mcp.json, appends the protocol block to CLAUDE.md, and
-   scaffolds .dcp/. Everything reverts byte-identical with npx redutok
-   remove.
+   Redutok is not published to npm yet, so there is no `npx redutok` path.
+   The package is packaging-ready (`files` whitelist, prepack gate, and a
+   test that installs the packed tarballs into a temp directory), and the
+   npm name check is still open. Until it is published, invoke the CLI by
+   path. Everything below writes `redutok` for
+   `node <redutok>/packages/meter/dist/cli.js`.
 
-2. Start the sidecar and build the codex (about a minute):
+2. Wire it into the repository you want to govern (seconds):
 
-       npx redutok up
-       npx redutok codex refresh
+       redutok init /path/to/your-repo
 
-3. Check the installation (seconds):
+   This writes hooks to `.claude/settings.local.json`, registers the MCP
+   server in `.mcp.json`, appends the protocol block to CLAUDE.md, and
+   scaffolds `.dcp/` with the committed launchers under `.claude/redutok/`.
+   It is idempotent and preserves your own entries. Everything reverts
+   byte-identical with `redutok remove`.
 
-       npx redutok doctor
+3. Start the sidecar and build the codex (about a minute):
 
-   Expect passes everywhere, a warn for Ollama if you have not installed it
-   (rule-based distillation works without it), and remedies on any warn.
+       cd /path/to/your-repo
+       redutok up
+       redutok codex refresh
 
-4. Approve the MCP server, once (seconds, easy to miss):
+4. Check the installation (seconds):
 
-   The first Claude Code session in the repo prompts about the project-scope
-   MCP server found in .mcp.json. Approve it. This is a one-time, per-user,
-   per-repo choice; until it is made the dcp tools are absent and every
-   session silently runs vanilla. If the prompt never appeared or was
-   declined, run `claude mcp reset-project-choices` inside the repo to be
-   asked again, and `claude mcp list` to confirm the redutok server is
-   connected. `npx redutok doctor` warns on this exact condition
-   (mcp-approval) with the same remedy.
+       redutok doctor
 
-5. Run a Claude Code session in the repo as usual. Large reads, builds, and
-   searches now flow through the dcp tools; every compression is audited in
-   .dcp/audit.jsonl with a zoom handle to recover raw.
+   Ten checks, each pass, warn, or fail with a remedy. Warns are normal and
+   not blockers: Ollama unreachable means semantic passes fall back to rules,
+   and a stale codex means run the refresh above. Read the remedy column
+   rather than the count.
 
-6. Grade it (seconds):
+5. Approve the MCP server, once (seconds, easy to miss):
 
-       npx redutok report --last
-       npx redutok badge --last
+   The first Claude Code session in the repository prompts about the
+   project-scope MCP server found in `.mcp.json`. Approve it. This is a
+   one-time, per-user, per-repository choice; until it is made the dcp tools
+   are absent. If the prompt never appeared or was declined, run
+   `claude mcp reset-project-choices` inside the repository to be asked
+   again, and `claude mcp list` to confirm the server is connected.
+   `redutok doctor` reports this exact condition as `mcp-approval` with the
+   same remedy.
+
+6. Run a Claude Code session in the repository as usual.
+
+   You do not call anything. A large Read is answered with a skeleton
+   through that same Read, so it never costs an extra turn; build, test, and
+   lint output is distilled in place and ends with a zoom handle; the dcp
+   tools remain available for multi-file exploration and for recovering raw.
+   Every compression is written to `.dcp/audit.jsonl` with a handle that
+   recovers the original byte for byte.
+
+   One expected case: a small repository engages the idle posture and runs
+   effectively vanilla by design, so a first session on a tiny project shows
+   little or nothing. See [POSTURE.md](POSTURE.md) for the thresholds.
+
+7. Grade it (seconds):
+
+       redutok report --last
+       redutok badge --last
 
    The report shows tokens by class, estimated cost, energy as banded
    estimates, and the four scores with the A to F composite. The badge SVG
-   carries the grade.
+   carries the grade. `redutok candidates` shows what the session's miner
+   learned, and `redutok audit <session-id>` renders the trail behind every
+   figure.
+
+For documents rather than code, see the Vault in
+[../packages/vault/README.md](../packages/vault/README.md): ingest a folder,
+mount it, and reach it from a chat client over MCP.
 
 Redutok by Truveil.
