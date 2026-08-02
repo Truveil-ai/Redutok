@@ -18,6 +18,13 @@ language: ratio figures must name the scope they were measured at, a line
 citing the 10x Definition of Done must carry its verdict, and the chatbench
 sentence disclaiming any chat-savings multiple is now pinned by test.
 
+The README was then rewritten again as a narrative, opening on the receipt
+and the two measured peaks and closing on the field session. The guard gained
+three sentence-level rules that survive rewrapping: a cost-avoided figure
+must be labelled an estimate, energy and carbon must be banded rather than
+stated as measured, and an `npx redutok` instruction must say that the
+published package is a placeholder until the release publish.
+
 ## v4, the compounding codex (2026-07-30)
 
 - **Graduation.** Candidate learnings mined from each session (error-fix

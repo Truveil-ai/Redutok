@@ -1,5 +1,11 @@
 # Bench report: the full evidence record
 
+Why this document exists: Redutok writes its criteria down before a run and
+publishes the outcome either way. That only means something if the outcomes
+are somewhere a reader can reach, at the volume they were recorded at rather
+than the volume that flatters the project. This file is that place. It is a
+working document, not a summary assembled afterwards to fit a result.
+
 This is the complete measurement history of Redutok, including the runs that
 went against it. It exists so that anyone deciding whether to trust the
 project can check the arithmetic instead of the adjectives.

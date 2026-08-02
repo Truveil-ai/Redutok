@@ -12,11 +12,13 @@ budget.
        pnpm install
        pnpm -r build
 
-   Redutok is not published to npm yet, so there is no `npx redutok` path.
-   The package is packaging-ready (`files` whitelist, prepack gate, and a
-   test that installs the packed tarballs into a temp directory), and the
-   npm name check is still open. Until it is published, invoke the CLI by
-   path. Everything below writes `redutok` for
+   The npm name carries a placeholder release, `redutok@0.0.1`, published to
+   hold the name. The working build is `0.1.0` in this repository and is not
+   published yet, so `npx redutok` fetches the placeholder rather than the
+   tool. The package is packaging-ready (`files` whitelist, prepack gate,
+   and a test that installs the packed tarballs into a temp directory).
+   Until the release publish, invoke the CLI by path. Everything below
+   writes `redutok` for
    `node <redutok>/packages/meter/dist/cli.js`.
 
 2. Wire it into the repository you want to govern (seconds):
