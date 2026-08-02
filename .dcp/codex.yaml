@@ -1,6 +1,6 @@
 version: "1"
 project: Redutok - Token Optimisation
-generatedAt: 2026-07-28T21:54:18.292Z
+generatedAt: 2026-08-02T12:19:49.981Z
 architecture: []
 map:
   - path: .
@@ -21,6 +21,267 @@ map:
       - total
       - Ledger
       - __init__
+    locked: false
+  - path: fixtures/doc-corpus/tools
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - Installment
+      - installmentSchedule
+      - lateInterest
+    locked: false
+  - path: fixtures/repos/axios
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - AxiosHeaderValue
+      - AxiosHeaders
+      - RawAxiosRequestHeaders
+    locked: false
+  - path: fixtures/repos/axios/bin
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - RepoBot
+      - exec
+      - getBlobSize
+      - getBlobHistory
+    locked: false
+  - path: fixtures/repos/axios/bin/actions
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/bin/helpers
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - colorize
+      - matchAll
+      - parseSection
+      - parseVersion
+    locked: false
+  - path: fixtures/repos/axios/examples
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/examples/get
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/examples/post
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/examples/postMultipartFormData
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/examples/upload
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/lib
+    role: implementation
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/lib/adapters
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - __setProxy
+    locked: false
+  - path: fixtures/repos/axios/lib/cancel
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - CancelToken
+    locked: false
+  - path: fixtures/repos/axios/lib/core
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - Axios
+      - AxiosHeaders
+      - InterceptorManager
+    locked: false
+  - path: fixtures/repos/axios/lib/defaults
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/lib/env
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - VERSION
+    locked: false
+  - path: fixtures/repos/axios/lib/env/classes
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/lib/helpers
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - AxiosTransformStream
+      - ZlibHeaderTransformStream
+      - FormDataPart
+      - progressEventReducer
+      - progressEventDecorator
+      - asyncDecorator
+      - streamChunk
+      - readBytes
+    locked: false
+  - path: fixtures/repos/axios/lib/platform
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/lib/platform/browser
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/lib/platform/browser/classes
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/lib/platform/common
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/lib/platform/node
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/lib/platform/node/classes
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/scripts
+    role: maintenance scripts
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/helpers
+    role: unclassified
+    roleSource: rules
+    keySymbols:
+      - LOCAL_SERVER_URL
+      - SERVER_HANDLER_STREAM_ECHO
+      - setTimeoutAsync
+    locked: false
+  - path: fixtures/repos/axios/test/manual
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/module
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/module/cjs
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/module/esm
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/module/ts
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/module/ts-require
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/module/ts-require-default
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/module/typings/cjs
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/module/typings/esm
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/specs
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/specs/cancel
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/specs/core
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/specs/helpers
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/specs/utils
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/unit/adapters
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/unit/core
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/unit/defaults
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/unit/helpers
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/unit/regression
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
+    locked: false
+  - path: fixtures/repos/axios/test/unit/utils
+    role: unclassified
+    roleSource: rules
+    keySymbols: []
     locked: false
   - path: fixtures/repos/chalk-heavy-build/scripts
     role: maintenance scripts
@@ -216,7 +477,7 @@ map:
       - renderShareLine
       - Variant
       - SuccessCheck
-      - BenchTask
+      - TaskSeedEdit
     locked: false
   - path: packages/meter/test
     role: This module provides test cases for the meter functionality within the
@@ -254,9 +515,9 @@ map:
       - SidecarTarget
       - SidecarResponse
       - sidecarRequest
+      - INDEXABLE_EXT
+      - INDEX_SKIP_DIRS
       - listSourceFiles
-      - CodexPaths
-      - codexPaths
       - DaemonOptions
     locked: false
   - path: packages/sidecar/test
@@ -265,33 +526,39 @@ map:
     roleSource: llm
     keySymbols: []
     locked: false
+  - path: packages/vault/src
+    role: implementation
+    roleSource: rules
+    keySymbols:
+      - ResolvedSecret
+      - resolveSecret
+      - resolveCorporaSecret
+      - CodexEmission
+      - CodexState
+      - EmitOptions
+      - ConfidenceBand
+      - AskConfidence
+    locked: false
+  - path: packages/vault/test
+    role: tests
+    roleSource: rules
+    keySymbols:
+      - monorepoRoot
+      - URL_BUILDER_SOURCE
+      - AWS_KEY_LITERAL
+    locked: false
   - path: scripts
     role: This module handles token optimisation logic within the scripts folder for
       project Redutok.
     roleSource: llm
-    keySymbols: []
+    keySymbols:
+      - makePdf
+      - makeScannedPdf
+      - makeDocx
     locked: false
 conventions: []
 pitfalls: []
 learned:
-  - kind: skeleton-enrichment
-    candidate: cand-b1c70f4d
-    path: packages/sidecar/src/daemon.ts
-    symbols:
-      - handler
-      - dcp__run
-      - run
-      - command
-      - exec
-      - stdout
-      - stderr
-      - exitCode
-      - distillArtifact
-      - session
-      - audit
-    confidence: 0.6464
-    source: graduated
-    addedAt: 2026-07-28T21:46:54.526Z
   - kind: skeleton-enrichment
     candidate: cand-76acd792
     path: packages/mcp/src/server.ts
@@ -361,52 +628,6 @@ learned:
     source: graduated
     addedAt: 2026-07-28T21:46:54.531Z
   - kind: skeleton-enrichment
-    candidate: cand-51094ad1
-    path: packages/shared/src/schemas.ts
-    symbols:
-      - AuditEventSchema
-      - AuditActionSchema
-      - AuditEvent
-      - id
-      - sessionId
-      - timestamp
-      - module
-      - action
-      - reason
-      - inputRef
-      - bytesIn
-      - bytesOut
-    confidence: 0.6464
-    source: graduated
-    addedAt: 2026-07-28T21:46:54.531Z
-  - kind: skeleton-enrichment
-    candidate: cand-90daf5be
-    path: packages/sidecar/src/serve.ts
-    symbols:
-      - serveFile
-    confidence: 0.5
-    source: graduated
-    addedAt: 2026-07-28T21:46:54.532Z
-  - kind: skeleton-enrichment
-    candidate: cand-b81317d9
-    path: packages/sidecar/src/distill.ts
-    symbols:
-      - distillArtifact
-      - zoom
-      - audit
-      - sessionId
-      - estimateTokens
-      - event
-      - bytesIn
-      - bytesOut
-      - inputRef
-      - outputRef
-      - runProfile
-      - makeHandle
-    confidence: 0.75
-    source: graduated
-    addedAt: 2026-07-28T21:46:54.533Z
-  - kind: skeleton-enrichment
     candidate: cand-459077fb
     path: packages/meter/src/bench.ts
     symbols:
@@ -449,14 +670,6 @@ learned:
       - getArtifact
       - AuditEvent
     confidence: 0.6464
-    source: graduated
-    addedAt: 2026-07-28T21:46:54.535Z
-  - kind: skeleton-enrichment
-    candidate: cand-8d956e03
-    path: packages/sidecar/src/redact.ts
-    symbols:
-      - storeRedactedArtifact
-    confidence: 0.5
     source: graduated
     addedAt: 2026-07-28T21:46:54.535Z
   - kind: skeleton-enrichment
@@ -518,6 +731,60 @@ learned:
     confidence: 0.5
     source: graduated
     addedAt: 2026-07-28T21:46:54.537Z
+  - kind: skeleton-enrichment
+    candidate: cand-aa617fde
+    path: E:/Redutok - Token Optimisation/packages/shared/src/schemas.ts
+    symbols:
+      - AuditActionSchema
+      - enum
+      - values
+      - AuditEventSchema
+      - fields
+      - full
+      - list
+      - distill
+      - serve
+      - inject
+    confidence: 0.5
+    source: graduated
+    addedAt: 2026-07-30T20:43:58.070Z
+  - kind: skeleton-enrichment
+    candidate: cand-58501a5a
+    path: E:/Redutok - Token Optimisation/packages/meter/src/receipt.ts
+    symbols:
+      - buildSessionReceipt
+      - audit
+      - read
+      - renderReceiptBlock
+      - printed
+      - lines
+      - exact
+      - SessionReceipt
+      - fields
+      - signature
+      - avoidedFor
+    confidence: 0.5
+    source: graduated
+    addedAt: 2026-07-30T20:43:58.071Z
+  - kind: skeleton-enrichment
+    candidate: cand-27c84768
+    path: E:/Redutok - Token Optimisation/packages/sidecar/src/daemon.ts
+    symbols:
+      - startDaemon
+      - startup
+      - index
+      - codex
+      - file
+      - count
+      - source
+      - bytes
+      - log
+      - listSourceFiles
+      - routes
+      - read
+    confidence: 0.5
+    source: graduated
+    addedAt: 2026-07-30T20:43:58.072Z
 glossary: []
 interfaces:
   - name: buildReport
@@ -544,6 +811,118 @@ interfaces:
   - name: total
     signature: "def total(self) -> int:"
     file: fixtures/artifacts/sample.py
+  - name: Installment
+    signature: export interface Installment
+    file: fixtures/doc-corpus/tools/fee-calculator.ts
+  - name: installmentSchedule
+    signature: "export function installmentSchedule(totalUsd: number, months:
+      number): Installment[]"
+    file: fixtures/doc-corpus/tools/fee-calculator.ts
+  - name: lateInterest
+    signature: "export function lateInterest(balanceUsd: number, monthsLate:
+      number): number"
+    file: fixtures/doc-corpus/tools/fee-calculator.ts
+  - name: colorize
+    signature: export const colorize = (...colors)=>
+    file: fixtures/repos/axios/bin/helpers/colorize.js
+  - name: matchAll
+    signature: export const matchAll = (text, regexp, cb) =>
+    file: fixtures/repos/axios/bin/helpers/parser.js
+  - name: parseSection
+    signature: export const parseSection = (body, name, cb) =>
+    file: fixtures/repos/axios/bin/helpers/parser.js
+  - name: parseVersion
+    signature: export const parseVersion = (rawVersion) =>
+      /^v?(\d+).(\d+).(\d+)/.exec(rawVersion);
+    file: fixtures/repos/axios/bin/helpers/parser.js
+  - name: exec
+    signature: export const exec = util.promisify(cp.exec);
+    file: fixtures/repos/axios/bin/repo.js
+  - name: getBlobHistory
+    signature: export const getBlobHistory = async (filepath, maxCount= 5) =>
+    file: fixtures/repos/axios/bin/repo.js
+  - name: getBlobSize
+    signature: export const getBlobSize = async (filepath, sha ='HEAD') =>
+    file: fixtures/repos/axios/bin/repo.js
+  - name: getTags
+    signature: export const getTags = async (pattern = 'v*', sort = '-v:refname') =>
+    file: fixtures/repos/axios/bin/repo.js
+  - name: RepoBot
+    signature: class RepoBot
+    file: fixtures/repos/axios/bin/RepoBot.js
+  - name: AxiosHeaders
+    signature: export class AxiosHeaders
+    file: fixtures/repos/axios/index.d.ts
+  - name: AxiosHeaderValue
+    signature: export type AxiosHeaderValue = AxiosHeaders | string | string[] |
+      number | boolean | null;
+    file: fixtures/repos/axios/index.d.ts
+  - name: AxiosRequestHeaders
+    signature: export type AxiosRequestHeaders = RawAxiosRequestHeaders & AxiosHeaders;
+    file: fixtures/repos/axios/index.d.ts
+  - name: RawAxiosRequestHeaders
+    signature: export type RawAxiosRequestHeaders = Partial<RawAxiosHeaders &
+    file: fixtures/repos/axios/index.d.ts
+  - name: __setProxy
+    signature: export const __setProxy = setProxy;
+    file: fixtures/repos/axios/lib/adapters/http.js
+  - name: CancelToken
+    signature: class CancelToken
+    file: fixtures/repos/axios/lib/cancel/CancelToken.js
+  - name: Axios
+    signature: class Axios
+    file: fixtures/repos/axios/lib/core/Axios.js
+  - name: AxiosHeaders
+    signature: class AxiosHeaders
+    file: fixtures/repos/axios/lib/core/AxiosHeaders.js
+  - name: InterceptorManager
+    signature: class InterceptorManager
+    file: fixtures/repos/axios/lib/core/InterceptorManager.js
+  - name: VERSION
+    signature: export const VERSION = "1.7.9";
+    file: fixtures/repos/axios/lib/env/data.js
+  - name: AxiosTransformStream
+    signature: class AxiosTransformStream extends stream.Transform
+    file: fixtures/repos/axios/lib/helpers/AxiosTransformStream.js
+  - name: FormDataPart
+    signature: class FormDataPart
+    file: fixtures/repos/axios/lib/helpers/formDataToStream.js
+  - name: asyncDecorator
+    signature: export const asyncDecorator = (fn) => (...args) => utils.asap(() =>
+      fn(...args));
+    file: fixtures/repos/axios/lib/helpers/progressEventReducer.js
+  - name: progressEventDecorator
+    signature: export const progressEventDecorator = (total, throttled) =>
+    file: fixtures/repos/axios/lib/helpers/progressEventReducer.js
+  - name: progressEventReducer
+    signature: export const progressEventReducer = (listener, isDownloadStream, freq
+      = 3) =>
+    file: fixtures/repos/axios/lib/helpers/progressEventReducer.js
+  - name: readBytes
+    signature: export const readBytes = async function* (iterable, chunkSize)
+    file: fixtures/repos/axios/lib/helpers/trackStream.js
+  - name: streamChunk
+    signature: export const streamChunk = function* (chunk, chunkSize)
+    file: fixtures/repos/axios/lib/helpers/trackStream.js
+  - name: trackStream
+    signature: export const trackStream = (stream, chunkSize, onProgress, onFinish) =>
+    file: fixtures/repos/axios/lib/helpers/trackStream.js
+  - name: ZlibHeaderTransformStream
+    signature: class ZlibHeaderTransformStream extends stream.Transform
+    file: fixtures/repos/axios/lib/helpers/ZlibHeaderTransformStream.js
+  - name: LOCAL_SERVER_URL
+    signature: export const LOCAL_SERVER_URL = 'http://localhost:4444';
+    file: fixtures/repos/axios/test/helpers/server.js
+  - name: SERVER_HANDLER_STREAM_ECHO
+    signature: export const SERVER_HANDLER_STREAM_ECHO = (req, res) => req.pipe(res);
+    file: fixtures/repos/axios/test/helpers/server.js
+  - name: setTimeoutAsync
+    signature: export const setTimeoutAsync = (ms) => new Promise(resolve=>
+      setTimeout(resolve, ms));
+    file: fixtures/repos/axios/test/helpers/server.js
+  - name: startHTTPServer
+    signature: export const startHTTPServer = (handlerOrOptions, options) =>
+    file: fixtures/repos/axios/test/helpers/server.js
   - name: Chalk
     signature: "export const Chalk: new (options?: Options) => ChalkInstance;"
     file: fixtures/repos/chalk-heavy-build/source/index.d.ts
@@ -793,8 +1172,8 @@ interfaces:
   - name: AllowlistRule
     signature: export interface AllowlistRule
     file: packages/hooks/src/pipe-allowlist.ts
-  - name: parseAllowlist
-    signature: "export function parseAllowlist(yamlText: string): PipeAllowlist"
+  - name: DEFAULT_PIPE_INVOKE
+    signature: export const DEFAULT_PIPE_INVOKE = 'node .claude/redutok/pipe.mjs';
     file: packages/hooks/src/pipe-allowlist.ts
   - name: PipeAllowlist
     signature: export interface PipeAllowlist
@@ -844,11 +1223,11 @@ interfaces:
   - name: BenchTask
     signature: export interface BenchTask
     file: packages/meter/src/bench.ts
-  - name: loadBenchTasks
-    signature: "export function loadBenchTasks(dir: string): BenchTask[]"
-    file: packages/meter/src/bench.ts
   - name: SuccessCheck
     signature: export interface SuccessCheck
+    file: packages/meter/src/bench.ts
+  - name: TaskSeedEdit
+    signature: export interface TaskSeedEdit
     file: packages/meter/src/bench.ts
   - name: Variant
     signature: export type Variant = 'vanilla' | 'redutok';
@@ -1073,6 +1452,18 @@ interfaces:
   - name: LIMITS
     signature: export const LIMITS =
     file: packages/shared/src/limits.ts
+  - name: decidePosture
+    signature: "export function decidePosture(a: PostureAssessment): SessionPosture"
+    file: packages/shared/src/posture.ts
+  - name: PostureAssessment
+    signature: export interface PostureAssessment
+    file: packages/shared/src/posture.ts
+  - name: SessionPosture
+    signature: export type SessionPosture = 'full' | 'light' | 'idle';
+    file: packages/shared/src/posture.ts
+  - name: SessionPostureRecord
+    signature: export interface SessionPostureRecord extends PostureAssessment
+    file: packages/shared/src/posture.ts
   - name: LedgerEntry
     signature: export type LedgerEntry = z.infer<typeof LedgerEntrySchema>;
     file: packages/shared/src/schemas.ts
@@ -1113,18 +1504,17 @@ interfaces:
   - name: SidecarTarget
     signature: export interface SidecarTarget
     file: packages/sidecar/src/client.ts
-  - name: codexPaths
-    signature: "export function codexPaths(root: string): CodexPaths"
-    file: packages/sidecar/src/codex.ts
   - name: CodexPaths
     signature: export interface CodexPaths
     file: packages/sidecar/src/codex.ts
+  - name: INDEX_SKIP_DIRS
+    signature: "export const INDEX_SKIP_DIRS: ReadonlySet<string> = SKIP_DIRS;"
+    file: packages/sidecar/src/codex.ts
+  - name: INDEXABLE_EXT
+    signature: "export const INDEXABLE_EXT: ReadonlySet<string> = SOURCE_EXT;"
+    file: packages/sidecar/src/codex.ts
   - name: listSourceFiles
     signature: "export function listSourceFiles(root: string): string[]"
-    file: packages/sidecar/src/codex.ts
-  - name: readCodex
-    signature: "export function readCodex(root: string): { codex?: CodexFile; lock?:
-      CodexLock }"
     file: packages/sidecar/src/codex.ts
   - name: DaemonHandle
     signature: export interface DaemonHandle
@@ -1139,20 +1529,32 @@ interfaces:
   - name: DistillContext
     signature: export interface DistillContext
     file: packages/sidecar/src/distill.ts
+  - name: DocDistillContext
+    signature: export interface DocDistillContext
+    file: packages/sidecar/src/distill.ts
   - name: loadProfiles
     signature: "export function loadProfiles(dir: string): Map<string, DistillProfile>"
-    file: packages/sidecar/src/distill.ts
-  - name: profileGateConfig
-    signature: "export function profileGateConfig(profile: DistillProfile): GateConfig"
     file: packages/sidecar/src/distill.ts
   - name: runProfile
     signature: export async function runProfile(
     file: packages/sidecar/src/distill.ts
-  - name: Dossier
-    signature: export interface Dossier
-    file: packages/sidecar/src/explore.ts
+  - name: DocHeading
+    signature: export interface DocHeading
+    file: packages/sidecar/src/docs.ts
+  - name: DocKind
+    signature: export type DocKind = 'markdown' | 'text' | 'pdf' | 'docx';
+    file: packages/sidecar/src/docs.ts
+  - name: DocPage
+    signature: export interface DocPage
+    file: packages/sidecar/src/docs.ts
+  - name: DocSection
+    signature: export interface DocSection
+    file: packages/sidecar/src/docs.ts
   - name: DossierEvidence
     signature: export interface DossierEvidence
+    file: packages/sidecar/src/explore.ts
+  - name: DossierRetrieval
+    signature: export interface DossierRetrieval
     file: packages/sidecar/src/explore.ts
   - name: ExploreBudget
     signature: export type ExploreBudget = 'quick' | 'standard' | 'thorough';
@@ -1217,6 +1619,13 @@ interfaces:
   - name: MirrorIndexEntry
     signature: export interface MirrorIndexEntry
     file: packages/sidecar/src/mirror.ts
+  - name: assessSessionPosture
+    signature: "export function assessSessionPosture(root: string, dcpDir?: string):
+      PostureDecision"
+    file: packages/sidecar/src/posture.ts
+  - name: PostureDecision
+    signature: export interface PostureDecision
+    file: packages/sidecar/src/posture.ts
   - name: redact
     signature: "export function redact(input: string): RedactionResult"
     file: packages/sidecar/src/redact.ts
@@ -1269,12 +1678,543 @@ interfaces:
   - name: Store
     signature: export class Store
     file: packages/sidecar/src/store.ts
+  - name: bearerAuthorized
+    signature: "export function bearerAuthorized(header: string | undefined, secret:
+      string): boolean"
+    file: packages/vault/src/auth.ts
+  - name: resolveCorporaSecret
+    signature: export function resolveCorporaSecret(
+    file: packages/vault/src/auth.ts
+  - name: ResolvedSecret
+    signature: export interface ResolvedSecret
+    file: packages/vault/src/auth.ts
+  - name: resolveSecret
+    signature: export function resolveSecret(
+    file: packages/vault/src/auth.ts
+  - name: CodexEmission
+    signature: export interface CodexEmission
+    file: packages/vault/src/codex.ts
+  - name: CodexState
+    signature: export interface CodexState
+    file: packages/vault/src/codex.ts
+  - name: EmitOptions
+    signature: export interface EmitOptions
+    file: packages/vault/src/codex.ts
+  - name: readCodexState
+    signature: "export function readCodexState(dcpDir: string): CodexState | undefined"
+    file: packages/vault/src/codex.ts
+  - name: AskConfidence
+    signature: export interface AskConfidence
+    file: packages/vault/src/confidence.ts
+  - name: assessAskConfidence
+    signature: "export function assessAskConfidence(question: string, dossier:
+      Dossier): AskConfidence"
+    file: packages/vault/src/confidence.ts
+  - name: ConfidenceBand
+    signature: export type ConfidenceBand = 'high' | 'medium' | 'low';
+    file: packages/vault/src/confidence.ts
+  - name: renderLowConfidenceNotice
+    signature: "export function renderLowConfidenceNotice(c: AskConfidence): string"
+    file: packages/vault/src/confidence.ts
+  - name: Corpus
+    signature: export interface Corpus
+    file: packages/vault/src/corpus.ts
+  - name: mountCorpus
+    signature: "export function mountCorpus(rootDir: string, options: MountOptions =
+      {}): Corpus"
+    file: packages/vault/src/corpus.ts
+  - name: MountOptions
+    signature: export interface MountOptions
+    file: packages/vault/src/corpus.ts
+  - name: resolveProfilesDir
+    signature: "export function resolveProfilesDir(dcpDir: string, env:
+      NodeJS.ProcessEnv): string | undefined"
+    file: packages/vault/src/corpus.ts
+  - name: startVaultServer
+    signature: "export async function startVaultServer(options: VaultServerOptions):
+      Promise<VaultServerHandle>"
+    file: packages/vault/src/http.ts
+  - name: VaultServerHandle
+    signature: export interface VaultServerHandle
+    file: packages/vault/src/http.ts
+  - name: VaultServerOptions
+    signature: export interface VaultServerOptions
+    file: packages/vault/src/http.ts
+  - name: PACKAGE_NAME
+    signature: export const PACKAGE_NAME = '@redutok/vault';
+    file: packages/vault/src/index.ts
+  - name: IngestFileResult
+    signature: export interface IngestFileResult
+    file: packages/vault/src/ingest.ts
+  - name: IngestOptions
+    signature: export interface IngestOptions
+    file: packages/vault/src/ingest.ts
+  - name: IngestStatus
+    signature: export type IngestStatus = 'document' | 'unchanged' | 'out-of-scope'
+      | 'source' | 'catalogued';
+    file: packages/vault/src/ingest.ts
+  - name: IngestSummary
+    signature: export interface IngestSummary
+    file: packages/vault/src/ingest.ts
+  - name: LedgerFilter
+    signature: export interface LedgerFilter
+    file: packages/vault/src/ledger.ts
+  - name: LedgerKind
+    signature: export type LedgerKind = 'ask' | 'zoom' | 'serve';
+    file: packages/vault/src/ledger.ts
+  - name: LedgerLine
+    signature: export interface LedgerLine
+    file: packages/vault/src/ledger.ts
+  - name: LedgerLineInput
+    signature: export interface LedgerLineInput
+    file: packages/vault/src/ledger.ts
+  - name: CliOptions
+    signature: export interface CliOptions
+    file: packages/vault/src/main.ts
+  - name: createStdioHandler
+    signature: export function createStdioHandler(
+    file: packages/vault/src/main.ts
+  - name: parseArgs
+    signature: "export function parseArgs(argv: string[]): CliOptions"
+    file: packages/vault/src/main.ts
+  - name: StatementArgs
+    signature: export interface StatementArgs
+    file: packages/vault/src/main.ts
+  - name: TOUCHED_SECTIONS_KEY
+    signature: export const TOUCHED_SECTIONS_KEY = 'touchedSections';
+    file: packages/vault/src/miner.ts
+  - name: TouchedSection
+    signature: export interface TouchedSection
+    file: packages/vault/src/miner.ts
+  - name: VAULT_GRADUATED_FILE
+    signature: export const VAULT_GRADUATED_FILE = 'vault-graduated.json';
+    file: packages/vault/src/miner.ts
+  - name: VaultGraduatedKind
+    signature: export type VaultGraduatedKind = 'ask-neighborhood' | 'zoom-hotspot';
+    file: packages/vault/src/miner.ts
+  - name: loadReferenceRates
+    signature: "export function loadReferenceRates(): ReferenceRates"
+    file: packages/vault/src/rates.ts
+  - name: priceAvoidedTokens
+    signature: export function priceAvoidedTokens(
+    file: packages/vault/src/rates.ts
+  - name: REFERENCE_MODEL
+    signature: export const REFERENCE_MODEL = 'claude-sonnet-5';
+    file: packages/vault/src/rates.ts
+  - name: ReferenceRates
+    signature: export interface ReferenceRates
+    file: packages/vault/src/rates.ts
+  - name: DocumentRollup
+    signature: export interface DocumentRollup
+    file: packages/vault/src/rollup.ts
+  - name: RollupQuery
+    signature: export interface RollupQuery
+    file: packages/vault/src/rollup.ts
+  - name: RollupScope
+    signature: export type RollupScope = 'session' | 'day' | 'month' | 'corpus' |
+      'document';
+    file: packages/vault/src/rollup.ts
+  - name: SessionRollup
+    signature: export interface SessionRollup
+    file: packages/vault/src/rollup.ts
+  - name: JsonRpcRequest
+    signature: export interface JsonRpcRequest
+    file: packages/vault/src/server.ts
+  - name: JsonRpcResponse
+    signature: export interface JsonRpcResponse
+    file: packages/vault/src/server.ts
+  - name: PROTOCOL_VERSION
+    signature: export const PROTOCOL_VERSION = '2025-06-18';
+    file: packages/vault/src/server.ts
+  - name: VaultDeps
+    signature: export interface VaultDeps
+    file: packages/vault/src/server.ts
+  - name: renderMonthlyStatement
+    signature: "export function renderMonthlyStatement(r: VaultRollup, generatedAt:
+      string): string"
+    file: packages/vault/src/statement.ts
+  - name: statementFromDcp
+    signature: export function statementFromDcp(
+    file: packages/vault/src/statement.ts
+  - name: newVaultSession
+    signature: "export function newVaultSession(mcpSessionId: string): VaultSession"
+    file: packages/vault/src/tools.ts
+  - name: resumeAskCounter
+    signature: "export function resumeAskCounter(corpora: Map<string, Corpus>,
+      session: VaultSession): void"
+    file: packages/vault/src/tools.ts
+  - name: VaultError
+    signature: export class VaultError extends Error {}
+    file: packages/vault/src/tools.ts
+  - name: VaultSession
+    signature: export interface VaultSession
+    file: packages/vault/src/tools.ts
+  - name: AWS_KEY_LITERAL
+    signature: export const AWS_KEY_LITERAL = ['AKIA', 'ABCDEFGHIJKLMNOP'].join('');
+    file: packages/vault/test/helpers.ts
+  - name: CREDENTIALS_SOURCE
+    signature: export const CREDENTIALS_SOURCE = `/** Deliberately planted
+      credentials sample for the redaction guardrail. */
+    file: packages/vault/test/helpers.ts
+  - name: monorepoRoot
+    signature: export const monorepoRoot =
+      path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+    file: packages/vault/test/helpers.ts
+  - name: URL_BUILDER_SOURCE
+    signature: export const URL_BUILDER_SOURCE = `/**
+    file: packages/vault/test/helpers.ts
+  - name: makeDocx
+    signature: export function makeDocx({ title, sections })
+    file: scripts/doc-fixtures.mjs
+  - name: makePdf
+    signature: export function makePdf({ title, sections, pageBreaks = [] })
+    file: scripts/doc-fixtures.mjs
+  - name: makeRawStreamPdf
+    signature: export function makeRawStreamPdf(streams)
+    file: scripts/doc-fixtures.mjs
+  - name: makeScannedPdf
+    signature: export function makeScannedPdf()
+    file: scripts/doc-fixtures.mjs
 importGraph:
   fixtures/artifacts/large-source.ts:
     - ./cost.js
     - ./energy.js
     - ./ledger.js
     - ./parser.js
+  fixtures/repos/axios/bin/GithubAPI.js:
+    - ./helpers/parser.js
+    - ./githubAxios.js
+  fixtures/repos/axios/bin/RepoBot.js:
+    - ./GithubAPI.js
+    - ./api.js
+    - ./helpers/colorize.js
+    - ./contributors.js
+  fixtures/repos/axios/bin/actions/notify_published.js:
+    - ../RepoBot.js
+  fixtures/repos/axios/bin/api.js:
+    - ./GithubAPI.js
+  fixtures/repos/axios/bin/check-build-version.js:
+    - ../index.js
+    - ../dist/node/axios.cjs
+  fixtures/repos/axios/bin/contributors.js:
+    - ./githubAxios.js
+    - ./helpers/colorize.js
+  fixtures/repos/axios/bin/githubAxios.js:
+    - ../index.js
+    - ./helpers/colorize.js
+  fixtures/repos/axios/bin/injectContributorsList.js:
+    - ./contributors.js
+    - ./helpers/colorize.js
+  fixtures/repos/axios/bin/pr.js:
+    - ./repo.js
+  fixtures/repos/axios/bin/resolveNPMTag.js:
+    - ./repo.js
+    - ./helpers/colorize.js
+  fixtures/repos/axios/bin/sponsors.js:
+    - ../index.js
+    - ./repo.js
+    - ./helpers/colorize.js
+  fixtures/repos/axios/index.js:
+    - ./lib/axios.js
+  fixtures/repos/axios/lib/adapters/adapters.js:
+    - ../utils.js
+    - ./http.js
+    - ./xhr.js
+    - ./fetch.js
+    - ../core/AxiosError.js
+  fixtures/repos/axios/lib/adapters/fetch.js:
+    - ../platform/index.js
+    - ../utils.js
+    - ../core/AxiosError.js
+    - ../helpers/composeSignals.js
+    - ../helpers/trackStream.js
+    - ../core/AxiosHeaders.js
+    - ../helpers/progressEventReducer.js
+    - ../helpers/resolveConfig.js
+    - ../core/settle.js
+  fixtures/repos/axios/lib/adapters/http.js:
+    - ./../utils.js
+    - ./../core/settle.js
+    - ../core/buildFullPath.js
+    - ./../helpers/buildURL.js
+    - ../env/data.js
+    - ../defaults/transitional.js
+    - ../core/AxiosError.js
+    - ../cancel/CanceledError.js
+    - ../platform/index.js
+    - ../helpers/fromDataURI.js
+    - ../core/AxiosHeaders.js
+    - ../helpers/AxiosTransformStream.js
+    - ../helpers/formDataToStream.js
+    - ../helpers/readBlob.js
+    - ../helpers/ZlibHeaderTransformStream.js
+    - ../helpers/callbackify.js
+    - ../helpers/progressEventReducer.js
+  fixtures/repos/axios/lib/adapters/xhr.js:
+    - ./../utils.js
+    - ./../core/settle.js
+    - ../defaults/transitional.js
+    - ../core/AxiosError.js
+    - ../cancel/CanceledError.js
+    - ../helpers/parseProtocol.js
+    - ../platform/index.js
+    - ../core/AxiosHeaders.js
+    - ../helpers/progressEventReducer.js
+    - ../helpers/resolveConfig.js
+  fixtures/repos/axios/lib/axios.js:
+    - ./utils.js
+    - ./helpers/bind.js
+    - ./core/Axios.js
+    - ./core/mergeConfig.js
+    - ./defaults/index.js
+    - ./helpers/formDataToJSON.js
+    - ./cancel/CanceledError.js
+    - ./cancel/CancelToken.js
+    - ./cancel/isCancel.js
+    - ./env/data.js
+    - ./helpers/toFormData.js
+    - ./core/AxiosError.js
+    - ./helpers/spread.js
+    - ./helpers/isAxiosError.js
+    - ./core/AxiosHeaders.js
+    - ./adapters/adapters.js
+    - ./helpers/HttpStatusCode.js
+  fixtures/repos/axios/lib/cancel/CancelToken.js:
+    - ./CanceledError.js
+  fixtures/repos/axios/lib/cancel/CanceledError.js:
+    - ../core/AxiosError.js
+    - ../utils.js
+  fixtures/repos/axios/lib/core/Axios.js:
+    - ./../utils.js
+    - ../helpers/buildURL.js
+    - ./InterceptorManager.js
+    - ./dispatchRequest.js
+    - ./mergeConfig.js
+    - ./buildFullPath.js
+    - ../helpers/validator.js
+    - ./AxiosHeaders.js
+  fixtures/repos/axios/lib/core/AxiosError.js:
+    - ../utils.js
+  fixtures/repos/axios/lib/core/AxiosHeaders.js:
+    - ../utils.js
+    - ../helpers/parseHeaders.js
+  fixtures/repos/axios/lib/core/InterceptorManager.js:
+    - ./../utils.js
+  fixtures/repos/axios/lib/core/buildFullPath.js:
+    - ../helpers/isAbsoluteURL.js
+    - ../helpers/combineURLs.js
+  fixtures/repos/axios/lib/core/dispatchRequest.js:
+    - ./transformData.js
+    - ../cancel/isCancel.js
+    - ../defaults/index.js
+    - ../cancel/CanceledError.js
+    - ../core/AxiosHeaders.js
+    - ../adapters/adapters.js
+  fixtures/repos/axios/lib/core/mergeConfig.js:
+    - ../utils.js
+    - ./AxiosHeaders.js
+  fixtures/repos/axios/lib/core/settle.js:
+    - ./AxiosError.js
+  fixtures/repos/axios/lib/core/transformData.js:
+    - ./../utils.js
+    - ../defaults/index.js
+    - ../core/AxiosHeaders.js
+  fixtures/repos/axios/lib/defaults/index.js:
+    - ../utils.js
+    - ../core/AxiosError.js
+    - ./transitional.js
+    - ../helpers/toFormData.js
+    - ../helpers/toURLEncodedForm.js
+    - ../platform/index.js
+    - ../helpers/formDataToJSON.js
+  fixtures/repos/axios/lib/helpers/AxiosTransformStream.js:
+    - ../utils.js
+  fixtures/repos/axios/lib/helpers/AxiosURLSearchParams.js:
+    - ./toFormData.js
+  fixtures/repos/axios/lib/helpers/buildURL.js:
+    - ../utils.js
+    - ../helpers/AxiosURLSearchParams.js
+  fixtures/repos/axios/lib/helpers/callbackify.js:
+    - ../utils.js
+  fixtures/repos/axios/lib/helpers/composeSignals.js:
+    - ../cancel/CanceledError.js
+    - ../core/AxiosError.js
+    - ../utils.js
+  fixtures/repos/axios/lib/helpers/cookies.js:
+    - ./../utils.js
+    - ../platform/index.js
+  fixtures/repos/axios/lib/helpers/formDataToJSON.js:
+    - ../utils.js
+  fixtures/repos/axios/lib/helpers/formDataToStream.js:
+    - ../utils.js
+    - ./readBlob.js
+  fixtures/repos/axios/lib/helpers/fromDataURI.js:
+    - ../core/AxiosError.js
+    - ./parseProtocol.js
+    - ../platform/index.js
+  fixtures/repos/axios/lib/helpers/isAxiosError.js:
+    - ./../utils.js
+  fixtures/repos/axios/lib/helpers/isURLSameOrigin.js:
+    - ../platform/index.js
+  fixtures/repos/axios/lib/helpers/parseHeaders.js:
+    - ./../utils.js
+  fixtures/repos/axios/lib/helpers/progressEventReducer.js:
+    - ./speedometer.js
+    - ./throttle.js
+    - ../utils.js
+  fixtures/repos/axios/lib/helpers/resolveConfig.js:
+    - ../platform/index.js
+    - ../utils.js
+    - ./isURLSameOrigin.js
+    - ./cookies.js
+    - ../core/buildFullPath.js
+    - ../core/mergeConfig.js
+    - ../core/AxiosHeaders.js
+    - ./buildURL.js
+  fixtures/repos/axios/lib/helpers/toFormData.js:
+    - ../utils.js
+    - ../core/AxiosError.js
+    - ../platform/node/classes/FormData.js
+  fixtures/repos/axios/lib/helpers/toURLEncodedForm.js:
+    - ../utils.js
+    - ./toFormData.js
+    - ../platform/index.js
+  fixtures/repos/axios/lib/helpers/validator.js:
+    - ../env/data.js
+    - ../core/AxiosError.js
+  fixtures/repos/axios/lib/platform/browser/classes/URLSearchParams.js:
+    - ../../../helpers/AxiosURLSearchParams.js
+  fixtures/repos/axios/lib/platform/browser/index.js:
+    - ./classes/URLSearchParams.js
+    - ./classes/FormData.js
+    - ./classes/Blob.js
+  fixtures/repos/axios/lib/platform/index.js:
+    - ./node/index.js
+    - ./common/utils.js
+  fixtures/repos/axios/lib/platform/node/index.js:
+    - ./classes/URLSearchParams.js
+    - ./classes/FormData.js
+  fixtures/repos/axios/lib/utils.js:
+    - ./helpers/bind.js
+  fixtures/repos/axios/scripts/verify-joint-collapse.mjs:
+    - ../lib/helpers/normalizeJoin.js
+  fixtures/repos/axios/scripts/verify-url-assembly.mjs:
+    - ../lib/core/buildFullPath.js
+    - ../lib/helpers/combineURLs.js
+  fixtures/repos/axios/test/module/test.js:
+    - ../../index.js
+    - ../../lib/axios.js
+    - ../../lib/utils.js
+  fixtures/repos/axios/test/specs/__helpers.js:
+    - ../../index.js
+  fixtures/repos/axios/test/specs/basicAuth.spec.js:
+    - ../../index
+  fixtures/repos/axios/test/specs/cancel/CancelToken.spec.js:
+    - ../../../lib/cancel/CancelToken
+    - ../../../lib/cancel/CanceledError
+  fixtures/repos/axios/test/specs/cancel/CanceledError.spec.js:
+    - ../../../lib/cancel/CanceledError
+  fixtures/repos/axios/test/specs/cancel/isCancel.spec.js:
+    - ../../../lib/cancel/isCancel
+    - ../../../lib/cancel/CanceledError
+  fixtures/repos/axios/test/specs/core/AxiosError.spec.js:
+    - ../../../lib/core/AxiosError
+  fixtures/repos/axios/test/specs/core/buildFullPath.spec.js:
+    - ../../../lib/core/buildFullPath
+  fixtures/repos/axios/test/specs/core/mergeConfig.spec.js:
+    - ../../../lib/defaults
+    - ../../../lib/core/mergeConfig
+    - ../../../index.js
+  fixtures/repos/axios/test/specs/core/settle.spec.js:
+    - ../../../lib/core/settle
+  fixtures/repos/axios/test/specs/core/transformData.spec.js:
+    - ../../../lib/core/transformData
+  fixtures/repos/axios/test/specs/defaults.spec.js:
+    - ../../lib/defaults
+    - ../../lib/utils
+    - ../../lib/core/AxiosHeaders
+  fixtures/repos/axios/test/specs/helpers/bind.spec.js:
+    - ../../../lib/helpers/bind
+  fixtures/repos/axios/test/specs/helpers/buildURL.spec.js:
+    - ../../../lib/helpers/buildURL
+  fixtures/repos/axios/test/specs/helpers/combineURLs.spec.js:
+    - ../../../lib/helpers/combineURLs
+  fixtures/repos/axios/test/specs/helpers/cookies.spec.js:
+    - ../../../lib/helpers/cookies
+  fixtures/repos/axios/test/specs/helpers/formDataToJSON.spec.js:
+    - ../../../lib/helpers/formDataToJSON
+  fixtures/repos/axios/test/specs/helpers/isAbsoluteURL.spec.js:
+    - ../../../lib/helpers/isAbsoluteURL
+  fixtures/repos/axios/test/specs/helpers/isAxiosError.spec.js:
+    - ../../../lib/core/AxiosError
+    - ../../../lib/helpers/isAxiosError
+  fixtures/repos/axios/test/specs/helpers/isURLSameOrigin.spec.js:
+    - ../../../lib/helpers/isURLSameOrigin
+  fixtures/repos/axios/test/specs/helpers/parseHeaders.spec.js:
+    - ../../../lib/helpers/parseHeaders
+  fixtures/repos/axios/test/specs/helpers/spread.spec.js:
+    - ../../../lib/helpers/spread
+  fixtures/repos/axios/test/specs/helpers/toFormData.spec.js:
+    - ../../../lib/helpers/toFormData
+  fixtures/repos/axios/test/specs/helpers/validator.spec.js:
+    - ../../../lib/helpers/validator
+  fixtures/repos/axios/test/specs/options.spec.js:
+    - ../../lib/core/AxiosHeaders.js
+  fixtures/repos/axios/test/specs/transform.spec.js:
+    - ../../lib/core/AxiosError
+  fixtures/repos/axios/test/specs/utils/endsWith.js:
+    - ../../../lib/utils
+  fixtures/repos/axios/test/specs/utils/extend.spec.js:
+    - ../../../lib/utils
+  fixtures/repos/axios/test/specs/utils/forEach.spec.js:
+    - ../../../lib/utils
+  fixtures/repos/axios/test/specs/utils/isX.spec.js:
+    - ../../../lib/utils
+  fixtures/repos/axios/test/specs/utils/kindOf.js:
+    - ../../../lib/utils
+  fixtures/repos/axios/test/specs/utils/kindOfTest.js:
+    - ../../../lib/utils
+  fixtures/repos/axios/test/specs/utils/merge.spec.js:
+    - ../../../lib/utils
+  fixtures/repos/axios/test/specs/utils/toArray.js:
+    - ../../../lib/utils
+  fixtures/repos/axios/test/specs/utils/toFlatObject.js:
+    - ../../../lib/utils
+  fixtures/repos/axios/test/specs/utils/trim.spec.js:
+    - ../../../lib/utils
+  fixtures/repos/axios/test/specs/xsrf.spec.js:
+    - ../../lib/helpers/cookies
+  fixtures/repos/axios/test/unit/adapters/adapters.js:
+    - ../../../lib/adapters/adapters.js
+  fixtures/repos/axios/test/unit/adapters/fetch.js:
+    - ../../../index.js
+  fixtures/repos/axios/test/unit/adapters/http.js:
+    - ../../../index.js
+    - ../../../lib/core/AxiosError.js
+    - ../../../lib/adapters/http.js
+  fixtures/repos/axios/test/unit/core/Axios.js:
+    - ../../../lib/core/Axios.js
+  fixtures/repos/axios/test/unit/core/AxiosHeaders.js:
+    - ../../../lib/core/AxiosHeaders.js
+  fixtures/repos/axios/test/unit/defaults/transformReponse.js:
+    - ../../../lib/defaults/index.js
+    - ../../../lib/core/transformData.js
+  fixtures/repos/axios/test/unit/helpers/composeSignals.js:
+    - ../../../lib/helpers/composeSignals.js
+  fixtures/repos/axios/test/unit/helpers/fromDataURI.js:
+    - ../../../lib/helpers/fromDataURI.js
+  fixtures/repos/axios/test/unit/helpers/parseProtocol.js:
+    - ../../../lib/utils.js
+    - ../../../lib/helpers/parseProtocol.js
+  fixtures/repos/axios/test/unit/regression/SNYK-JS-AXIOS-1038255.js:
+    - ../../../index.js
+  fixtures/repos/axios/test/unit/regression/SNYK-JS-AXIOS-7361793.js:
+    - ../../../index.js
+    - ../../../lib/platform/index.js
+  fixtures/repos/axios/test/unit/regression/bugs.js:
+    - ../../../index.js
+  fixtures/repos/axios/test/unit/utils/utils.js:
+    - ../../../lib/utils.js
   fixtures/repos/chalk-heavy-build/source/index.d.ts:
     - ./vendor/supports-color/index.js
   fixtures/repos/chalk-heavy-build/test/chalk.js:
@@ -1399,6 +2339,8 @@ importGraph:
     - ../src/installer.js
   packages/meter/test/parser.test.ts:
     - ../src/parser.js
+  packages/meter/test/pipe-launcher-e2e.test.ts:
+    - ../src/installer.js
   packages/meter/test/pipe.test.ts:
     - ../src/pipe.js
   packages/meter/test/receipt.test.ts:
@@ -1416,6 +2358,10 @@ importGraph:
     - ../src/scoring.js
   packages/meter/test/sidecar-cli.test.ts:
     - ../src/sidecar-cli.js
+  packages/meter/test/slope.test.ts:
+    - ../src/energy.js
+    - ../src/scoring.js
+    - ../src/ledger.js
   packages/shared/src/audit-file.ts:
     - ./schemas.js
   packages/shared/src/candidates-file.ts:
@@ -1423,8 +2369,13 @@ importGraph:
   packages/shared/src/confidence.ts:
     - ./limits.js
     - ./schemas.js
+  packages/shared/src/posture.ts:
+    - ./limits.js
   packages/shared/test/limits.test.ts:
     - ../src/index.js
+  packages/shared/test/posture.test.ts:
+    - ../src/limits.js
+    - ../src/posture.js
   packages/shared/test/yaml.test.ts:
     - ../src/index.js
   packages/sidecar/src/codex.ts:
@@ -1452,6 +2403,9 @@ importGraph:
     - ./redact.js
     - ./serve.js
     - ./store.js
+  packages/sidecar/src/docs.ts:
+    - ./llm.js
+    - ./store.js
   packages/sidecar/src/explore.ts:
     - ./audit.js
     - ./distill.js
@@ -1464,6 +2418,8 @@ importGraph:
     - ./llm.js
   packages/sidecar/src/mirror.ts:
     - ./skeleton.js
+  packages/sidecar/src/posture.ts:
+    - ./codex.js
   packages/sidecar/src/redact.ts:
     - ./audit.js
     - ./store.js
@@ -1498,6 +2454,26 @@ importGraph:
     - ../src/audit.js
     - ../src/distill.js
     - ../src/store.js
+  packages/sidecar/test/doc-distill.test.ts:
+    - ../../../scripts/doc-fixtures.mjs
+    - ../src/audit.js
+    - ../src/distill.js
+    - ../src/docs.js
+    - ../src/llm.js
+    - ../src/store.js
+  packages/sidecar/test/docs-collision.test.ts:
+    - ../src/llm.js
+    - ../../../scripts/doc-fixtures.mjs
+  packages/sidecar/test/docs-ranking.test.ts:
+    - ../src/audit.js
+    - ../src/redact.js
+    - ../src/store.js
+  packages/sidecar/test/docs.test.ts:
+    - ../../../scripts/doc-fixtures.mjs
+    - ../src/audit.js
+    - ../src/llm.js
+    - ../src/redact.js
+    - ../src/store.js
   packages/sidecar/test/enrichment.test.ts:
     - ../src/codex.js
     - ../src/distill.js
@@ -1508,6 +2484,8 @@ importGraph:
     - ../src/distill.js
     - ../src/llm.js
     - ../src/store.js
+  packages/sidecar/test/gates-prose.test.ts:
+    - ../src/gates.js
   packages/sidecar/test/graduation-pass.test.ts:
     - ../src/codex.js
     - ../src/graduation.js
@@ -1524,6 +2502,15 @@ importGraph:
     - ../src/distill.js
   packages/sidecar/test/mirror.test.ts:
     - ../src/codex.js
+  packages/sidecar/test/pdf-doubling.test.ts:
+    - ../../../scripts/doc-fixtures.mjs
+    - ../src/docs.js
+    - ../src/llm.js
+  packages/sidecar/test/posture.test.ts:
+    - ../src/codex.js
+    - ../src/daemon.js
+    - ../src/posture.js
+    - ../src/client.js
   packages/sidecar/test/redact.test.ts:
     - ../src/audit.js
     - ../src/redact.js
@@ -1541,20 +2528,495 @@ importGraph:
     - ../src/state.js
   packages/sidecar/test/store.test.ts:
     - ../src/store.js
+  packages/sidecar/test/verify-script-verdict.test.ts:
+    - ../src/audit.js
+    - ../src/distill.js
+    - ../src/graduation.js
+    - ../src/store.js
   packages/sidecar/test/zoom-file-ref.test.ts:
     - ../src/audit.js
     - ../src/distill.js
     - ../src/serve.js
     - ../src/store.js
+  packages/sidecar/test/zoom-raw-recovery.test.ts:
+    - ../src/audit.js
+    - ../src/distill.js
+    - ../src/docs.js
+    - ../src/redact.js
+    - ../src/store.js
+  packages/vault/src/codex.ts:
+    - ./corpus.js
+    - ./rates.js
+    - ./miner.js
+  packages/vault/src/corpus.ts:
+    - ./ledger.js
+  packages/vault/src/http.ts:
+    - ./auth.js
+    - ./corpus.js
+    - ./server.js
+    - ./tools.js
+  packages/vault/src/ingest.ts:
+    - ./corpus.js
+  packages/vault/src/ledger.ts:
+    - ./confidence.js
+    - ./rates.js
+  packages/vault/src/main.ts:
+    - ./auth.js
+    - ./codex.js
+    - ./corpus.js
+    - ./http.js
+    - ./ingest.js
+    - ./miner.js
+    - ./server.js
+    - ./statement.js
+    - ./tools.js
+  packages/vault/src/miner.ts:
+    - ./corpus.js
+  packages/vault/src/rollup.ts:
+    - ./ledger.js
+    - ./rates.js
+  packages/vault/src/server.ts:
+    - ./corpus.js
+    - ./tools.js
+  packages/vault/src/statement.ts:
+    - ./ledger.js
+    - ./rollup.js
+  packages/vault/src/tools.ts:
+    - ./codex.js
+    - ./corpus.js
+    - ./ledger.js
+    - ./miner.js
+    - ./rollup.js
+  packages/vault/test/ask-collision.test.ts:
+    - ../../../scripts/doc-fixtures.mjs
+    - ../src/corpus.js
+    - ../src/ingest.js
+    - ../src/tools.js
+    - ./helpers.js
+  packages/vault/test/ask-docs.test.ts:
+    - ../../../scripts/doc-fixtures.mjs
+    - ../src/corpus.js
+    - ../src/ingest.js
+    - ../src/tools.js
+    - ./helpers.js
+  packages/vault/test/ask-ranking.test.ts:
+    - ../../../scripts/doc-fixtures.mjs
+    - ../src/corpus.js
+    - ../src/ingest.js
+    - ../src/tools.js
+    - ./helpers.js
+  packages/vault/test/auth.test.ts:
+    - ../src/auth.js
+  packages/vault/test/codex.test.ts:
+    - ../src/corpus.js
+    - ../src/codex.js
+    - ./helpers.js
+  packages/vault/test/confidence.test.ts:
+    - ../../../scripts/doc-fixtures.mjs
+    - ../src/confidence.js
+    - ../src/corpus.js
+    - ../src/ingest.js
+    - ./helpers.js
+  packages/vault/test/corpus-defaulting.test.ts:
+    - ../../../scripts/doc-fixtures.mjs
+    - ../src/corpus.js
+    - ../src/ingest.js
+    - ../src/rollup.js
+    - ../src/tools.js
+    - ./helpers.js
+  packages/vault/test/counterfactual.test.ts:
+    - ../src/ledger.js
+    - ../src/rollup.js
+    - ../src/statement.js
+    - ../src/tools.js
+  packages/vault/test/http.test.ts:
+    - ../src/corpus.js
+    - ../src/http.js
+    - ../src/server.js
+    - ./helpers.js
+  packages/vault/test/ingest.test.ts:
+    - ../../../scripts/doc-fixtures.mjs
+    - ../src/ingest.js
+    - ./helpers.js
+  packages/vault/test/ledger.test.ts:
+    - ../src/corpus.js
+    - ../src/ledger.js
+    - ../src/server.js
+    - ../src/tools.js
+    - ./helpers.js
+  packages/vault/test/miner.test.ts:
+    - ../src/corpus.js
+    - ../src/miner.js
+    - ./helpers.js
+  packages/vault/test/no-network.test.ts:
+    - ../src/corpus.js
+    - ../src/http.js
+    - ./helpers.js
+  packages/vault/test/rollup.test.ts:
+    - ../src/corpus.js
+    - ../src/ledger.js
+    - ../src/rollup.js
+    - ../src/server.js
+    - ./helpers.js
+  packages/vault/test/server.test.ts:
+    - ../src/corpus.js
+    - ../src/tools.js
+    - ./helpers.js
+  packages/vault/test/session-identity.test.ts:
+    - ../src/corpus.js
+    - ../src/http.js
+    - ../src/main.js
+    - ../src/server.js
+    - ./helpers.js
+  packages/vault/test/staleness.test.ts:
+    - ../src/codex.js
+    - ../src/corpus.js
+    - ../src/ingest.js
+    - ../src/tools.js
+  packages/vault/test/statement.test.ts:
+    - ../src/ledger.js
+    - ../src/main.js
+    - ../src/rollup.js
+    - ../src/statement.js
+  packages/vault/test/zoom-durability.test.ts:
+    - ../../../scripts/doc-fixtures.mjs
+    - ../src/corpus.js
+    - ../src/ingest.js
+    - ../src/tools.js
+    - ./helpers.js
   scripts/canary.mjs:
     - ../packages/meter/dist/claude-compat.js
+  scripts/vault-verify-codex.mjs:
+    - ./doc-fixtures.mjs
+  scripts/vault-verify-docs.mjs:
+    - ./doc-fixtures.mjs
+  scripts/vault-verify-ledger.mjs:
+    - ./doc-fixtures.mjs
 files:
   - path: eslint.config.js
-    hash: ff9ca3c2bc7f22b4
+    hash: aa1868da031b4696
   - path: fixtures/artifacts/large-source.ts
     hash: 2afa34ee065cd028
   - path: fixtures/artifacts/sample.py
     hash: 9259cad19b669da6
+  - path: fixtures/doc-corpus/tools/fee-calculator.ts
+    hash: 637d0bb6a4cb82a2
+  - path: fixtures/repos/axios/bin/GithubAPI.js
+    hash: 59535aaef5a3c648
+  - path: fixtures/repos/axios/bin/RepoBot.js
+    hash: 09d9b3b51535c3d1
+  - path: fixtures/repos/axios/bin/actions/notify_published.js
+    hash: 5c535b760ad4c539
+  - path: fixtures/repos/axios/bin/api.js
+    hash: 5e06a865e38d2c5c
+  - path: fixtures/repos/axios/bin/check-build-version.js
+    hash: ba7d0df744fc5792
+  - path: fixtures/repos/axios/bin/contributors.js
+    hash: dbc37bbdb2932843
+  - path: fixtures/repos/axios/bin/githubAxios.js
+    hash: 65e28b39571307ee
+  - path: fixtures/repos/axios/bin/helpers/colorize.js
+    hash: 6cad64cb350bfded
+  - path: fixtures/repos/axios/bin/helpers/parser.js
+    hash: ba8e2a60a1d3b6e4
+  - path: fixtures/repos/axios/bin/injectContributorsList.js
+    hash: 5a6766f3c7be4229
+  - path: fixtures/repos/axios/bin/pr.js
+    hash: ed9a77287c29c126
+  - path: fixtures/repos/axios/bin/repo.js
+    hash: 76cffd691a8b318a
+  - path: fixtures/repos/axios/bin/resolveNPMTag.js
+    hash: 6c1093e0934a3feb
+  - path: fixtures/repos/axios/bin/sponsors.js
+    hash: 90091193b964a494
+  - path: fixtures/repos/axios/bin/ssl_hotfix.js
+    hash: 2d3e0cd7a8636438
+  - path: fixtures/repos/axios/examples/get/server.js
+    hash: 8f1da438152c6e09
+  - path: fixtures/repos/axios/examples/post/server.js
+    hash: 5cb5248f77d07ee8
+  - path: fixtures/repos/axios/examples/postMultipartFormData/server.js
+    hash: d245b758f276a806
+  - path: fixtures/repos/axios/examples/server.js
+    hash: 568541935f3b75f9
+  - path: fixtures/repos/axios/examples/upload/server.js
+    hash: ff6570712d2bf4b1
+  - path: fixtures/repos/axios/index.d.ts
+    hash: 8877a2064287b975
+  - path: fixtures/repos/axios/index.js
+    hash: 90ad81db981c88eb
+  - path: fixtures/repos/axios/lib/adapters/adapters.js
+    hash: 9631ddd1c475ab47
+  - path: fixtures/repos/axios/lib/adapters/fetch.js
+    hash: efddca13c1287eb8
+  - path: fixtures/repos/axios/lib/adapters/http.js
+    hash: cfd43ed19d7cd1e6
+  - path: fixtures/repos/axios/lib/adapters/xhr.js
+    hash: 59c166bc0a8ad0a0
+  - path: fixtures/repos/axios/lib/axios.js
+    hash: a46368ebe9e1811f
+  - path: fixtures/repos/axios/lib/cancel/CancelToken.js
+    hash: a6495b9e8acf326e
+  - path: fixtures/repos/axios/lib/cancel/CanceledError.js
+    hash: 42a9711cde336014
+  - path: fixtures/repos/axios/lib/cancel/isCancel.js
+    hash: 0f776a048a1cc8c1
+  - path: fixtures/repos/axios/lib/core/Axios.js
+    hash: 2005fba0ba3ff77f
+  - path: fixtures/repos/axios/lib/core/AxiosError.js
+    hash: a1cab79f134114c6
+  - path: fixtures/repos/axios/lib/core/AxiosHeaders.js
+    hash: 33dc1ef318ff8655
+  - path: fixtures/repos/axios/lib/core/InterceptorManager.js
+    hash: 90ecf40ef09885e3
+  - path: fixtures/repos/axios/lib/core/buildFullPath.js
+    hash: 5fe9a7065333ab94
+  - path: fixtures/repos/axios/lib/core/dispatchRequest.js
+    hash: fd520b43811b9da7
+  - path: fixtures/repos/axios/lib/core/mergeConfig.js
+    hash: 0d544cca0343eb98
+  - path: fixtures/repos/axios/lib/core/settle.js
+    hash: 3061c0a7ef51f758
+  - path: fixtures/repos/axios/lib/core/transformData.js
+    hash: e5573151c89721b9
+  - path: fixtures/repos/axios/lib/defaults/index.js
+    hash: aa920456a529be8b
+  - path: fixtures/repos/axios/lib/defaults/transitional.js
+    hash: d635f508bfcde5cc
+  - path: fixtures/repos/axios/lib/env/classes/FormData.js
+    hash: f700a25b677f2841
+  - path: fixtures/repos/axios/lib/env/data.js
+    hash: 9f009fd8172394db
+  - path: fixtures/repos/axios/lib/helpers/AxiosTransformStream.js
+    hash: b0889aea78018114
+  - path: fixtures/repos/axios/lib/helpers/AxiosURLSearchParams.js
+    hash: 6cd54543fe6b64b8
+  - path: fixtures/repos/axios/lib/helpers/HttpStatusCode.js
+    hash: 2894918a4fef7856
+  - path: fixtures/repos/axios/lib/helpers/ZlibHeaderTransformStream.js
+    hash: e3ab55456496e8b2
+  - path: fixtures/repos/axios/lib/helpers/bind.js
+    hash: 289837077d7a5b8f
+  - path: fixtures/repos/axios/lib/helpers/buildURL.js
+    hash: 1e46aa1eac117675
+  - path: fixtures/repos/axios/lib/helpers/callbackify.js
+    hash: 5ea5e139a97bb1ef
+  - path: fixtures/repos/axios/lib/helpers/combineURLs.js
+    hash: ae324c57299aeb83
+  - path: fixtures/repos/axios/lib/helpers/composeSignals.js
+    hash: 1eb7f10b21ca40cd
+  - path: fixtures/repos/axios/lib/helpers/cookies.js
+    hash: 6d344db5e4c37a21
+  - path: fixtures/repos/axios/lib/helpers/deprecatedMethod.js
+    hash: 638fdab38af3907b
+  - path: fixtures/repos/axios/lib/helpers/formDataToJSON.js
+    hash: c08dfd24dba932c2
+  - path: fixtures/repos/axios/lib/helpers/formDataToStream.js
+    hash: d84f8e7b62ff8f7c
+  - path: fixtures/repos/axios/lib/helpers/fromDataURI.js
+    hash: 43829fda1c3c7564
+  - path: fixtures/repos/axios/lib/helpers/isAbsoluteURL.js
+    hash: 7a7ce8ab8b926dff
+  - path: fixtures/repos/axios/lib/helpers/isAxiosError.js
+    hash: ae4d8a57725778b1
+  - path: fixtures/repos/axios/lib/helpers/isURLSameOrigin.js
+    hash: dc6a4e561b982d71
+  - path: fixtures/repos/axios/lib/helpers/null.js
+    hash: a35062717ac544e1
+  - path: fixtures/repos/axios/lib/helpers/parseHeaders.js
+    hash: c7b1ab4631bb052c
+  - path: fixtures/repos/axios/lib/helpers/parseProtocol.js
+    hash: dc64888266322e78
+  - path: fixtures/repos/axios/lib/helpers/progressEventReducer.js
+    hash: 850fdf548ea67d76
+  - path: fixtures/repos/axios/lib/helpers/readBlob.js
+    hash: 5984d8fd47a174ff
+  - path: fixtures/repos/axios/lib/helpers/resolveConfig.js
+    hash: d34235b62ee67a9c
+  - path: fixtures/repos/axios/lib/helpers/speedometer.js
+    hash: e7db9ee3662a4d79
+  - path: fixtures/repos/axios/lib/helpers/spread.js
+    hash: af4586c0efa7f184
+  - path: fixtures/repos/axios/lib/helpers/throttle.js
+    hash: 3e23149807d3b010
+  - path: fixtures/repos/axios/lib/helpers/toFormData.js
+    hash: 4e8871e92a740076
+  - path: fixtures/repos/axios/lib/helpers/toURLEncodedForm.js
+    hash: 7f6a847404d267e1
+  - path: fixtures/repos/axios/lib/helpers/trackStream.js
+    hash: 02801f575774141e
+  - path: fixtures/repos/axios/lib/helpers/validator.js
+    hash: a7ce0a17b65e314a
+  - path: fixtures/repos/axios/lib/platform/browser/classes/Blob.js
+    hash: 3e5f65bb68d9313b
+  - path: fixtures/repos/axios/lib/platform/browser/classes/FormData.js
+    hash: 21651fe014492573
+  - path: fixtures/repos/axios/lib/platform/browser/classes/URLSearchParams.js
+    hash: 43b49268ec91c6d8
+  - path: fixtures/repos/axios/lib/platform/browser/index.js
+    hash: d396ba0c94c898cc
+  - path: fixtures/repos/axios/lib/platform/common/utils.js
+    hash: cc9721ec99f08eff
+  - path: fixtures/repos/axios/lib/platform/index.js
+    hash: ef4648855f68420a
+  - path: fixtures/repos/axios/lib/platform/node/classes/FormData.js
+    hash: bd1673b1591ac2ea
+  - path: fixtures/repos/axios/lib/platform/node/classes/URLSearchParams.js
+    hash: c3f006de18355b94
+  - path: fixtures/repos/axios/lib/platform/node/index.js
+    hash: be0ed7dc4518c5f9
+  - path: fixtures/repos/axios/lib/utils.js
+    hash: 05ea6b009d723dbf
+  - path: fixtures/repos/axios/scripts/verify-joint-collapse.mjs
+    hash: 37c4ac9742b31b36
+  - path: fixtures/repos/axios/scripts/verify-url-assembly.mjs
+    hash: 1e832d06660b6951
+  - path: fixtures/repos/axios/test/helpers/server.js
+    hash: fabda11bb45cb2e0
+  - path: fixtures/repos/axios/test/manual/promise.js
+    hash: 34340b0b99aba112
+  - path: fixtures/repos/axios/test/module/cjs/index.js
+    hash: 125aad1c15d78680
+  - path: fixtures/repos/axios/test/module/esm/index.js
+    hash: b96b884021723837
+  - path: fixtures/repos/axios/test/module/test.js
+    hash: a6279b51db67a466
+  - path: fixtures/repos/axios/test/module/ts-require-default/index.js
+    hash: 5d85cb30edcbf63b
+  - path: fixtures/repos/axios/test/module/ts-require-default/index.ts
+    hash: 151d7f46c943fb60
+  - path: fixtures/repos/axios/test/module/ts-require/index.js
+    hash: bffeb3a5d973454f
+  - path: fixtures/repos/axios/test/module/ts-require/index.ts
+    hash: 57675bc3773c1220
+  - path: fixtures/repos/axios/test/module/ts/index.js
+    hash: e6bf407ccc7f580e
+  - path: fixtures/repos/axios/test/module/ts/index.ts
+    hash: fc1b6b60962bf515
+  - path: fixtures/repos/axios/test/module/typings/cjs/index.ts
+    hash: a59c240e81d1370e
+  - path: fixtures/repos/axios/test/module/typings/esm/index.ts
+    hash: 65ef67cbf854851e
+  - path: fixtures/repos/axios/test/specs/__helpers.js
+    hash: 86bb8373e7d1908a
+  - path: fixtures/repos/axios/test/specs/adapter.spec.js
+    hash: b0085d6725c22b92
+  - path: fixtures/repos/axios/test/specs/api.spec.js
+    hash: ea8bdb69465f3089
+  - path: fixtures/repos/axios/test/specs/basicAuth.spec.js
+    hash: 334c902781a3610c
+  - path: fixtures/repos/axios/test/specs/cancel.spec.js
+    hash: ba3be72cd4e6f4cf
+  - path: fixtures/repos/axios/test/specs/cancel/CancelToken.spec.js
+    hash: 2ad8065da72741ea
+  - path: fixtures/repos/axios/test/specs/cancel/CanceledError.spec.js
+    hash: 49c71e4b107cd3e9
+  - path: fixtures/repos/axios/test/specs/cancel/isCancel.spec.js
+    hash: 393bf0deafd244f5
+  - path: fixtures/repos/axios/test/specs/core/AxiosError.spec.js
+    hash: 708111fc68d1a6db
+  - path: fixtures/repos/axios/test/specs/core/buildFullPath.spec.js
+    hash: e24f2eb5d3561d68
+  - path: fixtures/repos/axios/test/specs/core/enhanceError.spec.js
+    hash: e3b0c44298fc1c14
+  - path: fixtures/repos/axios/test/specs/core/mergeConfig.spec.js
+    hash: ac79dd6247f1f463
+  - path: fixtures/repos/axios/test/specs/core/settle.spec.js
+    hash: df2fb7255d53d64e
+  - path: fixtures/repos/axios/test/specs/core/transformData.spec.js
+    hash: a75dd1c064d9d274
+  - path: fixtures/repos/axios/test/specs/defaults.spec.js
+    hash: 7838b68ff850cdd5
+  - path: fixtures/repos/axios/test/specs/formdata.spec.js
+    hash: 52f6a8f2f6b946df
+  - path: fixtures/repos/axios/test/specs/headers.spec.js
+    hash: 82ddde573a367e57
+  - path: fixtures/repos/axios/test/specs/helpers/bind.spec.js
+    hash: 291fe5552088bdde
+  - path: fixtures/repos/axios/test/specs/helpers/buildURL.spec.js
+    hash: 3e3c6c10d6abe994
+  - path: fixtures/repos/axios/test/specs/helpers/combineURLs.spec.js
+    hash: 1b01080b17cb7764
+  - path: fixtures/repos/axios/test/specs/helpers/cookies.spec.js
+    hash: f317bd0f80314c0f
+  - path: fixtures/repos/axios/test/specs/helpers/formDataToJSON.spec.js
+    hash: 03b3ff8c1e2828fd
+  - path: fixtures/repos/axios/test/specs/helpers/isAbsoluteURL.spec.js
+    hash: 3feb56cbf6f7ef37
+  - path: fixtures/repos/axios/test/specs/helpers/isAxiosError.spec.js
+    hash: db96f02a09c225d3
+  - path: fixtures/repos/axios/test/specs/helpers/isURLSameOrigin.spec.js
+    hash: e6d145bb6ab23e06
+  - path: fixtures/repos/axios/test/specs/helpers/parseHeaders.spec.js
+    hash: 00fa9b5a25c13b42
+  - path: fixtures/repos/axios/test/specs/helpers/spread.spec.js
+    hash: 9d836e8db84b32d7
+  - path: fixtures/repos/axios/test/specs/helpers/toFormData.spec.js
+    hash: f439c744a9ff5835
+  - path: fixtures/repos/axios/test/specs/helpers/validator.spec.js
+    hash: fd63a2649d6eb7f7
+  - path: fixtures/repos/axios/test/specs/instance.spec.js
+    hash: 7aa967d567a9c8e1
+  - path: fixtures/repos/axios/test/specs/interceptors.spec.js
+    hash: 76f7fb5980ed846d
+  - path: fixtures/repos/axios/test/specs/options.spec.js
+    hash: 130362ff2c4d11ec
+  - path: fixtures/repos/axios/test/specs/progress.spec.js
+    hash: 570516deb23a0612
+  - path: fixtures/repos/axios/test/specs/promise.spec.js
+    hash: c42812cf4c9b171d
+  - path: fixtures/repos/axios/test/specs/requests.spec.js
+    hash: "16293450443e8736"
+  - path: fixtures/repos/axios/test/specs/transform.spec.js
+    hash: b9ef0385206740fb
+  - path: fixtures/repos/axios/test/specs/utils/endsWith.js
+    hash: 14fffdd3369f1538
+  - path: fixtures/repos/axios/test/specs/utils/extend.spec.js
+    hash: 9bcb69dc7075a30c
+  - path: fixtures/repos/axios/test/specs/utils/forEach.spec.js
+    hash: dbdc417771245ef3
+  - path: fixtures/repos/axios/test/specs/utils/isX.spec.js
+    hash: ffc4ce5d2c57cd59
+  - path: fixtures/repos/axios/test/specs/utils/kindOf.js
+    hash: 08047351c95cf9d4
+  - path: fixtures/repos/axios/test/specs/utils/kindOfTest.js
+    hash: 14fffdd3369f1538
+  - path: fixtures/repos/axios/test/specs/utils/merge.spec.js
+    hash: 7133891e558fbe7b
+  - path: fixtures/repos/axios/test/specs/utils/toArray.js
+    hash: 0044709d0db4647a
+  - path: fixtures/repos/axios/test/specs/utils/toFlatObject.js
+    hash: 3c6d3b2c2daffdc3
+  - path: fixtures/repos/axios/test/specs/utils/trim.spec.js
+    hash: 16ac799b1014fdbf
+  - path: fixtures/repos/axios/test/specs/xsrf.spec.js
+    hash: 1d5d43b535a9d7c6
+  - path: fixtures/repos/axios/test/unit/adapters/adapters.js
+    hash: 9ef0ff8959bc0b73
+  - path: fixtures/repos/axios/test/unit/adapters/fetch.js
+    hash: dc1da7e0e89dc5a4
+  - path: fixtures/repos/axios/test/unit/adapters/http.js
+    hash: 8f3eb47b2754f669
+  - path: fixtures/repos/axios/test/unit/core/Axios.js
+    hash: 2d3f302d33228733
+  - path: fixtures/repos/axios/test/unit/core/AxiosHeaders.js
+    hash: 6402c49071c683ff
+  - path: fixtures/repos/axios/test/unit/defaults/transformReponse.js
+    hash: 195a634a0ca632f6
+  - path: fixtures/repos/axios/test/unit/helpers/composeSignals.js
+    hash: 9e67d56910054cc6
+  - path: fixtures/repos/axios/test/unit/helpers/fromDataURI.js
+    hash: 372501efad3d57cf
+  - path: fixtures/repos/axios/test/unit/helpers/parseProtocol.js
+    hash: 8ba41fe559f6e23e
+  - path: fixtures/repos/axios/test/unit/regression/SNYK-JS-AXIOS-1038255.js
+    hash: a221f2d5678a97a4
+  - path: fixtures/repos/axios/test/unit/regression/SNYK-JS-AXIOS-7361793.js
+    hash: a52041a04cc4bec0
+  - path: fixtures/repos/axios/test/unit/regression/bugs.js
+    hash: 63049b2d4b4f5f94
+  - path: fixtures/repos/axios/test/unit/utils/utils.js
+    hash: 067a43c99df2811c
   - path: fixtures/repos/chalk-heavy-build/scripts/verbose-build.mjs
     hash: d5c27b336bf2ca41
   - path: fixtures/repos/chalk-heavy-build/source/index.d.ts
@@ -1618,19 +3080,19 @@ files:
   - path: fixtures/repos/repo-b/pkg/report.js
     hash: 9ef17dd209d93deb
   - path: packages/hooks/src/handlers.ts
-    hash: ed8170740eabc04c
+    hash: de7a4cbb447550e5
   - path: packages/hooks/src/hook-main.ts
     hash: 432e72e07d5120a8
   - path: packages/hooks/src/index.ts
-    hash: 232377ed88807c47
+    hash: d4bb36dada0750bb
   - path: packages/hooks/src/pipe-allowlist.ts
-    hash: f84c766af4f72577
+    hash: 33f6b9d819217a18
   - path: packages/hooks/test/handlers.test.ts
-    hash: c81e04e4560bf834
+    hash: ceb9c9dc15d7c158
   - path: packages/hooks/test/index.test.ts
     hash: 258fb0dedd59857e
   - path: packages/hooks/test/pipe-rewrite.test.ts
-    hash: 92295ba4a112c1a6
+    hash: 022fd34123c85ab4
   - path: packages/mcp/src/config.ts
     hash: 12d87e34f23efc44
   - path: packages/mcp/src/index.ts
@@ -1638,7 +3100,7 @@ files:
   - path: packages/mcp/src/main.ts
     hash: 703b6c3b71e2e2a5
   - path: packages/mcp/src/server.ts
-    hash: f7fbcb0edd644f8e
+    hash: 420dd9b640d85cff
   - path: packages/mcp/test/config.test.ts
     hash: 278566beb85a0356
   - path: packages/mcp/test/index.test.ts
@@ -1654,13 +3116,13 @@ files:
   - path: packages/meter/src/badge.ts
     hash: 449db0096ba2a961
   - path: packages/meter/src/bench.ts
-    hash: fd4db3cd88076967
+    hash: 099675b724e0bd35
   - path: packages/meter/src/candidates-render.ts
     hash: 41fbe441370e9ef4
   - path: packages/meter/src/claude-compat.ts
     hash: d26fc4ed04fe7849
   - path: packages/meter/src/cli.ts
-    hash: 435c54cf0c0df150
+    hash: 6098b87902c8d505
   - path: packages/meter/src/cost.ts
     hash: 21e3b608ec2a18a5
   - path: packages/meter/src/discipline.ts
@@ -1672,15 +3134,15 @@ files:
   - path: packages/meter/src/index.ts
     hash: 8b24bdb4fdbd1116
   - path: packages/meter/src/installer.ts
-    hash: f57021247c395a11
+    hash: 2751cd280cfec7fb
   - path: packages/meter/src/ledger.ts
     hash: cfb870cec5663f95
   - path: packages/meter/src/parser.ts
     hash: 57340641b4b80b81
   - path: packages/meter/src/pipe.ts
-    hash: 397e2ab840c338bb
+    hash: 4fe196a1ac243e7f
   - path: packages/meter/src/receipt.ts
-    hash: f8ebc64eb75f7a24
+    hash: c01f2b1c5ec99a2c
   - path: packages/meter/src/report.ts
     hash: 547bc38e89547938
   - path: packages/meter/src/safe-spawn.ts
@@ -1694,7 +3156,7 @@ files:
   - path: packages/meter/test/badge.test.ts
     hash: a65f8a991e800ea9
   - path: packages/meter/test/bench.test.ts
-    hash: 71b8af75217aea0c
+    hash: 6fea95e1a68475f5
   - path: packages/meter/test/bin.test.ts
     hash: 65bc4a5a3044f073
   - path: packages/meter/test/candidates-render.test.ts
@@ -1708,13 +3170,13 @@ files:
   - path: packages/meter/test/doctor.test.ts
     hash: 2740ecd6337fd50d
   - path: packages/meter/test/e2e-smoke.test.ts
-    hash: fb97b31d3802d725
+    hash: a83f3a8a00b17f6d
   - path: packages/meter/test/energy.test.ts
     hash: defce14488bad12a
   - path: packages/meter/test/index.test.ts
     hash: 2978912d3fb5fc60
   - path: packages/meter/test/installer.test.ts
-    hash: 60d63182188ccb18
+    hash: db5f3631f988071e
   - path: packages/meter/test/ledger.test.ts
     hash: 0fd0bf1e48185abe
   - path: packages/meter/test/mirror-e2e.test.ts
@@ -1724,13 +3186,15 @@ files:
   - path: packages/meter/test/parser.test.ts
     hash: 06967a11e48d4947
   - path: packages/meter/test/pipe-e2e.test.ts
-    hash: becb3ca24842ed98
+    hash: 33e38ca4a307c1ee
+  - path: packages/meter/test/pipe-launcher-e2e.test.ts
+    hash: 815c309197192412
   - path: packages/meter/test/pipe.test.ts
-    hash: 940f833dbf3b5d04
+    hash: 0e878e97ae92d693
   - path: packages/meter/test/readme.test.ts
-    hash: 8caff42eb6f834c5
+    hash: 470788eac29915d2
   - path: packages/meter/test/receipt.test.ts
-    hash: 70f48d6c18c98362
+    hash: b14082b2852c9677
   - path: packages/meter/test/report.test.ts
     hash: 4709054e95bec4f4
   - path: packages/meter/test/safe-spawn.test.ts
@@ -1741,6 +3205,8 @@ files:
     hash: 312633166a7d28f5
   - path: packages/meter/test/sidecar-cli.test.ts
     hash: 72072cf633543e7f
+  - path: packages/meter/test/slope.test.ts
+    hash: 88765feaedec7143
   - path: packages/shared/src/audit-file.ts
     hash: 13b4f1ab3be7c581
   - path: packages/shared/src/candidates-file.ts
@@ -1748,11 +3214,13 @@ files:
   - path: packages/shared/src/confidence.ts
     hash: d630529fe8ada5ce
   - path: packages/shared/src/index.ts
-    hash: 40c1b3ef81d4a9f5
+    hash: cae96e7495d0c499
   - path: packages/shared/src/limits.ts
-    hash: 139238d28bedd5ea
+    hash: 1abbe03ea9d871c1
+  - path: packages/shared/src/posture.ts
+    hash: 574d20ed046955bd
   - path: packages/shared/src/schemas.ts
-    hash: a78754029e3b456d
+    hash: c4e74f471a8f35f4
   - path: packages/shared/src/yaml.ts
     hash: bed7dde42f2b6f73
   - path: packages/shared/test/candidates-file.test.ts
@@ -1761,6 +3229,8 @@ files:
     hash: d8e162429e33d5d0
   - path: packages/shared/test/limits.test.ts
     hash: efa5d4473a2da8b1
+  - path: packages/shared/test/posture.test.ts
+    hash: fec42c380151f008
   - path: packages/shared/test/schemas.test.ts
     hash: db03cc4261cd360f
   - path: packages/shared/test/yaml.test.ts
@@ -1770,27 +3240,31 @@ files:
   - path: packages/sidecar/src/client.ts
     hash: 5d6a5fe8aab33a73
   - path: packages/sidecar/src/codex.ts
-    hash: e72de01463cbdce7
+    hash: 489e99f6a0b26fab
   - path: packages/sidecar/src/daemon-main.ts
     hash: 9059e2c1ed170d85
   - path: packages/sidecar/src/daemon.ts
-    hash: 6fcbe1489b04486e
+    hash: c77fbd02c79d6344
   - path: packages/sidecar/src/distill.ts
-    hash: c495b2bfef0e6f66
+    hash: 5c8d9212cc5f2be2
+  - path: packages/sidecar/src/docs.ts
+    hash: bba160f1722096d2
   - path: packages/sidecar/src/explore.ts
-    hash: 5006942c3579c836
+    hash: 66ebbc03f7a9238b
   - path: packages/sidecar/src/gates.ts
-    hash: 07932b069c4e34cf
+    hash: 428795dc34cb1247
   - path: packages/sidecar/src/graduation.ts
     hash: 3dcc0a77e769105e
   - path: packages/sidecar/src/index.ts
-    hash: 0393dc0d0ebe2785
+    hash: 08c8779e235dc46b
   - path: packages/sidecar/src/llm.ts
     hash: 34c91f059665933a
   - path: packages/sidecar/src/log.ts
     hash: 76c6b6a915a42baf
   - path: packages/sidecar/src/mirror.ts
-    hash: c886d8660c7f8f85
+    hash: 67ef81ce4876771f
+  - path: packages/sidecar/src/posture.ts
+    hash: 7e05e724ae173693
   - path: packages/sidecar/src/redact.ts
     hash: 087f622d35b21373
   - path: packages/sidecar/src/serve.ts
@@ -1800,7 +3274,7 @@ files:
   - path: packages/sidecar/src/state.ts
     hash: 5bb5bf7075cb32f6
   - path: packages/sidecar/src/store.ts
-    hash: fe70ac18151d6c17
+    hash: 7e5fd0d95907d014
   - path: packages/sidecar/test/audit.test.ts
     hash: 31848081bf3b4ac9
   - path: packages/sidecar/test/build-log-verdict.test.ts
@@ -1816,11 +3290,21 @@ files:
   - path: packages/sidecar/test/daemon.test.ts
     hash: 0eed3ead6f28fc46
   - path: packages/sidecar/test/distill.test.ts
-    hash: 475bd8985690c57e
+    hash: 1c3c295bcc9ce307
+  - path: packages/sidecar/test/doc-distill.test.ts
+    hash: 1afe5995681dc8df
+  - path: packages/sidecar/test/docs-collision.test.ts
+    hash: 6d756b6b823bcc30
+  - path: packages/sidecar/test/docs-ranking.test.ts
+    hash: 3c56edf25c1b0079
+  - path: packages/sidecar/test/docs.test.ts
+    hash: 67e3f9c864558d4d
   - path: packages/sidecar/test/enrichment.test.ts
-    hash: 50f68e68d2b7f8a7
+    hash: 18d6bd38bd8cc168
   - path: packages/sidecar/test/explore.test.ts
     hash: d6e6e23f0b496235
+  - path: packages/sidecar/test/gates-prose.test.ts
+    hash: 301bd9a8c44c9401
   - path: packages/sidecar/test/gates.test.ts
     hash: cd2218a7afff6f2d
   - path: packages/sidecar/test/graduation-pass.test.ts
@@ -1832,9 +3316,13 @@ files:
   - path: packages/sidecar/test/index.test.ts
     hash: 1fcb1e5abdfcba14
   - path: packages/sidecar/test/injection-budget.test.ts
-    hash: 7a0bcd4dcac0bdec
+    hash: e212808a2725679f
   - path: packages/sidecar/test/mirror.test.ts
     hash: 212bf1d3bd3d1a17
+  - path: packages/sidecar/test/pdf-doubling.test.ts
+    hash: eb890164a4534feb
+  - path: packages/sidecar/test/posture.test.ts
+    hash: d3db822c5fee6379
   - path: packages/sidecar/test/redact.test.ts
     hash: 63a9ba3922f68c5e
   - path: packages/sidecar/test/serve.test.ts
@@ -1845,12 +3333,88 @@ files:
     hash: 09dd350adc6dcd05
   - path: packages/sidecar/test/store.test.ts
     hash: ed1efdba850f8452
+  - path: packages/sidecar/test/verify-script-verdict.test.ts
+    hash: c763d78ee5502af9
   - path: packages/sidecar/test/zoom-file-ref.test.ts
     hash: 1b80ee4c654b1018
+  - path: packages/sidecar/test/zoom-raw-recovery.test.ts
+    hash: 67a081a2e1a6e650
+  - path: packages/vault/src/auth.ts
+    hash: a9b10e8fe90326d5
+  - path: packages/vault/src/codex.ts
+    hash: da1da51debe586e4
+  - path: packages/vault/src/confidence.ts
+    hash: b366d2cad89927da
+  - path: packages/vault/src/corpus.ts
+    hash: f5f80f0cf0a83c1b
+  - path: packages/vault/src/http.ts
+    hash: 7bb55665be8d18e9
+  - path: packages/vault/src/index.ts
+    hash: 20c99bd360cde2f9
+  - path: packages/vault/src/ingest.ts
+    hash: acc19bad7b12cf5a
+  - path: packages/vault/src/ledger.ts
+    hash: 1d687e99e88d8f32
+  - path: packages/vault/src/main.ts
+    hash: ebb4eb273754247f
+  - path: packages/vault/src/miner.ts
+    hash: 8f5f8fb8b4feecf9
+  - path: packages/vault/src/rates.ts
+    hash: ad9db3a094105415
+  - path: packages/vault/src/rollup.ts
+    hash: 580e3bd6b65067d2
+  - path: packages/vault/src/server.ts
+    hash: 9f3ad9cba64ccd22
+  - path: packages/vault/src/statement.ts
+    hash: 476f28cf40839e84
+  - path: packages/vault/src/tools.ts
+    hash: 2dd17362287ede85
+  - path: packages/vault/test/ask-collision.test.ts
+    hash: 1478f682658f338a
+  - path: packages/vault/test/ask-docs.test.ts
+    hash: 33004a22ccf2c585
+  - path: packages/vault/test/ask-ranking.test.ts
+    hash: 66b4069acfe5b282
+  - path: packages/vault/test/auth.test.ts
+    hash: bb2163b09b626eaa
+  - path: packages/vault/test/codex.test.ts
+    hash: 0ec665397d2ef4e1
+  - path: packages/vault/test/confidence.test.ts
+    hash: 8615b4a5a44beb2f
+  - path: packages/vault/test/corpus-defaulting.test.ts
+    hash: e85fa60ab4cd0ff2
+  - path: packages/vault/test/counterfactual.test.ts
+    hash: 72b617f7f27fb646
+  - path: packages/vault/test/helpers.ts
+    hash: 70fca1dcbd4a1f44
+  - path: packages/vault/test/http.test.ts
+    hash: f3b49e02e5e7163e
+  - path: packages/vault/test/ingest.test.ts
+    hash: b89a108747ce3374
+  - path: packages/vault/test/ledger.test.ts
+    hash: 09de249c0afbe597
+  - path: packages/vault/test/miner.test.ts
+    hash: 72f5c848454e1dc9
+  - path: packages/vault/test/no-network.test.ts
+    hash: 9bead580ac94a9cd
+  - path: packages/vault/test/rollup.test.ts
+    hash: 0212a46b54f62918
+  - path: packages/vault/test/server.test.ts
+    hash: 6a9fb1fe21acb583
+  - path: packages/vault/test/session-identity.test.ts
+    hash: c348b3f9bd641df4
+  - path: packages/vault/test/staleness.test.ts
+    hash: 9ab4750c8d268519
+  - path: packages/vault/test/statement.test.ts
+    hash: eeb63f9b07bc36f3
+  - path: packages/vault/test/zoom-durability.test.ts
+    hash: 8daf059292436714
   - path: scripts/bench-live.mjs
-    hash: 71cece0ae00c18a5
+    hash: 988c4119068736fb
   - path: scripts/canary.mjs
     hash: dcd0e7035f265efb
+  - path: scripts/doc-fixtures.mjs
+    hash: 03f9fcd259d9be4b
   - path: scripts/gen-fixtures.mjs
     hash: e4041dd7bd930f62
   - path: scripts/measure-ratios.mjs
@@ -1859,6 +3423,16 @@ files:
     hash: b88a050aa6562852
   - path: scripts/sbom.mjs
     hash: 3fd660811b659aad
+  - path: scripts/slice-pdf-fixture.mjs
+    hash: 5489f0c679a91290
+  - path: scripts/vault-verify-codex.mjs
+    hash: 7d7d14a476e80e84
+  - path: scripts/vault-verify-docs.mjs
+    hash: 07d7421ff954d985
+  - path: scripts/vault-verify-ledger.mjs
+    hash: 5be1ad5977940337
+  - path: scripts/vault-verify.mjs
+    hash: 6e513745178c9448
   - path: vitest.workspace.ts
     hash: e7bfa39b80ce734c
 locked: []

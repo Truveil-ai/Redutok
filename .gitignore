@@ -6,3 +6,8 @@ coverage/
 .dcp/*
 !.dcp/codex.yaml
 !.dcp/codex.lock
+
+# Corpus state the vault ingest tests and verify scripts build beside a
+# fixture: sqlite stores, write-ahead logs, ledger, audit trail. Regenerated
+# on demand, machine-local, never an artifact anything cites.
+fixtures/**/.dcp/
