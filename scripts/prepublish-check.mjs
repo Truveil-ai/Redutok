@@ -1,5 +1,6 @@
 // Prepack gate for the redutok package: refuses to pack a tarball that would
 // ship the wrong surface. Run automatically via the prepack script.
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -56,4 +57,63 @@ if (existsSync(typesEntry) && readFileSync(typesEntry, 'utf8').includes('@reduto
   fail('dist/index.d.ts references the private @redutok scope');
 }
 
-console.log('prepublish check passed');
+/*
+ * The gate that matters.
+ *
+ * redutok@0.1.0 was one command away from being published with four
+ * dependencies on @redutok/{hooks,mcp,shared,sidecar} — all private, all
+ * unpublished. pnpm rewrites `workspace:*` into a pinned version at pack
+ * time, so the manifest looked ordinary and every earlier check passed; the
+ * tarball 404'd for every consumer on install. Nothing in the build or the
+ * test suite could see it, because the pack test wired those four in from
+ * local tarballs.
+ *
+ * So: resolve every declared runtime dependency against the public registry,
+ * exactly as a consumer's installer would, and refuse to pack if any one of
+ * them cannot be resolved. Unverifiable is treated as failure — if the
+ * registry cannot be reached, we do not know whether the tarball installs, so
+ * we do not ship it.
+ */
+const deps = Object.entries(pkg.dependencies ?? {});
+
+for (const [name, range] of deps) {
+  if (name.startsWith('@redutok/')) {
+    fail(`dependency ${name} is private and unpublished; bundle it instead of depending on it`);
+  }
+  if (typeof range === 'string' && (range.startsWith('workspace:') || range.startsWith('link:') || range.startsWith('file:'))) {
+    fail(`dependency ${name} uses the non-publishable "${range}" protocol`);
+  }
+}
+
+const unresolved = [];
+for (const [name, range] of deps) {
+  const spec = `${name}@${range}`;
+  // Joined command string, and the spec double-quoted: npm is a .cmd on
+  // Windows, which Node will not spawn without a shell, and an unquoted range
+  // hands its ^ to cmd.exe as an escape character. Args arrays with shell
+  // true are deprecated (DEP0190), hence the single string.
+  const view = spawnSync(`npm view "${spec}" version --json`, {
+    encoding: 'utf8',
+    shell: true,
+    timeout: 60_000,
+  });
+  if (view.status === 0 && view.stdout.trim() !== '') {
+    console.log(`  ok  ${spec}`);
+    continue;
+  }
+  const stderr = (view.stderr ?? '').trim();
+  const reason = view.error
+    ? `could not run npm view (${view.error.message})`
+    : /E404|is not in this registry|404 Not Found/.test(stderr)
+      ? 'not found on the public registry'
+      : `registry lookup failed: ${stderr.split('\n')[0] ?? `exit ${view.status}`}`;
+  unresolved.push(`${spec} — ${reason}`);
+}
+if (unresolved.length > 0) {
+  fail(
+    `these dependencies would not install from the public registry:\n  ${unresolved.join('\n  ')}\n` +
+      'A consumer running `npm i redutok` gets this failure. Bundle the dependency or publish it.',
+  );
+}
+
+console.log(`prepublish check passed (${deps.length} dependencies resolve publicly)`);
