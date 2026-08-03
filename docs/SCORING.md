@@ -50,3 +50,34 @@ report line says so inline. Not scorable without an energy estimate.
 
 Weighted mean of scorable scores with weights renormalized, rounded.
 Grades from GRADE_BOUNDS: A at 90, B at 80, C at 70, D at 60, F below.
+
+### Disclosure of how many scores contributed
+
+Renormalizing over the scorable scores keeps the arithmetic honest, but the
+rendered composite used to hide how thin it was: a session with only output
+discipline and cache utilization computable rendered "composite 100 (A)",
+which reads as a verdict on all four dimensions when it is a verdict on two.
+The count now travels with the number:
+
+- **Four of four.** `composite 97 (A)`. Nothing to disclose.
+- **Three of four.** `composite 97 (A, from 3 of 4 scores)`. The grade still
+  stands; the reader is told what it rests on.
+- **Fewer than three** (COMPOSITE_MIN_SCORES_FOR_GRADE in
+  packages/shared/src/limits.ts). No letter grade at all:
+  `composite 100 (partial, from 2 of 4 scores; no grade below 3)`. The value
+  stays visible, because suppressing it would be its own dishonesty, but it
+  no longer wears a grade the session did not earn.
+- **None scorable.** `composite not scorable: no individual score was
+  computable`, as before.
+
+The letter is absent from the `CompositeScore` object itself on a partial
+composite, not merely hidden at render time, so a consumer cannot print a
+grade by forgetting to check a flag. Every surface that shows a composite —
+the report, the SVG badge, the session receipt, the bench tables — renders it
+through `renderCompositeValue` or `compositeCell` in
+packages/meter/src/scoring.ts, so the disclosure cannot drift between them.
+
+The threshold of three is a product tuning constant, not a measured claim.
+The reasoning: at three of four the missing dimension shifts the mean but the
+remaining evidence still spans context, output, and one of cache or energy; at
+two it does not.

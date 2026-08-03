@@ -9,7 +9,7 @@ import {
 import { computeSessionCost } from './cost.js';
 import { computeSessionEnergy } from './energy.js';
 import { grandTotal, type SessionLedger } from './ledger.js';
-import { scoreSession } from './scoring.js';
+import { renderCompositeValue, scoreSession } from './scoring.js';
 
 /**
  * Session receipt: billed tokens and cost from the ledger, avoided tokens and
@@ -118,10 +118,7 @@ export function buildSessionReceipt(
     turns: ledger.entries.length,
     billedTokens: grandTotal(ledger.totals),
     costUsd: cost.pricedTurns > 0 ? cost.totalUsd : undefined,
-    grade:
-      scores.composite === undefined
-        ? undefined
-        : `${scores.composite.value} (${scores.composite.grade})`,
+    grade: scores.composite === undefined ? undefined : renderCompositeValue(scores.composite),
     auditEvents: audit.length,
     avoidedTokens: measured.reduce((n, e) => n + avoidedFor(e), 0),
     topDistillations,

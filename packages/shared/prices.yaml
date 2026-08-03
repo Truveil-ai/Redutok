@@ -1,4 +1,10 @@
+# These are standard API rates: if Claude Code applies fast-mode or regional (inference_geo) premiums, these figures understate the real cost.
 # Founder-verified against the official pricing page on 2026-07-19; all five rows matched exactly.
+# Re-checked 2026-08-03 when claude-opus-5 was added, after a live session on
+# that model reported 0.0000 USD for want of a row. Every row above still
+# matches the page's "Model pricing" table, with the one documented
+# claude-sonnet-5 deviation noted below. Awaiting founder eyeball on the new
+# claude-opus-5 row.
 # Model pricing, USD per million tokens, standard API rates.
 # Rates checked 2026-07-19 against the source URL on each row.
 # Cache read is 0.10 of the input price. Cache writes have two TTL tiers,
@@ -25,6 +31,13 @@ models:
     cacheReadPerMTokUsd: 1
     cacheWritePerMTokUsd: 12.5
     cacheWrite1hPerMTokUsd: 20
+    source: https://platform.claude.com/docs/en/about-claude/pricing
+  - id: claude-opus-5
+    inputPerMTokUsd: 5
+    outputPerMTokUsd: 25
+    cacheReadPerMTokUsd: 0.5
+    cacheWritePerMTokUsd: 6.25
+    cacheWrite1hPerMTokUsd: 10
     source: https://platform.claude.com/docs/en/about-claude/pricing
   - id: claude-opus-4-8
     inputPerMTokUsd: 5
