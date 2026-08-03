@@ -68,10 +68,22 @@ describe('README claim hygiene', () => {
     }
   });
 
-  it('says the npm package is a placeholder wherever it tells you to npx it', () => {
-    if (readme.includes('npx redutok')) {
-      expect(readme).toContain('placeholder release');
+  /**
+   * This guard used to require the README to say the npm package was a
+   * placeholder wherever it told you to npx it. redutok@0.1.0 is published, so
+   * that warning is now false -- but the hazard it guarded against is not
+   * gone, it moved: `npx redutok init` on its own still writes a setup that
+   * cannot run, because npx executes from a temp cache the launchers can never
+   * resolve. Same rule, current hazard: never hand out the npx instruction
+   * without the install that makes it work.
+   */
+  it('pairs every npx redutok init instruction with installing into the project', () => {
+    if (readme.includes('npx redutok init')) {
+      expect(readme).toContain('npm install --save-dev redutok');
     }
+    expect(readme, 'the placeholder warning is stale; 0.1.0 is published').not.toContain(
+      'placeholder release',
+    );
   });
 
   it('never claims a chat-savings multiple before the chatbench has run', () => {

@@ -5,46 +5,49 @@ machine with node 20 or newer installed. Timings below are what each step
 costs at most on an ordinary connection; they sum comfortably under the
 budget.
 
-1. Build Redutok (about two minutes, mostly the install):
+1. Install Redutok into the repository you want to govern (about a minute):
 
-       git clone https://github.com/Truveil-ai/Redutok
-       cd Redutok
-       pnpm install
-       pnpm -r build
+       cd /path/to/your-repo
+       npm install --save-dev redutok
 
-   The npm name carries a placeholder release, `redutok@0.0.1`, published to
-   hold the name. The working build is `0.1.0` in this repository and is not
-   published yet, so `npx redutok` fetches the placeholder rather than the
-   tool. The package is packaging-ready (`files` whitelist, prepack gate,
-   and a test that installs the packed tarballs into a temp directory).
-   Until the release publish, invoke the CLI by path. Everything below
-   writes `redutok` for
-   `node <redutok>/packages/meter/dist/cli.js`.
+   Into the project, not globally and not through `npx` alone. The hooks and
+   the MCP server run from small generated launchers under `.claude/redutok/`,
+   and those resolve redutok from this project's own `node_modules` every
+   time they fire. `npx` executes from a temporary cache that is never part of
+   the project, so a bare `npx redutok init` would write launchers that cannot
+   find the package: the MCP server dies at startup and every hook silently
+   no-ops. Step 2 refuses rather than let that happen. If the install has to
+   live elsewhere, point `REDUTOK_HOME` at the directory holding it.
 
-2. Wire it into the repository you want to govern (seconds):
+2. Wire it in (seconds):
 
-       redutok init /path/to/your-repo
+       npx redutok init .
 
    This writes hooks to `.claude/settings.local.json`, registers the MCP
    server in `.mcp.json`, appends the protocol block to CLAUDE.md, and
    scaffolds `.dcp/` with the committed launchers under `.claude/redutok/`.
    It is idempotent and preserves your own entries. Everything reverts
-   byte-identical with `redutok remove`.
+   byte-identical with `npx redutok remove`.
 
 3. Start the sidecar and build the codex (about a minute):
 
-       cd /path/to/your-repo
-       redutok up
-       redutok codex refresh
+       npx redutok up
+       npx redutok codex refresh
 
 4. Check the installation (seconds):
 
-       redutok doctor
+       npx redutok doctor
 
    Ten checks, each pass, warn, or fail with a remedy. Warns are normal and
    not blockers: Ollama unreachable means semantic passes fall back to rules,
    and a stale codex means run the refresh above. Read the remedy column
    rather than the count.
+
+   Any `fail` means the setup will not work, and `hooks` and `mcp-launcher`
+   are the two to read first: both run the same resolution the launchers do,
+   so they are what tells you the difference between a working install and a
+   well-formed but inert one. `npm install --save-dev redutok` is the remedy
+   when either reports that the launcher cannot resolve the package.
 
 5. Approve the MCP server, once (seconds, easy to miss):
 
@@ -72,14 +75,14 @@ budget.
 
 7. Grade it (seconds):
 
-       redutok report --last
-       redutok badge --last
+       npx redutok report --last
+       npx redutok badge --last
 
    The report shows tokens by class, estimated cost, energy as banded
    estimates, and the four scores with the A to F composite. The badge SVG
-   carries the grade. `redutok candidates` shows what the session's miner
-   learned, and `redutok audit <session-id>` renders the trail behind every
-   figure.
+   carries the grade. `npx redutok candidates` shows what the session's miner
+   learned, and `npx redutok audit <session-id>` renders the trail behind
+   every figure.
 
 For documents rather than code, see the Vault in
 [../packages/vault/README.md](../packages/vault/README.md): ingest a folder,

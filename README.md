@@ -146,30 +146,33 @@ session runs vanilla. That is a tested property, not a promise.
 
 ## Install
 
-Per project:
+Per project, in the repository you want to govern:
 
+    npm install --save-dev redutok
     npx redutok init
     npx redutok codex refresh
+    npx redutok doctor
+
+Install it into the project first. This is not optional, and `init` will
+refuse rather than let you skip it. The hooks and the MCP server are launched
+by small generated scripts under `.claude/redutok/`, and those resolve redutok
+from the project's own `node_modules` every time they run. `npx` on its own
+executes from a temporary cache that is never part of the project, so a bare
+`npx redutok init` would write launchers that cannot find the package: the MCP
+server dies at startup and every hook silently no-ops. If the install lives
+outside the project, point `REDUTOK_HOME` at the directory that holds it.
+
+Finish with `doctor`. It runs the same resolution the launchers do and fails
+if the setup cannot actually run, which is the one check that distinguishes a
+working install from a well-formed but inert one.
 
 `init` is idempotent. It writes hooks to `.claude/settings.local.json`,
 registers the MCP server, appends the protocol block to CLAUDE.md, and
 scaffolds `.dcp/`. `remove` reverts every managed file byte-identical, which
 is a tested property.
 
-One thing to know before running that. The npm name currently carries a
-placeholder release, `redutok@0.0.1`, published to hold the name. The
-working build is `0.1.0` in this repository and has not been published yet,
-so until the release publish `npx redutok` fetches the placeholder rather
-than the tool. Until then, build from source and invoke the CLI by path:
-
-    git clone https://github.com/Truveil-ai/Redutok
-    cd Redutok
-    pnpm install
-    pnpm -r build
-
-Then `node <redutok>/packages/meter/dist/cli.js init .` in the repository
-you want to govern, and `redutok up` to start the sidecar. The full path,
-including the one-time MCP approval prompt that is easy to miss, is
+Then `npx redutok up` to start the sidecar. The full path, including the
+one-time MCP approval prompt that is easy to miss, is
 [docs/QUICKSTART.md](docs/QUICKSTART.md), with details in
 [docs/RUNNING.md](docs/RUNNING.md).
 
