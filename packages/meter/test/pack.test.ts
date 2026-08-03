@@ -63,15 +63,16 @@ describe('packed tarball, registry semantics', () => {
     expect(help.status, `npx redutok --help: ${help.stderr}`).toBe(0);
     expect(help.stdout).toContain('Usage: redutok');
 
-    // init in an empty project exercises the launcher entry points and the
-    // packaged docs (PROTOCOL.md / SCOUT.md) that --help never touches. This
-    // is where monorepo-relative paths surface.
-    const project = mkdtempSync(path.join(os.tmpdir(), 'redutok-init-'));
-    writeFileSync(
-      path.join(project, 'package.json'),
-      JSON.stringify({ name: 'init-target', private: true, version: '0.0.0' }, null, 2),
-    );
-    const init = run('npx', ['--no-install', 'redutok', 'init', q(project)], app);
+    // init via npx, into the project that installed the package. npx resolves
+    // the local node_modules/.bin first, which is the sequence the README
+    // documents: install, then init.
+    //
+    // The separate-target shape this replaced (install in one dir, init
+    // another) is exactly the broken setup: the launchers resolve the package
+    // from the initialized project's own directory, so initializing a project
+    // that has not installed redutok produces launchers that cannot resolve.
+    const project = app;
+    const init = run('npx', ['--no-install', 'redutok', 'init', '.'], project);
     expect(init.status, `redutok init: ${init.stderr}`).toBe(0);
 
     for (const rel of [
@@ -116,5 +117,26 @@ for (const spec of ['redutok/hook-main', 'redutok/mcp-main', 'redutok/pipe']) {
     expect(resolved.status, `launcher entry resolution: ${resolved.stderr}`).toBe(0);
     expect(resolved.stdout).toContain('redutok/hook-main ->');
     expect(resolved.stdout).toContain('redutok/mcp-main ->');
+
+    // The check that would have caught the npx install being broken. init
+    // completing and writing files says nothing about whether the result can
+    // run: the first real-world install had doctor reporting FAIL on
+    // mcp-launcher while hooks silently no-opped. doctor exits 1 on any fail.
+    const doc = run('npx', ['--no-install', 'redutok', 'doctor'], project);
+    expect(doc.stdout, `doctor reported a failure:\n${doc.stdout}`).not.toMatch(/^FAIL/m);
+    expect(doc.status, `redutok doctor exit: ${doc.stderr}\n${doc.stdout}`).toBe(0);
+
+    // And the setup that cannot run must be refused outright rather than
+    // written and left broken.
+    const bare = mkdtempSync(path.join(os.tmpdir(), 'redutok-bare-'));
+    writeFileSync(
+      path.join(bare, 'package.json'),
+      JSON.stringify({ name: 'bare', private: true, version: '0.0.0' }, null, 2),
+    );
+    const refused = run('npx', ['--no-install', 'redutok', 'init', q(bare)], project);
+    expect(refused.status, 'init into a project without redutok must fail').not.toBe(0);
+    expect(`${refused.stdout}${refused.stderr}`).toContain('npm install --save-dev redutok');
+    expect(existsSync(path.join(bare, '.claude')), 'refusal must write nothing').toBe(false);
+    expect(existsSync(path.join(bare, '.dcp')), 'refusal must write nothing').toBe(false);
   }, 600_000);
 });
