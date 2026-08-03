@@ -221,14 +221,37 @@ function scoutAgentBlock(): string {
 /** Sidecar defaults persisted per repo in .dcp/config.json (unmanaged, per-machine). */
 export const DEFAULT_SIDECAR_PORT = 48642;
 
-function writeDcpConfig(dcpDir: string): void {
+/** Port range reserved for per-repo daemons: [42000, 50000). */
+const PORT_RANGE_BASE = 42000;
+const PORT_RANGE_SIZE = 8000;
+
+/**
+ * A stable per-repo port, derived from the repo path (FNV-1a). One shared
+ * default port meant the first daemon up served every repo on the machine:
+ * the 0.1.1 field install had one repo's distill events in another repo's
+ * audit trail, and every cross-repo zoom refused. A hash can still collide,
+ * so the repo-identity handshake stays the backstop; this just makes two
+ * repos sharing a port the exception instead of the rule. Separators and
+ * (win32-style) case are folded so both spellings of one path agree.
+ */
+export function portForRepo(repoDir: string): number {
+  const key = repoDir.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < key.length; i += 1) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return PORT_RANGE_BASE + (hash % PORT_RANGE_SIZE);
+}
+
+function writeDcpConfig(dcpDir: string, targetDir: string): void {
   // The daemon loads its distillation profiles from here at startup and
   // answers 503 to /distill without them, so this has to resolve in a
   // published install, not just in the monorepo.
   const profilesDir = packagedAsset('profiles');
   writeFileSync(
     path.join(dcpDir, 'config.json'),
-    JSON.stringify({ port: DEFAULT_SIDECAR_PORT, profilesDir }, null, 2) + '\n',
+    JSON.stringify({ port: portForRepo(path.resolve(targetDir)), profilesDir }, null, 2) + '\n',
     'utf8',
   );
 }
@@ -347,7 +370,7 @@ export function initRepo(targetDir: string): string {
   writeFileSync(claudeMdPath, claudeMd, 'utf8');
 
   writeFileSync(path.join(dcpDir, 'protocol.md'), block + '\n', 'utf8');
-  writeDcpConfig(dcpDir);
+  writeDcpConfig(dcpDir, targetDir);
   return `Redutok installed into ${targetDir}. Hooks, MCP server, and protocol block are in place. Run redutok up to start the sidecar.`;
 }
 

@@ -19,14 +19,26 @@ export function resolveSidecarPort(
   if (env['REDUTOK_PORT'] !== undefined && env['REDUTOK_PORT'] !== '' && Number.isInteger(explicit) && explicit > 0) {
     return explicit;
   }
-  const configFile = path.resolve(cwd, env['REDUTOK_DCP_DIR'] ?? '.dcp', 'config.json');
+  const dcpDir = path.resolve(cwd, env['REDUTOK_DCP_DIR'] ?? '.dcp');
+  let port = DEFAULT_SIDECAR_PORT;
   try {
-    const config = JSON.parse(readFileSync(configFile, 'utf8')) as { port?: unknown };
+    const config = JSON.parse(readFileSync(path.join(dcpDir, 'config.json'), 'utf8')) as { port?: unknown };
     if (typeof config.port === 'number' && Number.isInteger(config.port) && config.port > 0) {
-      return config.port;
+      port = config.port;
     }
   } catch {
     // No or unreadable config: the default below keeps the fail-open path.
   }
-  return DEFAULT_SIDECAR_PORT;
+  // Pidfile beats config, as in the hook and pipe launchers: a daemon whose
+  // configured port was busy falls back to an ephemeral one and records it
+  // there, so the pidfile is the only place the real port is guaranteed.
+  try {
+    const pidfile = JSON.parse(readFileSync(path.join(dcpDir, 'sidecar.pid.json'), 'utf8')) as { port?: unknown };
+    if (typeof pidfile.port === 'number' && Number.isInteger(pidfile.port) && pidfile.port > 0) {
+      port = pidfile.port;
+    }
+  } catch {
+    // No pidfile: the config or default port stands.
+  }
+  return port;
 }

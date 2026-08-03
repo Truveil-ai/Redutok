@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { LIMITS } from '@redutok/shared';
+import { LIMITS, sameRepoRoot } from '@redutok/shared';
 import {
   buildLedger,
   buildSessionReceipt,
@@ -53,11 +53,25 @@ export const SMALL_READ_BYTES = 16_384;
 /** Reads above this serve the skeleton mirror; between, updatedInput caps the read. */
 export const LARGE_READ_BYTES = 65_536;
 
+/** The repo these hooks govern: the parent of the .dcp state directory. */
+function repoRootOf(deps: HookDeps): string {
+  return path.dirname(path.resolve(deps.dcpDir));
+}
+
 async function sidecarUp(deps: HookDeps): Promise<boolean> {
   const res = await sidecarRequest(deps.target, 'GET', '/health', undefined, {
     timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS,
   });
-  return res.ok && res.status === 200;
+  if (!res.ok || res.status !== 200) return false;
+  // Identity, not just liveness: with every install sharing one default
+  // port, a healthy answer can come from another repo's daemon (the 0.1.1
+  // field install did exactly that). Engaging governance against it corrupts
+  // both repos, so a foreign daemon counts as down — vanilla passthrough.
+  const daemonRoot = (res.body as { repoRoot?: unknown }).repoRoot;
+  if (typeof daemonRoot === 'string' && daemonRoot !== '') {
+    return sameRepoRoot(daemonRoot, repoRootOf(deps));
+  }
+  return true;
 }
 
 /**
@@ -71,7 +85,7 @@ async function registerSession(sessionId: string | undefined, deps: HookDeps): P
     deps.target,
     'POST',
     '/notify',
-    { kind: 'session-start', sessionId },
+    { kind: 'session-start', sessionId, repoRoot: repoRootOf(deps) },
     { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
   );
 }
@@ -157,6 +171,7 @@ export async function handleSessionStart(
     {
       kind: 'session-posture',
       sessionId: input.session_id,
+      repoRoot: repoRootOf(deps),
       posture: decision.posture,
       pinned: decision.pinned,
       ...decision.assessment,
@@ -244,6 +259,7 @@ export async function handlePreToolUse(
             realPath: filePath,
             mirrorPath,
             sessionId: input.session_id,
+            repoRoot: repoRootOf(deps),
           },
           { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
         );
@@ -306,7 +322,7 @@ export async function handlePreToolUse(
         deps.target,
         'POST',
         '/notify',
-        { kind: 'command-rewrite', rule: decision.rule, command, sessionId: input.session_id },
+        { kind: 'command-rewrite', rule: decision.rule, command, sessionId: input.session_id, repoRoot: repoRootOf(deps) },
         { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
       );
       return {
@@ -347,7 +363,7 @@ export async function handlePostToolUse(
     deps.target,
     'POST',
     '/notify',
-    { kind, tool, path: input.tool_input?.['file_path'], sessionId: input.session_id },
+    { kind, tool, path: input.tool_input?.['file_path'], sessionId: input.session_id, repoRoot: repoRootOf(deps) },
     { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
   );
   return {};
@@ -416,7 +432,7 @@ export async function handleSessionEnd(
     deps.target,
     'POST',
     '/notify',
-    { kind: 'session-end', sessionId: input.session_id },
+    { kind: 'session-end', sessionId: input.session_id, repoRoot: repoRootOf(deps) },
     { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
   );
   return {};

@@ -71,3 +71,63 @@ describe('sidecarStatus', () => {
     }
   });
 });
+
+describe('repo identity in the lifecycle commands', () => {
+  it('up does not mistake a foreign daemon on the recorded port for its own, and starts one for this repo', async () => {
+    const { sidecarUp } = await import('../src/sidecar-cli.js');
+    const { sidecarRequest } = await import('@redutok/sidecar/client');
+    const { fileURLToPath } = await import('node:url');
+    const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+    const { mkdirSync } = await import('node:fs');
+
+    // The field shape: another repo's daemon holds the port this repo's
+    // stale pidfile and config both point at.
+    const foreignRepo = mkdtempSync(path.join(os.tmpdir(), 'redutok-cli-foreign-'));
+    mkdirSync(path.join(foreignRepo, '.dcp'));
+    const foreign = await startDaemon({ port: 0, dcpDir: path.join(foreignRepo, '.dcp') });
+
+    const ownRepo = mkdtempSync(path.join(os.tmpdir(), 'redutok-cli-own-'));
+    const dir = path.join(ownRepo, '.dcp');
+    mkdirSync(dir);
+    writeFileSync(path.join(dir, 'sidecar.pid.json'), JSON.stringify({ pid: 99999, port: foreign.port }));
+    writeFileSync(
+      path.join(dir, 'config.json'),
+      JSON.stringify({ port: foreign.port, profilesDir: path.join(repoRoot, 'profiles') }),
+    );
+    try {
+      const msg = await sidecarUp(dir);
+      expect(msg, msg).not.toContain('already running');
+      expect(msg).toContain('started');
+      const pidfile = readPidfile(dir);
+      expect(pidfile).toBeDefined();
+      expect(pidfile?.port).not.toBe(foreign.port);
+      const health = await sidecarRequest({ port: pidfile?.port }, 'GET', '/health', undefined, {
+        timeoutMs: 2000,
+      });
+      expect(health.ok && health.status === 200).toBe(true);
+      const body = (health.ok ? health.body : {}) as { repoRoot?: string };
+      expect(path.resolve(body.repoRoot ?? '')).toBe(path.resolve(ownRepo));
+    } finally {
+      await sidecarDown(dir);
+      await foreign.close();
+    }
+  }, 30_000);
+
+  it('status names a foreign daemon instead of calling it running', async () => {
+    const { mkdirSync } = await import('node:fs');
+    const foreignRepo = mkdtempSync(path.join(os.tmpdir(), 'redutok-cli-forstat-'));
+    mkdirSync(path.join(foreignRepo, '.dcp'));
+    const foreign = await startDaemon({ port: 0, dcpDir: path.join(foreignRepo, '.dcp') });
+    const ownRepo = mkdtempSync(path.join(os.tmpdir(), 'redutok-cli-ownstat-'));
+    const dir = path.join(ownRepo, '.dcp');
+    mkdirSync(dir);
+    writeFileSync(path.join(dir, 'sidecar.pid.json'), JSON.stringify({ pid: 99999, port: foreign.port }));
+    try {
+      const status = await sidecarStatus(dir);
+      expect(status).toContain('different repo');
+      expect(status).not.toMatch(/^Sidecar: running/);
+    } finally {
+      await foreign.close();
+    }
+  });
+});

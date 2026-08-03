@@ -141,12 +141,15 @@ describe('handleSessionEnd', () => {
     const port = typeof address === 'object' && address !== null ? address.port : 0;
     try {
       const { handleSessionEnd } = await import('../src/handlers.js');
+      const dcpDir = tempDcp();
       const out = await handleSessionEnd(
         { session_id: 's-over' },
-        { target: { port }, dcpDir: tempDcp(), timeoutMs: 1000 },
+        { target: { port }, dcpDir, timeoutMs: 1000 },
       );
       expect(out).toEqual({});
-      expect(bodies).toEqual([{ kind: 'session-end', sessionId: 's-over' }]);
+      expect(bodies).toEqual([
+        { kind: 'session-end', sessionId: 's-over', repoRoot: path.dirname(path.resolve(dcpDir)) },
+      ]);
     } finally {
       await new Promise<void>((r) => server.close(() => r()));
     }
@@ -273,6 +276,61 @@ describe('handlePreToolUse with a live sidecar', () => {
         deps,
       );
       expect(cheapBash).toEqual({});
+    } finally {
+      await daemon.close();
+    }
+  });
+});
+
+describe('repo identity from the hooks', () => {
+  it('every notify carries the repo the hook runs in', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const server = http.createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (c: Buffer) => chunks.push(c));
+      req.on('end', () => {
+        bodies.push(JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end('{"ok":true}');
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const address = server.address();
+    const port = typeof address === 'object' && address !== null ? address.port : 0;
+    try {
+      const dcpDir = tempDcp();
+      const deps: HookDeps = { target: { port }, dcpDir, timeoutMs: 1000 };
+      const root = path.dirname(path.resolve(dcpDir));
+      await handlePostToolUse(
+        { tool_name: 'Bash', tool_input: { command: 'git status' }, session_id: 's-id' },
+        deps,
+      );
+      await handleSessionStart({ source: 'startup', session_id: 's-id' }, deps);
+      expect(bodies.length).toBeGreaterThanOrEqual(2);
+      for (const body of bodies) {
+        expect(body['repoRoot'], `notify ${String(body['kind'])} must carry repoRoot`).toBe(root);
+      }
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+    }
+  });
+
+  it('never engages governance against a daemon serving another repo', async () => {
+    // The 0.1.1 field shape: every install shares one port, so this repo's
+    // health probe reaches a daemon rooted elsewhere. The hook must treat
+    // that as sidecar-down (vanilla passthrough), not rewrite through it.
+    const foreign = mkdtempSync(path.join(os.tmpdir(), 'redutok-hooks-foreign-'));
+    const foreignDcp = path.join(foreign, '.dcp');
+    mkdirSync(foreignDcp);
+    const daemon = await startDaemon({ port: 0, dcpDir: foreignDcp });
+    try {
+      const dcpDir = tempDcp();
+      const deps: HookDeps = { target: { port: daemon.port }, dcpDir, timeoutMs: 1000 };
+      const bash = await handlePreToolUse(
+        { tool_name: 'Bash', tool_input: { command: 'pnpm vitest run' }, session_id: 's-x' },
+        deps,
+      );
+      expect(bash).toEqual({});
     } finally {
       await daemon.close();
     }

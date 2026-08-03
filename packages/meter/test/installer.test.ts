@@ -296,3 +296,30 @@ describe('removeRepo reverts byte-identical', () => {
     expect(existsSync(path.join(repo, 'CLAUDE.md'))).toBe(false);
   });
 });
+
+describe('per-repo sidecar port', () => {
+  it('derives a stable port from the repo path, inside the reserved range', async () => {
+    const { portForRepo } = await import('../src/installer.js');
+    const a = portForRepo('/home/user/repo-a');
+    const b = portForRepo('/home/user/repo-b');
+    expect(portForRepo('/home/user/repo-a')).toBe(a);
+    expect(a).not.toBe(b);
+    for (const port of [a, b]) {
+      expect(port).toBeGreaterThanOrEqual(42000);
+      expect(port).toBeLessThan(50000);
+    }
+    // Windows and POSIX spellings of one path agree, like the daemon's own
+    // normalizedRoot comparison.
+    expect(portForRepo('E:\\repo\\')).toBe(portForRepo('E:/repo'));
+  });
+
+  it('init writes the per-repo port, not one shared default, into .dcp/config.json', async () => {
+    const { portForRepo } = await import('../src/installer.js');
+    const repo = makeRepo(false);
+    initRepo(repo);
+    const config = JSON.parse(readFileSync(path.join(repo, '.dcp', 'config.json'), 'utf8')) as {
+      port?: number;
+    };
+    expect(config.port).toBe(portForRepo(repo));
+  });
+});

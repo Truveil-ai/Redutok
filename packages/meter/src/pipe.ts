@@ -35,6 +35,10 @@ export interface PipeOptions {
   target: SidecarTarget;
   /** Fallback attribution; the sidecar prefers its hook-registered activeId. */
   sessionId?: string;
+  /** Repo this pipe runs for; a daemon rooted elsewhere refuses the distill
+   * and the refusal fails open to raw output — no handle is ever minted into
+   * a store this repo's zoom would then be refused against. */
+  repoRoot?: string;
   cwd?: string;
   /** Shell used to run the wrapped command; defaults to the platform shell. */
   shell?: string | boolean;
@@ -83,7 +87,7 @@ export async function runPipe(command: string, opts: PipeOptions): Promise<PipeR
     opts.target,
     'POST',
     '/distill',
-    { raw, profile, sessionId: opts.sessionId, tool: 'redutok-pipe' },
+    { raw, profile, sessionId: opts.sessionId, tool: 'redutok-pipe', repoRoot: opts.repoRoot },
     { timeoutMs: opts.timeoutMs ?? LIMITS.PIPE_SIDECAR_TIMEOUT_MS },
   );
   if (!response.ok || response.status !== 200) return rawResult;
@@ -149,6 +153,7 @@ export async function main(argv: string[]): Promise<number> {
   const result = await runPipe(command, {
     target: { port: discoverPort(dcpDir) },
     sessionId: process.env['REDUTOK_SESSION_ID'],
+    repoRoot: path.dirname(path.resolve(dcpDir)),
     cwd: process.cwd(),
     shell: shellEnv !== undefined && shellEnv !== '' ? shellEnv : true,
   });
