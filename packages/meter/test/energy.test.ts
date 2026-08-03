@@ -92,3 +92,36 @@ describe('computeSessionEnergy with unmapped models', () => {
     expect(energy.wh.base).toBeCloseTo(132, 9);
   });
 });
+
+describe('shipped energy_factors.yaml model coverage', () => {
+  // A live claude-opus-5 session estimated 0.00 Wh because no class listed
+  // the model. It joins frontier-large, the same class as claude-opus-4-8
+  // and claude-fable-5; no new per-token figure is invented for it.
+  it('maps claude-opus-5 and claude-fable-5 to frontier-large', () => {
+    const frontierLarge = factors.classes.find((c) => c.modelClass === 'frontier-large');
+    expect(frontierLarge?.models).toContain('claude-opus-5');
+    expect(frontierLarge?.models).toContain('claude-fable-5');
+  });
+
+  it('estimates non-zero energy for a claude-opus-5 session', () => {
+    const ledger = buildLedger({
+      sessionId: 'opus5',
+      assistantTurns: [
+        {
+          model: 'claude-opus-5',
+          tools: [],
+          tokens: { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0, thinking: 0 },
+        },
+      ],
+      counts: { lines: 1, known: 1, unknownType: 0, malformed: 0 },
+      audit: [],
+    });
+    const energy = computeSessionEnergy(ledger, factors, grid);
+    expect(energy.unestimatedModels).toEqual([]);
+    // 1 MTok at the frontier-large base of 450 Wh/MTok; context 1M sits at
+    // the final breakpoint, multiplier 1.4: 450 x 1.4 = 630.
+    expect(energy.wh.base).toBeCloseTo(630, 9);
+    expect(energy.wh.low).toBeCloseTo(210, 9);
+    expect(energy.wh.high).toBeCloseTo(2100, 9);
+  });
+});

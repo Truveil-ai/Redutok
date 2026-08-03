@@ -7,11 +7,18 @@
 # above the frontier-mid anchor because no published per-token figure exists
 # for Anthropic frontier models.
 # Unit note: 1 J per token equals 278 Wh per million tokens.
+# 2026-08-03: claude-opus-5 added to the frontier-large membership list after a
+# live session on it estimated 0.00 Wh. Membership only; the class figures and
+# their verified date are unchanged, because no per-model measurement exists
+# for it any more than for the rest of the class. If a published per-token
+# figure for Anthropic frontier models ever appears, this whole class is the
+# thing to revisit, not just this row.
 version: 1
 classes:
   - modelClass: frontier-large
     models:
       - claude-fable-5
+      - claude-opus-5
       - claude-opus-4-8
     whPerMTok:
       base: 450

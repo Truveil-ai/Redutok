@@ -88,6 +88,7 @@ describe('shipped prices.yaml', () => {
     const ids = prices.models.map((m) => m.id);
     expect(ids).toEqual([
       'claude-fable-5',
+      'claude-opus-5',
       'claude-opus-4-8',
       'claude-sonnet-4-6',
       'claude-sonnet-5',
@@ -99,6 +100,31 @@ describe('shipped prices.yaml', () => {
       expect(model.cacheWritePerMTokUsd).toBeCloseTo(model.inputPerMTokUsd * 1.25, 10);
       expect(model.cacheWrite1hPerMTokUsd).toBeCloseTo(model.inputPerMTokUsd * 2, 10);
     }
+  });
+
+  it('carries the verified claude-opus-5 row, the model this session runs on', () => {
+    // Verified 2026-08-03 against the official pricing page, "Model pricing"
+    // table: Claude Opus 5 at 5 / 6.25 / 10 / 0.50 / 25 per MTok. The row
+    // exists because a live claude-opus-5 session reported 0.0000 USD.
+    const opus5 = loadPrices().models.find((m) => m.id === 'claude-opus-5');
+    expect(opus5).toBeDefined();
+    expect(opus5?.inputPerMTokUsd).toBe(5);
+    expect(opus5?.outputPerMTokUsd).toBe(25);
+    expect(opus5?.cacheReadPerMTokUsd).toBe(0.5);
+    expect(opus5?.cacheWritePerMTokUsd).toBe(6.25);
+    expect(opus5?.cacheWrite1hPerMTokUsd).toBe(10);
+    expect(opus5?.source).toBe('https://platform.claude.com/docs/en/about-claude/pricing');
+  });
+
+  it('prices a claude-opus-5 turn instead of reporting it unpriced', async () => {
+    const ledger = buildLedger(await parseSessionFile(fixture('small.jsonl')));
+    // small.jsonl is all claude-sonnet-5; retarget it so the assertion is
+    // about opus-5 coverage rather than about the fixture's own model.
+    for (const entry of ledger.entries) entry.model = 'claude-opus-5';
+    const cost = computeSessionCost(ledger, loadPrices());
+    expect(cost.unpricedModels).toEqual([]);
+    expect(cost.pricedTurns).toBe(3);
+    expect(cost.totalUsd).toBeGreaterThan(0);
   });
 
   it('follows observed billing for claude-sonnet-5 (standard rate) rather than the documented introductory promise', () => {
