@@ -67,7 +67,9 @@ export async function sidecarUp(dir: string = dcpDir()): Promise<string> {
   mkdirSync(dir, { recursive: true });
   const config = readDcpConfig(dir);
   const require = createRequire(import.meta.url);
-  const entry = require.resolve('@redutok/sidecar/daemon-main');
+  // redutok/daemon-main: @redutok/sidecar is private and inlined into this
+  // package's dist/, so the daemon is spawned from the bundled entry point.
+  const entry = require.resolve('redutok/daemon-main');
   const env: Record<string, string | undefined> = {
     ...process.env,
     REDUTOK_DCP_DIR: dir,
