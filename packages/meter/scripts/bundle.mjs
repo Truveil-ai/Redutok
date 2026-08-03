@@ -28,7 +28,7 @@
  * directly in dist/ or these paths break.
  */
 import { build } from 'esbuild';
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -94,6 +94,18 @@ function copyAssets() {
   for (const name of ['PROTOCOL.md', 'SCOUT.md']) {
     cpSync(path.join(repoRoot, 'docs', name), path.join(docs, name));
   }
+}
+
+// tsc owns dist/*.d.ts and this script owns dist/*.js. Deleting dist/ without
+// also deleting tsconfig.tsbuildinfo leaves tsc believing it is up to date, so
+// it emits no declarations while the bundle below still writes the .js --
+// which surfaces far away, as "could not find a declaration file for module
+// 'redutok'" when ../hooks compiles. Fail here instead, with the remedy.
+if (!existsSync(path.join(outdir, 'index.d.ts'))) {
+  throw new Error(
+    'dist/index.d.ts is missing after tsc. Stale build info: delete ' +
+      'packages/meter/tsconfig.tsbuildinfo alongside dist/ and rebuild.',
+  );
 }
 
 const result = await build({
