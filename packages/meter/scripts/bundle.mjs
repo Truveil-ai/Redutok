@@ -24,8 +24,8 @@
  * their own module URL (`dirname(import.meta.url)/..`). Once inlined, that
  * resolves against this package's dist/, so `..` lands at the package root.
  * copyAssets() puts prices.yaml, energy_factors.yaml, grid_intensity.yaml,
- * migrations/ and docs/ exactly there. Keep every entry point directly in
- * dist/ or these paths break.
+ * migrations/, profiles/ and docs/ exactly there. Keep every entry point
+ * directly in dist/ or these paths break.
  */
 import { build } from 'esbuild';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -84,6 +84,10 @@ function copyAssets() {
   cpSync(path.join(repoRoot, 'packages', 'sidecar', 'migrations'), path.join(meterDir, 'migrations'), {
     recursive: true,
   });
+  // The daemon loads these at startup; without them it answers 503 to every
+  // distill request, which is the whole point of the package.
+  rmSync(path.join(meterDir, 'profiles'), { recursive: true, force: true });
+  cpSync(path.join(repoRoot, 'profiles'), path.join(meterDir, 'profiles'), { recursive: true });
   // redutok init splices blocks out of these two documents.
   const docs = path.join(meterDir, 'docs');
   mkdirSync(docs, { recursive: true });

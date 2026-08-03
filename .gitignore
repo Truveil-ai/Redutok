@@ -9,6 +9,7 @@ coverage/
 # and docs/.
 /packages/meter/docs/
 /packages/meter/migrations/
+/packages/meter/profiles/
 /packages/meter/prices.yaml
 /packages/meter/energy_factors.yaml
 /packages/meter/grid_intensity.yaml

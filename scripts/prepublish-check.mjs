@@ -1,7 +1,7 @@
 // Prepack gate for the redutok package: refuses to pack a tarball that would
 // ship the wrong surface. Run automatically via the prepack script.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const pkgDir = process.cwd();
@@ -19,7 +19,7 @@ if (!pkg.repository?.url?.includes('github.com')) fail('repository url missing')
 // The whitelist carries dist/ plus the runtime assets that scripts/bundle.mjs
 // copies to the package root, because the inlined shared/sidecar code locates
 // them at `dirname(import.meta.url)/..`. Everything else stays out.
-const EXPECTED_FILES = ['dist', 'docs', 'migrations', 'prices.yaml', 'energy_factors.yaml', 'grid_intensity.yaml'];
+const EXPECTED_FILES = ['dist', 'docs', 'migrations', 'profiles', 'prices.yaml', 'energy_factors.yaml', 'grid_intensity.yaml'];
 const actualFiles = [...(pkg.files ?? [])].sort();
 if (JSON.stringify(actualFiles) !== JSON.stringify([...EXPECTED_FILES].sort())) {
   fail(`files whitelist must be exactly ${JSON.stringify(EXPECTED_FILES)}, got ${JSON.stringify(pkg.files)}`);
@@ -49,6 +49,13 @@ for (const doc of ['PROTOCOL.md', 'SCOUT.md']) {
   if (!existsSync(path.join(pkgDir, 'docs', doc))) fail(`docs/${doc} missing; redutok init reads it`);
 }
 if (!existsSync(path.join(pkgDir, 'migrations'))) fail('migrations/ missing; the sidecar store reads it');
+// A daemon without profiles starts fine and then answers 503 to every distill
+// request, so an empty or absent directory has to fail the pack, not the user.
+const profiles = path.join(pkgDir, 'profiles');
+if (!existsSync(profiles)) fail('profiles/ missing; the daemon 503s on every distill without it');
+if (readdirSync(profiles).filter((f) => f.endsWith('.yaml')).length === 0) {
+  fail('profiles/ contains no .yaml profiles');
+}
 
 // The public type entry must not reference the private scope: those packages
 // are bundled away and will not exist in a consumer's tree.

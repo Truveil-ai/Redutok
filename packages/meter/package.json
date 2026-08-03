@@ -59,6 +59,7 @@
     "dist",
     "docs",
     "migrations",
+    "profiles",
     "prices.yaml",
     "energy_factors.yaml",
     "grid_intensity.yaml"

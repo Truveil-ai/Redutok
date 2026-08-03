@@ -86,6 +86,14 @@ describe('packed tarball, registry semantics', () => {
       expect(existsSync(path.join(project, rel)), `init should write ${rel}`).toBe(true);
     }
 
+    // A daemon without profiles starts cleanly and then answers 503 to every
+    // distill request. init is what points it at them, so the path it wrote
+    // has to exist and hold profiles.
+    const dcpConfig = JSON.parse(readFileSync(path.join(project, '.dcp', 'config.json'), 'utf8'));
+    expect(dcpConfig.profilesDir, 'init must resolve a profiles directory').toBeTypeOf('string');
+    expect(existsSync(dcpConfig.profilesDir), `profiles dir ${dcpConfig.profilesDir} must exist`).toBe(true);
+    expect(readdirSync(dcpConfig.profilesDir).filter((f) => f.endsWith('.yaml')).length).toBeGreaterThan(0);
+
     // The generated launchers resolve their entry point at runtime, through
     // the repo -> redutok chain. Executing hook.mjs would prove nothing (it is
     // fail-open and exits 0 even when resolution fails), so probe the same
