@@ -1,10 +1,9 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { sidecarRequest } from '@redutok/sidecar/client';
+import { INSTALL_REMEDY, resolveLauncherChain } from './installer.js';
 import { readDcpConfig, readPidfile } from './sidecar-cli.js';
 
 /** redutok doctor: environment diagnostics, one pass/warn/fail line each with a remedy. */
@@ -115,14 +114,25 @@ export async function doctor(repoRoot: string, options: DoctorOptions = {}): Pro
     });
   }
 
+  // One resolution for both launcher checks, shared with the installer so the
+  // three cannot disagree about what counts as installed.
+  const launcher = resolveLauncherChain(repoRoot);
+
   const settingsPath = path.join(repoRoot, '.claude', 'settings.local.json');
   const hooksRegistered =
     existsSync(settingsPath) && readFileSync(settingsPath, 'utf8').includes('redutok/hook.mjs');
+  // Registered is not the same as runnable. Hooks fail open by design, so an
+  // unresolvable launcher costs nothing visible at hook time -- which is
+  // exactly why doctor has to say it out loud rather than report a pass.
   checks.push({
     name: 'hooks',
-    status: hooksRegistered ? 'pass' : 'warn',
-    detail: hooksRegistered ? 'redutok hooks registered' : 'redutok hooks not registered in this repo',
-    remedy: hooksRegistered ? 'none needed' : 'redutok init .',
+    status: !hooksRegistered ? 'warn' : launcher.ok ? 'pass' : 'fail',
+    detail: !hooksRegistered
+      ? 'redutok hooks not registered in this repo'
+      : launcher.ok
+        ? 'redutok hooks registered'
+        : `hooks registered but the launcher cannot resolve the package, so every hook silently no-ops: ${launcher.reason}`,
+    remedy: !hooksRegistered ? 'redutok init .' : launcher.ok ? 'none needed' : INSTALL_REMEDY,
   });
 
   const mcpJsonPath = path.join(repoRoot, '.mcp.json');
@@ -138,28 +148,20 @@ export async function doctor(repoRoot: string, options: DoctorOptions = {}): Pro
       detail: 'redutok MCP server not registered in .mcp.json (dcp tools absent)',
       remedy: 'redutok init .',
     });
+  } else if (launcher.ok) {
+    checks.push({
+      name: 'mcp-launcher',
+      status: 'pass',
+      detail: 'launcher resolves the installed redutok packages',
+      remedy: 'none needed',
+    });
   } else {
-    // The exact chain the generated launchers run; a resolution error here is
-    // why the MCP server dies at startup and the hook silently no-ops.
-    try {
-      const repoRequire = createRequire(pathToFileURL(path.join(repoRoot, 'package.json')));
-      const meterPkg = repoRequire.resolve('redutok/package.json');
-      createRequire(meterPkg).resolve('redutok/mcp-main');
-      checks.push({
-        name: 'mcp-launcher',
-        status: 'pass',
-        detail: 'launcher resolves the installed redutok packages',
-        remedy: 'none needed',
-      });
-    } catch (err) {
-      checks.push({
-        name: 'mcp-launcher',
-        status: 'fail',
-        detail: `launcher cannot resolve the installed package, so the MCP server dies at startup and hooks no-op: ${err instanceof Error ? err.message : String(err)}`,
-        remedy:
-          'pnpm install to restore node_modules; if the error mentions "exports", the named package must export "./package.json"',
-      });
-    }
+    checks.push({
+      name: 'mcp-launcher',
+      status: 'fail',
+      detail: `launcher cannot resolve the installed package, so the MCP server dies at startup and hooks no-op: ${launcher.reason}`,
+      remedy: INSTALL_REMEDY,
+    });
   }
 
   const claudeJsonPath = options.claudeJsonPath ?? path.join(os.homedir(), '.claude.json');

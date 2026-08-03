@@ -7,8 +7,9 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /**
  * redutok init and remove. Idempotent, portable install: managed files carry
@@ -52,6 +53,41 @@ interface Manifest {
   version: 1;
   entries: ManifestEntry[];
   createdDirs: string[];
+}
+
+export interface LauncherResolution {
+  ok: boolean;
+  /** Absolute path of the resolved redutok package.json, when ok. */
+  packageJson?: string;
+  /** Node's own resolution error, when not ok. */
+  reason?: string;
+}
+
+/** The one instruction that fixes an unresolvable install. */
+export const INSTALL_REMEDY = 'npm install --save-dev redutok, then rerun: npx redutok init .';
+
+/**
+ * Runs exactly the chain the generated launchers run, ahead of time.
+ *
+ * init refuses when this fails and doctor reports it, so the launchers, the
+ * installer and the diagnostics cannot drift on what "installed" means. The
+ * launchers resolve from their own project's directory at hook time, so that
+ * -- not the directory redutok happens to be running from -- is what decides
+ * whether a setup will work.
+ */
+export function resolveLauncherChain(targetDir: string): LauncherResolution {
+  let base = path.join(targetDir, 'package.json');
+  const home = process.env['REDUTOK_HOME'];
+  if (home !== undefined && home !== '') base = path.join(home, 'package.json');
+  try {
+    const packageJson = createRequire(pathToFileURL(base)).resolve('redutok/package.json');
+    const fromPackage = createRequire(packageJson);
+    fromPackage.resolve('redutok/hook-main');
+    fromPackage.resolve('redutok/mcp-main');
+    return { ok: true, packageJson };
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 function launcherSource(entrySpec: string, failOpen: boolean): string {
@@ -198,6 +234,23 @@ function writeDcpConfig(dcpDir: string): void {
 }
 
 export function initRepo(targetDir: string): string {
+  // Refuse before writing anything. The launchers resolve redutok from this
+  // project at hook time, and npx runs from a temporary cache that is never in
+  // the project's node_modules -- so a bare `npx redutok init` used to write a
+  // setup where the MCP server died at startup and every hook silently
+  // no-opped. Half a setup is worse than none: the files would look installed.
+  const resolution = resolveLauncherChain(targetDir);
+  if (!resolution.ok) {
+    throw new Error(
+      `redutok cannot be resolved from ${targetDir}, so the launchers this would write could not load it.\n` +
+        'Running init straight from npx does this: npx executes out of a temporary cache that is never part\n' +
+        "of the project's node_modules, so the MCP server dies at startup and the hooks silently no-op.\n\n" +
+        `  ${INSTALL_REMEDY}\n\n` +
+        'If the install lives outside the project, point REDUTOK_HOME at the directory that holds it.\n' +
+        `(resolution error: ${resolution.reason})`,
+    );
+  }
+
   const dcpDir = path.join(targetDir, '.dcp');
   const backupDir = path.join(dcpDir, 'backup');
   const manifestPath = path.join(backupDir, 'manifest.json');

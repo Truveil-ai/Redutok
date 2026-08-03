@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readAuditFile } from '@redutok/shared';
 import { startDaemon } from '@redutok/sidecar';
 import { handlePreToolUse, handleSessionStart, handleStop } from '@redutok/hooks';
@@ -31,6 +31,20 @@ function snapshot(dir: string): Map<string, string> {
   walk(dir);
   return files;
 }
+
+// init refuses to write launchers it knows cannot resolve. These bare temp
+// repos have no redutok in their node_modules, so REDUTOK_HOME points at this
+// repository, which is a resolvable install -- the same mechanism the launcher
+// itself honours.
+let priorHome: string | undefined;
+beforeEach(() => {
+  priorHome = process.env['REDUTOK_HOME'];
+  process.env['REDUTOK_HOME'] = repoRoot;
+});
+afterEach(() => {
+  if (priorHome === undefined) delete process.env['REDUTOK_HOME'];
+  else process.env['REDUTOK_HOME'] = priorHome;
+});
 
 describe('phase 4 end-to-end smoke', () => {
   it('init, distilled read, zoom, fail-open, byte-identical remove', async () => {
