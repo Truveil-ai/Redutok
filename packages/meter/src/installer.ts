@@ -242,7 +242,7 @@ export function initRepo(targetDir: string): string {
   const resolution = resolveLauncherChain(targetDir);
   if (!resolution.ok) {
     throw new Error(
-      `redutok cannot be resolved from ${targetDir}, so the launchers this would write could not load it.\n` +
+      `redutok cannot be resolved from ${path.resolve(targetDir)}, so the launchers this would write could not load it.\n` +
         'Running init straight from npx does this: npx executes out of a temporary cache that is never part\n' +
         "of the project's node_modules, so the MCP server dies at startup and the hooks silently no-op.\n\n" +
         `  ${INSTALL_REMEDY}\n\n` +

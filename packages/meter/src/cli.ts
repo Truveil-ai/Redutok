@@ -111,8 +111,17 @@ export async function main(argv: string[]): Promise<number> {
   }
   if (command === 'init' || command === 'remove') {
     const target = rest.filter((a) => !a.startsWith('--'))[0] ?? process.cwd();
-    console.log(command === 'init' ? initRepo(target) : removeRepo(target));
-    return 0;
+    // init refusing is an ordinary outcome, not a crash: it is what a user
+    // gets for running it before installing redutok into the project. The
+    // message is the instruction that fixes it, so print that rather than
+    // letting it surface as an unhandled rejection with a stack trace.
+    try {
+      console.log(command === 'init' ? initRepo(target) : removeRepo(target));
+      return 0;
+    } catch (err) {
+      console.error(`redutok ${command} failed: ${err instanceof Error ? err.message : String(err)}`);
+      return 1;
+    }
   }
   if (command === 'up' || command === 'down' || command === 'status') {
     const run = command === 'up' ? sidecarUp : command === 'down' ? sidecarDown : sidecarStatus;

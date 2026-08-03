@@ -135,7 +135,12 @@ for (const spec of ['redutok/hook-main', 'redutok/mcp-main', 'redutok/pipe']) {
     );
     const refused = run('npx', ['--no-install', 'redutok', 'init', q(bare)], project);
     expect(refused.status, 'init into a project without redutok must fail').not.toBe(0);
-    expect(`${refused.stdout}${refused.stderr}`).toContain('npm install --save-dev redutok');
+    const refusal = `${refused.stdout}${refused.stderr}`;
+    expect(refusal).toContain('npm install --save-dev redutok');
+    // Refusing is an ordinary outcome, so it reads as an instruction rather
+    // than a crash. A stack trace here buries the one line that fixes it.
+    expect(refusal, `refusal surfaced as a crash:\n${refusal}`).not.toContain('at initRepo');
+    expect(refusal).not.toContain('MODULE_NOT_FOUND');
     expect(existsSync(path.join(bare, '.claude')), 'refusal must write nothing').toBe(false);
     expect(existsSync(path.join(bare, '.dcp')), 'refusal must write nothing').toBe(false);
   }, 600_000);
