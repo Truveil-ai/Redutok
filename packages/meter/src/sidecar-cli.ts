@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { sameRepoRoot } from '@redutok/shared';
 import { sidecarRequest } from '@redutok/sidecar/client';
 
 /** redutok up, down, status: lifecycle commands for the sidecar daemon. */
@@ -43,6 +44,13 @@ export function readPidfile(dir: string = dcpDir()): Pidfile | undefined {
   }
 }
 
+/** True when the health answer comes from this repo's own daemon. A body
+ * without repoRoot is a pre-0.1.2 daemon and is trusted (legacy). */
+function ownDaemon(dir: string, body: { repoRoot?: unknown }): boolean {
+  if (typeof body.repoRoot !== 'string' || body.repoRoot === '') return true;
+  return sameRepoRoot(body.repoRoot, path.dirname(path.resolve(dir)));
+}
+
 export async function sidecarStatus(dir: string = dcpDir()): Promise<string> {
   const pidfile = readPidfile(dir);
   if (pidfile === undefined) return 'Sidecar: not running (no pidfile).';
@@ -52,7 +60,10 @@ export async function sidecarStatus(dir: string = dcpDir()): Promise<string> {
   if (!res.ok) {
     return `Sidecar: not responding on port ${pidfile.port} (stale pidfile for pid ${pidfile.pid}). Run redutok up.`;
   }
-  const body = res.body as { pid: number; uptimeMs: number };
+  const body = res.body as { pid: number; uptimeMs: number; repoRoot?: string };
+  if (!ownDaemon(dir, body)) {
+    return `Sidecar: port ${pidfile.port} is held by a daemon serving a different repo (${body.repoRoot ?? 'unknown'}). Run redutok up to start this repo's own.`;
+  }
   return `Sidecar: running, pid ${body.pid}, port ${pidfile.port}, uptime ${Math.round(body.uptimeMs / 1000)}s.`;
 }
 
@@ -62,7 +73,12 @@ export async function sidecarUp(dir: string = dcpDir()): Promise<string> {
     const res = await sidecarRequest({ port: existing.port }, 'GET', '/health', undefined, {
       timeoutMs: 1000,
     });
-    if (res.ok) return `Sidecar already running on port ${existing.port}.`;
+    // Identity, not just liveness: a stale pidfile can point at a port now
+    // held by another repo's daemon (every 0.1.1 install shared one default
+    // port). That daemon answering healthy is not this repo running.
+    if (res.ok && res.status === 200 && ownDaemon(dir, res.body as { repoRoot?: unknown })) {
+      return `Sidecar already running on port ${existing.port}.`;
+    }
   }
   mkdirSync(dir, { recursive: true });
   const config = readDcpConfig(dir);
@@ -89,7 +105,12 @@ export async function sidecarUp(dir: string = dcpDir()): Promise<string> {
       const res = await sidecarRequest({ port: pidfile.port }, 'GET', '/health', undefined, {
         timeoutMs: 1000,
       });
-      if (res.ok) return `Sidecar started, pid ${pidfile.pid}, port ${pidfile.port}.`;
+      // The stale pidfile may keep answering (it can point at a foreign
+      // daemon) until the spawned daemon overwrites it; only this repo's own
+      // health counts as started.
+      if (res.ok && res.status === 200 && ownDaemon(dir, res.body as { repoRoot?: unknown })) {
+        return `Sidecar started, pid ${pidfile.pid}, port ${pidfile.port}.`;
+      }
     }
   }
   return 'Sidecar did not become healthy within 5s. Check .dcp/sidecar.log.jsonl.';
