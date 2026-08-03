@@ -12,7 +12,7 @@ import { computeSessionCost, type SessionCost } from './cost.js';
 import { computeSessionEnergy, type SessionEnergy } from './energy.js';
 import { buildLedger, grandTotal, type SessionLedger } from './ledger.js';
 import { parseSessionFile, type ParseCounts } from './parser.js';
-import { scoreSession, type SessionScores } from './scoring.js';
+import { renderCompositeValue, scoreSession, type SessionScores } from './scoring.js';
 
 export interface Report {
   source: string;
@@ -176,7 +176,7 @@ export function renderText(report: Report): string {
   lines.push(
     report.scores.composite === undefined
       ? '  composite            not scorable: no individual score was computable'
-      : `  composite            ${report.scores.composite.value} (${report.scores.composite.grade})`,
+      : `  composite            ${renderCompositeValue(report.scores.composite)}`,
   );
   const tools = Object.entries(ledger.byTool).sort((a, b) => b[1].calls - a[1].calls);
   if (tools.length > 0) {

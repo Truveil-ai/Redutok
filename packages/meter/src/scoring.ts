@@ -15,7 +15,19 @@ export type ScoreResult =
 
 export interface CompositeScore {
   value: number;
-  grade: string;
+  /**
+   * Letter grade, present only when at least
+   * LIMITS.COMPOSITE_MIN_SCORES_FOR_GRADE of the four scores contributed.
+   * Absent on a partial composite so no consumer can render a grade the
+   * session did not earn; the type makes that a compile error, not a habit.
+   */
+  grade?: string;
+  /** How many of the four scores were scorable and fed the weighted mean. */
+  contributing: number;
+  /** How many scores exist in total; four, per docs/SCORING.md. */
+  total: number;
+  /** True when too few scores contributed for a letter grade. */
+  partial: boolean;
   weightsUsed: Record<string, number>;
 }
 
@@ -122,6 +134,30 @@ export function gradeFor(value: number): string {
   return 'F';
 }
 
+/**
+ * The one place a composite is turned into text. Every surface that shows a
+ * composite goes through here so the disclosure cannot drift between the
+ * report, the badge, and the receipt.
+ */
+export function renderCompositeValue(composite: CompositeScore): string {
+  const { value, grade, contributing, total, partial } = composite;
+  if (partial) {
+    return `${value} (partial, from ${contributing} of ${total} scores; no grade below ${LIMITS.COMPOSITE_MIN_SCORES_FOR_GRADE})`;
+  }
+  if (contributing < total) return `${value} (${grade}, from ${contributing} of ${total} scores)`;
+  return `${value} (${grade})`;
+}
+
+/**
+ * Compact composite for table cells (bench tables, badges): the letter when
+ * one was earned, an explicit partial marker when it was not.
+ */
+export function compositeCell(composite: CompositeScore | undefined): string {
+  if (composite === undefined) return 'n/a';
+  if (composite.partial) return `partial ${composite.contributing}/${composite.total}`;
+  return composite.grade ?? 'n/a';
+}
+
 export function scoreSession(
   ledger: SessionLedger,
   energy: SessionEnergy | undefined,
@@ -133,21 +169,34 @@ export function scoreSession(
     cacheUtilization: cacheUtilization(ledger),
     energyPerOutcome: energyPerOutcome(ledger, energy),
   };
+  const keys = ['contextEfficiency', 'outputDiscipline', 'cacheUtilization', 'energyPerOutcome'] as const;
   const weightsUsed: Record<string, number> = {};
   let weighted = 0;
   let weightSum = 0;
-  for (const key of ['contextEfficiency', 'outputDiscipline', 'cacheUtilization', 'energyPerOutcome'] as const) {
+  let contributing = 0;
+  for (const key of keys) {
     const result = scores[key];
     if (result.scorable) {
       const w = LIMITS.SCORE_WEIGHTS[key];
       weightsUsed[key] = w;
       weighted += w * result.score;
       weightSum += w;
+      contributing += 1;
     }
   }
   if (weightSum > 0) {
     const value = round(weighted / weightSum);
-    scores.composite = { value, grade: gradeFor(value), weightsUsed };
+    const partial = contributing < LIMITS.COMPOSITE_MIN_SCORES_FOR_GRADE;
+    scores.composite = {
+      value,
+      // Withheld outright when partial, rather than carried alongside a flag
+      // a caller might forget to check.
+      ...(partial ? {} : { grade: gradeFor(value) }),
+      contributing,
+      total: keys.length,
+      partial,
+      weightsUsed,
+    };
   }
   return scores;
 }

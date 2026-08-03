@@ -59,6 +59,13 @@ export const LIMITS = {
     cacheUtilization: 0.25,
     energyPerOutcome: 0.15,
   },
+  /**
+   * How many of the four scores must contribute before the composite is
+   * allowed to wear a letter grade. Below this it renders as an explicitly
+   * partial result: a weighted mean of two scores is not evidence about the
+   * two that could not be computed, and a bare letter reads as if it were.
+   */
+  COMPOSITE_MIN_SCORES_FOR_GRADE: 3,
   /** Grade boundaries: composite at or above the bound earns the letter; below all is F. */
   GRADE_BOUNDS: [
     [90, 'A'],

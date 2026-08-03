@@ -116,7 +116,9 @@ describe('renderText', () => {
     expect(text).toMatch(/context efficiency\s+not scorable:/);
     expect(text).toMatch(/output discipline\s+100/);
     expect(text).toMatch(/cache utilization\s+92/);
-    expect(text).toMatch(/composite\s+97 \(A\)/);
+    // Three of the four scores contribute here, so the grade stands but the
+    // line now says what it rests on (docs/SCORING.md, composite disclosure).
+    expect(text).toMatch(/composite\s+97 \(A, from 3 of 4 scores\)/);
     expect(text).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);
   });
 });

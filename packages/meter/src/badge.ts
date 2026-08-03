@@ -10,9 +10,12 @@ const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function gradeText(report: Report): string {
-  return report.scores.composite === undefined
-    ? 'not scorable'
-    : `grade ${report.scores.composite.grade}`;
+  const composite = report.scores.composite;
+  if (composite === undefined) return 'not scorable';
+  // A README badge is the least supervised surface there is, so a partial
+  // composite must never reach it wearing a letter.
+  if (composite.partial) return `partial ${composite.contributing}/${composite.total}`;
+  return `grade ${composite.grade}`;
 }
 
 export function renderBadgeSvg(report: Report): string {
