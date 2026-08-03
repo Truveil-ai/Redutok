@@ -7,8 +7,8 @@ budget.
 
 1. Build Redutok (about two minutes, mostly the install):
 
-       git clone https://github.com/imkaran7/redutok
-       cd redutok
+       git clone https://github.com/Truveil-ai/Redutok
+       cd Redutok
        pnpm install
        pnpm -r build
 

@@ -16,7 +16,7 @@ Phase 1, all four sub-steps:
 - (a) Tolerant JSONL transcript parser in packages/meter/src/parser.ts. Unknown record types and malformed lines are counted, never thrown, and produce a skip AuditEvent (guardrail 3). Fixtures: fixtures/sessions/{small,malformed}.jsonl hand-written; {medium,long-agentic}.jsonl generated deterministically by scripts/gen-fixtures.mjs with independently summed .expected.json totals.
 - (b) Token ledger in ledger.ts: per-turn LedgerEntry list, session totals across input, output, cache read, cache write, thinking, and per-tool attribution (calls plus output token share split evenly across a turn's tools).
 - (c) packages/shared/prices.yaml and cost computation in cost.ts. Rows for claude-fable-5, claude-opus-4-8, claude-sonnet-4-6, claude-sonnet-5, claude-haiku-4-5, each citing https://platform.claude.com/docs/en/about-claude/pricing (checked 2026-07-18). Cache read is 0.10 of input, cache write is 1.25 of input, thinking tokens bill at the output rate. Unpriced models are reported, never silently zero-costed.
-- (d) CLI: node packages/meter/dist/cli.js report <file> or --last, with --json. Bin entries redutok and rtk registered in packages/meter. Verified end to end on a real machine log under C:\Users\Karan\.claude\projects (108 turns parsed, totals rendered).
+- (d) CLI: node packages/meter/dist/cli.js report <file> or --last, with --json. Bin entries redutok and rtk registered in packages/meter. Verified end to end on a real machine log under ~/.claude/projects (108 turns parsed, totals rendered).
 
 Phase 1 acceptance: totals match hand-computed values on small.jsonl to the token (test), generator-expected totals on medium and long-agentic (test), malformed-log test passes, report --last verified on a real log.
 

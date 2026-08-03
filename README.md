@@ -162,8 +162,8 @@ working build is `0.1.0` in this repository and has not been published yet,
 so until the release publish `npx redutok` fetches the placeholder rather
 than the tool. Until then, build from source and invoke the CLI by path:
 
-    git clone https://github.com/imkaran7/redutok
-    cd redutok
+    git clone https://github.com/Truveil-ai/Redutok
+    cd Redutok
     pnpm install
     pnpm -r build
 
