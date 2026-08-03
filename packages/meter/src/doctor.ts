@@ -144,7 +144,7 @@ export async function doctor(repoRoot: string, options: DoctorOptions = {}): Pro
     try {
       const repoRequire = createRequire(pathToFileURL(path.join(repoRoot, 'package.json')));
       const meterPkg = repoRequire.resolve('redutok/package.json');
-      createRequire(meterPkg).resolve('@redutok/mcp/main');
+      createRequire(meterPkg).resolve('redutok/mcp-main');
       checks.push({
         name: 'mcp-launcher',
         status: 'pass',

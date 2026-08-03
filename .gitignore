@@ -2,6 +2,16 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
+
+# Runtime assets copied into the redutok package by scripts/bundle.mjs so the
+# inlined `dirname(import.meta.url)/..` lookups resolve inside the tarball.
+# Build outputs, not sources: the originals live in packages/{shared,sidecar}
+# and docs/.
+/packages/meter/docs/
+/packages/meter/migrations/
+/packages/meter/prices.yaml
+/packages/meter/energy_factors.yaml
+/packages/meter/grid_intensity.yaml
 .DS_Store
 .dcp/*
 !.dcp/codex.yaml

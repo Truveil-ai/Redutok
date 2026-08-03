@@ -4,7 +4,12 @@
     "composite": true,
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["node"]
+    "types": ["node"],
+    // The .js in dist/ comes from scripts/bundle.mjs, not from tsc. This lives
+    // in the tsconfig rather than on the build script's command line so that
+    // `tsc -b` reaching this project through the reference in ../hooks agrees
+    // with `pnpm build` and cannot clobber the bundle with unbundled output.
+    "emitDeclarationOnly": true
   },
   "include": ["src"]
 }

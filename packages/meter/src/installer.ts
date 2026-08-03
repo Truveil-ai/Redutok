@@ -133,15 +133,26 @@ process.exitCode = await main(process.argv.slice(2));
 `;
 }
 
+/**
+ * Locates a document that init splices blocks out of.
+ *
+ * Two layouts have to work. In the published tarball the docs are copied to
+ * the package root by scripts/bundle.mjs, one level above dist/. In the
+ * monorepo they live at the repository root, three levels above. Only the
+ * monorepo path existed before, which meant `redutok init` could never have
+ * worked from a published install: it read straight out of the tarball.
+ */
+function docPath(name: string): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const packaged = path.join(here, '..', 'docs', name);
+  return existsSync(packaged) ? packaged : path.join(here, '..', '..', '..', 'docs', name);
+}
+
 /** The dcp block shipped with this build, extracted from docs/PROTOCOL.md.
  * Exported so the bench harness can assert a freshly-initialized copy runs
  * the current protocol, not a stale dogfood block. */
 export function shippedProtocolBlock(): string {
-  const protocolPath = path.join(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '..', '..', '..', 'docs', 'PROTOCOL.md',
-  );
-  const text = readFileSync(protocolPath, 'utf8');
+  const text = readFileSync(docPath('PROTOCOL.md'), 'utf8');
   const match = /<!-- dcp:start v1 -->[\s\S]*?<!-- dcp:end -->/.exec(text);
   if (match === null) throw new Error('docs/PROTOCOL.md is missing the dcp block markers');
   return match[0];
@@ -156,11 +167,7 @@ export function extractDcpBlock(text: string): string | undefined {
 /** Architecture-v2 pillar 2: the scout subagent definition, extracted the
  * same way protocolBlock extracts the CLAUDE.md block, from docs/SCOUT.md. */
 function scoutAgentBlock(): string {
-  const scoutPath = path.join(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '..', '..', '..', 'docs', 'SCOUT.md',
-  );
-  const text = readFileSync(scoutPath, 'utf8');
+  const text = readFileSync(docPath('SCOUT.md'), 'utf8');
   // \r?\n: a fresh checkout with autocrlf (Windows CI leg) puts CRLF after
   // the marker; requiring a bare \n made every initRepo call fail there.
   const match = /<!-- scout:start v1 -->\r?\n([\s\S]*?)<!-- scout:end -->/.exec(text);
@@ -218,12 +225,15 @@ export function initRepo(targetDir: string): string {
 
   writeFileSync(
     path.join(targetDir, '.claude', 'redutok', 'hook.mjs'),
-    launcherSource('@redutok/hooks/hook-main', true),
+    // redutok/hook-main, not @redutok/hooks/hook-main: the scoped packages are
+    // private and inlined into this package's dist/, so the old specifier
+    // resolves to nothing in a consumer's tree.
+    launcherSource('redutok/hook-main', true),
     'utf8',
   );
   writeFileSync(
     path.join(targetDir, '.claude', 'redutok', 'mcp.mjs'),
-    launcherSource('@redutok/mcp/main', false),
+    launcherSource('redutok/mcp-main', false),
     'utf8',
   );
   writeFileSync(

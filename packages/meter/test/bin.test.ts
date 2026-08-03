@@ -11,8 +11,8 @@ describe('redutok bin wiring', () => {
     const pkg = JSON.parse(readFileSync(path.join(pkgRoot, 'package.json'), 'utf8')) as {
       bin: Record<string, string>;
     };
-    expect(pkg.bin['redutok']).toBe('./dist/cli.js');
-    expect(pkg.bin['rtk']).toBe('./dist/cli.js');
+    expect(pkg.bin['redutok']).toBe('dist/cli.js');
+    expect(pkg.bin['rtk']).toBe('dist/cli.js');
     const entry = path.join(pkgRoot, 'dist', 'cli.js');
     expect(existsSync(entry), 'build the meter before running tests').toBe(true);
     expect(readFileSync(entry, 'utf8').startsWith('#!/usr/bin/env node')).toBe(true);
