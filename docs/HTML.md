@@ -105,11 +105,32 @@ than two landmarks gets no entry at all.
 
 ## Where it applies
 
-The same three paths the prose skeleton reaches ([PROSE.md](PROSE.md)):
-
-- the offline mirror refresh (`redutok codex refresh`, file-change notifies),
-- the daemon's on-demand preparation, when the hook meets an oversized
-  artifact nothing has indexed yet (see [POSTURE.md](POSTURE.md)),
+- the daemon's **on-demand preparation**, when the hook meets an oversized
+  artifact nothing has indexed yet (see [POSTURE.md](POSTURE.md)). This is the
+  path that actually carries pages, and the one measured below;
+- the **file-change notify**, which hands the mirror its full changed list, so
+  a page edited in-session gains an entry;
 - `/serve-file`, so `dcp__read` on a page returns a map.
 
+Not `redutok codex refresh`. The offline refresh feeds the mirror the codex
+lock's own file list, and the codex walks source extensions only, so it
+pre-builds no page entry — and no prose entry either. Nothing is lost: the
+on-demand path builds the map when the read happens, which is what the
+verification below exercises. Pre-building pages and documents offline is a
+separate change.
+
 Covered extensions: `.html`, `.htm`.
+
+## Verified from a fresh install
+
+`redutok@0.1.6` installed into an empty repo, `init` and `doctor` clean, the
+sidecar up, and the shipped PreToolUse hook driven with a real `Read` payload
+for a 134,351-byte single-file dashboard (1,576 lines):
+
+- the hook rewrote the read to `.dcp/mirror/app/index.html`, **18,675 bytes**,
+  13.9% of the source, listing 200 sections;
+- the inline blocks are named, not pasted: `inline style, 427 lines, 230
+  rules` and `inline script, 666 lines; defines QUARTERS, ACCOUNTS, ...`;
+- `dcp__zoom("a311c0c")` returned 134,351 bytes, byte-identical to the file;
+- `dcp__zoom("a311c0c", "style")` returned a 36,669-byte slice of the source
+  with every declaration the one-liner had replaced.
