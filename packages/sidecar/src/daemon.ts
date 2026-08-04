@@ -238,7 +238,7 @@ function handler(
           );
           if (!result.ok) {
             // Why this artifact enters context whole, recorded where the
-            // receipt can read it back (docs/RECEIPT.md).
+            // receipt can read it back (docs/SCORING.md).
             const event: AuditEvent = {
               id: `passthrough-${randomBytes(3).toString('hex')}`,
               timestamp: new Date().toISOString(),

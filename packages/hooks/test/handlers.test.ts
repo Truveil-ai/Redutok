@@ -439,13 +439,13 @@ describe('handleStop', () => {
     expect(written).toBe(`${result.summaryLine}\n${result.receiptBlock}\n`);
   });
 
-  it('prints no distillations this session when no audit events are attributable', async () => {
+  it('says nothing was governed when no audit events are attributable', async () => {
     const dcpDir = tempDcp();
     const result = await handleStop({ transcript_path: fixtureSession }, { ...DEAD, dcpDir });
-    expect(result.receiptBlock).toContain('no distillations this session');
+    expect(result.receiptBlock).toContain('nothing was governed this session');
     expect(result.receiptBlock).not.toContain('avoided  0 tokens');
     expect(readFileSync(path.join(dcpDir, 'last-receipt.txt'), 'utf8')).toContain(
-      'no distillations this session',
+      'nothing was governed this session',
     );
   });
 

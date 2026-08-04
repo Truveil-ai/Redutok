@@ -69,7 +69,7 @@ export const AuditActionSchema = z.enum([
   'posture',
   // An artifact that entered context whole, with the reason no skeleton
   // covered it. Recorded so a session that governed little can say why
-  // rather than leaving the reader to infer it (docs/RECEIPT.md).
+  // rather than leaving the reader to infer it (docs/SCORING.md).
   'passthrough',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
