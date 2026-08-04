@@ -19,5 +19,6 @@ coverage/
 !.dcp/codex.lock
 # Nested .dcp dirs (vault ledger, WAL, audit) hold live state, never committed.
 # Excluding the directory itself, which "**/.dcp/" would also do to the root one,
-# stops git descending into it and would defeat the negations above.
+# stops git descending into it and would defeat the negations above. This also
+# covers the corpus state the vault ingest tests build beside a fixture.
 **/*/.dcp/
