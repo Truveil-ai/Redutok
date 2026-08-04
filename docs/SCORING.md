@@ -28,11 +28,19 @@ in the session's tool table but no audit events carry its session id, the
 reason reads "audit events not attributable to this session" — never a claim
 of non-use that the ledger contradicts.
 
-This replaces an earlier ratio of distilled to raw-**served** bytes, which was
-degenerate in the common case: a session where nothing failed open scored 100
-regardless of what it saved, and the same artifact scored differently
-depending on which serve path handled it. A live 0.1.3 session scored 100 with
-the detail "22138B distilled vs 0B raw across 2 serves".
+**This definition changed in 0.1.4.** Through 0.1.3 the score was
+100 x distilledBytes / (distilledBytes + rawServedBytes): a ratio against the
+bytes a session served raw, rather than against the raw those serves stood in
+for. It was degenerate in the common case, because a session where nothing
+failed open scored 100 regardless of what it saved, and the same artifact
+scored differently depending on which serve path handled it. A live 0.1.3
+session scored 100 with the detail "22138B distilled vs 0B raw across 2
+serves". Scores computed under the two definitions are not comparable; see
+[BENCH-REPORT.md](BENCH-REPORT.md) section 8.
+
+The detail string changed with it, from "<distilled>B distilled vs <raw>B raw"
+to "<served>B served for <raw>B raw", so which definition produced a given
+figure is legible from the figure itself.
 
 ## Output Discipline (weight 0.25)
 
