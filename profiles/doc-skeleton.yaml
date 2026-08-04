@@ -1,0 +1,26 @@
+name: doc-skeleton
+version: "1"
+description: Prose document reduced to its structure map, the skeleton equivalent for Markdown, text and PDF
+match:
+  tools: [Read]
+  contentType: document
+rules:
+  # No ask on a repo read, so the distillate is the structure map alone:
+  # every section as a citation line with its anchor and one-line summary.
+  # The document body is elided behind the zoom handle.
+  - kind: structure-map
+    config: { maxSections: 400 }
+gates:
+  # Prose discipline, the same extraction set the Vault uses. With no ask
+  # there is no conclusion-relevant region, so the region is the document's
+  # own heading lines: every section title a reader would cite or zoom to has
+  # to survive into the map verbatim.
+  entityPatterns: prose
+  entityPreservationMinRatio: 1
+  # A structure map earns its place only by being far smaller than the
+  # document. A short or heading-dense file that cannot clear this is served
+  # raw, which is what would have happened without the profile.
+  sizeMaxRatio: 0.4
+  minOutputBytes: 40
+llm:
+  enabled: false

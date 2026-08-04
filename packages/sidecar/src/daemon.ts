@@ -6,6 +6,7 @@ import { sameRepoRoot, type AuditEvent, type DistillProfile } from '@redutok/sha
 import { AuditWriter } from './audit.js';
 import { enrichmentDirectives, readCodex, refreshFiles } from './codex.js';
 import { enrichmentFor } from './mirror.js';
+import { buildStructureMap, extractDocument, isDocumentPath, type DocExtraction } from './docs.js';
 import { distillArtifact, loadProfiles, zoom } from './distill.js';
 import { exploreGoal } from './explore.js';
 import { runGraduationMiner } from './graduation.js';
@@ -136,15 +137,54 @@ function handler(
           if (refuseIfCrossRepo(p)) return;
           const sessionId = attributedSessionId(p['sessionId']);
           const relPath = String(p['path'] ?? '');
-          const raw = String(p['raw'] ?? '');
+          // A document's text is extracted here rather than taken from the
+          // caller: the MCP server reads bytes as utf8, which is the document
+          // itself for Markdown and text but mojibake for a PDF. Extraction
+          // failure falls back to what the caller sent, never an error.
+          let raw = String(p['raw'] ?? '');
+          let docExtraction: DocExtraction | undefined;
+          if (isDocumentPath(relPath)) {
+            try {
+              const abs = path.isAbsolute(relPath) ? relPath : path.join(repoRoot, relPath);
+              const extracted = extractDocument(abs);
+              if (extracted.outOfScope === undefined && extracted.text.trim() !== '') {
+                docExtraction = extracted;
+                raw = extracted.text;
+              }
+            } catch {
+              // Not extractable: the caller's raw stands.
+            }
+          }
           const served = serveFile(engines.store, engines.audit, sessionId, relPath, raw);
           if (served.mode !== 'full') {
             respond(200, { ...served, handle: `[dcp:file ${served.ref}]` });
             return;
           }
-          const profile = engines.profiles.get('file-skeleton');
+          // Prose documents distil to their structure map, code to its
+          // signature list; the profile follows the artifact, not the caller.
+          const profile = engines.profiles.get(
+            docExtraction === undefined ? 'file-skeleton' : 'doc-skeleton',
+          );
           if (profile === undefined) {
             respond(200, { ...served, handle: `[dcp:file ${served.ref}]` });
+            return;
+          }
+          if (docExtraction !== undefined) {
+            const sections = await buildStructureMap(docExtraction, engines.llm);
+            const outcome = await distillArtifact(engines.store, engines.audit, {
+              raw,
+              profile,
+              sessionId,
+              tool: 'dcp__read',
+              context: {
+                filePath: relPath,
+                doc: {
+                  sections,
+                  ...(docExtraction.pages === undefined ? {} : { pages: docExtraction.pages }),
+                },
+              },
+            });
+            respond(200, { mode: 'full', ref: served.ref, text: outcome.text, handle: outcome.handle });
             return;
           }
           // Skeleton enrichment (docs/GRADUATION.md): a graduated hotspot

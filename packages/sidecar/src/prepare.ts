@@ -3,6 +3,14 @@ import path from 'node:path';
 import type { DistillProfile } from '@redutok/shared';
 import type { AuditWriter } from './audit.js';
 import { distillArtifact } from './distill.js';
+import {
+  buildStructureMap,
+  extractDocument,
+  isDocumentPath,
+  type DocPage,
+  type DocSection,
+} from './docs.js';
+import { NoopLlmPass, type LlmPass } from './llm.js';
 import { mirrorHash, readMirrorIndex, mirrorEntryPath, writeMirrorEntry } from './mirror.js';
 import { languageForPath } from './skeleton.js';
 import type { Store } from './store.js';
@@ -30,6 +38,10 @@ export interface PrepareDeps {
   audit: AuditWriter;
   profiles: Map<string, DistillProfile>;
   repoRoot: string;
+  /** Section one-liners go through this seam; without it the deterministic
+   * first-sentence rule stands in, which is what runs on a repo with no
+   * local model (docs/PROSE.md). */
+  llm?: LlmPass;
 }
 
 export interface PrepareResult {
@@ -41,9 +53,15 @@ export interface PrepareResult {
   rawBytes?: number;
 }
 
-/** The profile that turns this file into a skeleton, by type. */
+/**
+ * The profile that turns this file into a skeleton, by type: tree-sitter
+ * languages become signature lists, prose documents become structure maps.
+ * Everything else has no skeleton builder and is read raw.
+ */
 export function skeletonProfileFor(rel: string): string | undefined {
-  return languageForPath(rel) === undefined ? undefined : 'file-skeleton';
+  if (languageForPath(rel) !== undefined) return 'file-skeleton';
+  if (isDocumentPath(rel)) return 'doc-skeleton';
+  return undefined;
 }
 
 /** A mirror entry already fresh for this source needs no rebuild. */
@@ -80,17 +98,43 @@ export async function prepareSkeletonEntry(
   } catch (err) {
     return { ok: false, reason: `unreadable: ${err instanceof Error ? err.message : String(err)}`, rawBytes };
   }
-  const content = bytes.toString('utf8');
   const hash = mirrorHash(bytes);
   const fresh = freshEntry(deps.repoRoot, relPath, hash);
   if (fresh !== undefined) return { ok: true, mirrorPath: fresh, rawBytes };
+
+  // For a document the raw is its extracted text, not its container bytes:
+  // that is what a read puts in context, what the structure map is computed
+  // over, and therefore what zoom has to return byte for byte.
+  let content: string;
+  let rawLabel = 'raw';
+  let doc: { sections: DocSection[]; pages?: DocPage[] } | undefined;
+  if (profileName === 'doc-skeleton') {
+    let extraction;
+    try {
+      extraction = extractDocument(abs);
+    } catch (err) {
+      return { ok: false, reason: `extraction failed: ${err instanceof Error ? err.message : String(err)}`, rawBytes };
+    }
+    if (extraction.outOfScope !== undefined) {
+      return { ok: false, reason: `no text layer to skeletonize: ${extraction.outOfScope}`, rawBytes };
+    }
+    const sections = await buildStructureMap(extraction, deps.llm ?? new NoopLlmPass());
+    if (sections.length === 0) {
+      return { ok: false, reason: 'no sections detected in this document', rawBytes };
+    }
+    content = extraction.text;
+    doc = { sections, ...(extraction.pages === undefined ? {} : { pages: extraction.pages }) };
+    rawLabel = `${extraction.method} raw`;
+  } else {
+    content = bytes.toString('utf8');
+  }
 
   const outcome = await distillArtifact(deps.store, deps.audit, {
     raw: content,
     profile,
     sessionId,
     tool: 'Read',
-    context: { filePath: relPath },
+    context: { filePath: relPath, ...(doc === undefined ? {} : { doc }) },
   });
   if (outcome.served !== 'distilled') {
     // The gates refused it; the caller reads raw, exactly as it would have
@@ -110,6 +154,7 @@ export async function prepareSkeletonEntry(
     rawLines: content.split('\n').length,
     realPath: abs,
     zoomId: outcome.artifactId,
+    rawLabel,
   });
   return { ok: true, mirrorPath, rawBytes };
 }
