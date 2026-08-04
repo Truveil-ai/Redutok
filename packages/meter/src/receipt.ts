@@ -1,15 +1,15 @@
 import { readFileSync } from 'node:fs';
-import {
-  LIMITS,
-  loadEnergyFactors,
-  loadGridIntensity,
-  loadPrices,
-  readAuditFile,
-  type AuditEvent,
-} from '@redutok/shared';
+import { loadEnergyFactors, loadGridIntensity, loadPrices, readAuditFile } from '@redutok/shared';
 import { computeSessionCost } from './cost.js';
 import { computeSessionEnergy } from './energy.js';
 import { grandTotal, type SessionLedger } from './ledger.js';
+import {
+  computeSessionSavings,
+  passthroughLines,
+  type Distillation,
+  type Passthrough,
+  type SessionSavings,
+} from './savings.js';
 import { renderCompositeValue, scoreSession } from './scoring.js';
 
 /**
@@ -19,22 +19,10 @@ import { renderCompositeValue, scoreSession } from './scoring.js';
  * so producing a receipt is always free.
  */
 
-export interface ReceiptDistillation {
-  /** Distill profile name when recorded, else the emitting module. */
-  label: string;
-  /** Artifact reference for zooming, else the audit event id. */
-  ref: string;
-  rawTokens: number;
-  servedTokens: number;
-  avoidedTokens: number;
-}
+export type ReceiptDistillation = Distillation;
 
 /** An artifact that entered context whole, with the reason it did. */
-export interface ReceiptPassthrough {
-  path: string;
-  rawTokens: number;
-  reason: string;
-}
+export type ReceiptPassthrough = Passthrough;
 
 export interface SessionReceipt {
   sessionId: string;
@@ -59,6 +47,8 @@ export interface SessionReceipt {
   notScorableReason?: string;
   /** Large artifacts that entered context whole, each with its reason. */
   passthroughs: ReceiptPassthrough[];
+  /** The full savings computation, shared with the report (savings.ts). */
+  savings: SessionSavings;
   /**
    * A floor on what distilling those artifacts would have saved, in tokens.
    * Derived from the size gate every profile must clear (a distillate over
@@ -67,12 +57,6 @@ export interface SessionReceipt {
    */
   estimatedAvoidableTokens: number;
 }
-
-/** Same 4-chars-per-token heuristic the sidecar uses for handle estimates. */
-const bytesToTokens = (bytes: number): number => Math.round(bytes / 4);
-
-const avoidedFor = (e: { bytesIn: number; bytesOut: number }): number =>
-  Math.max(0, bytesToTokens(e.bytesIn) - bytesToTokens(e.bytesOut));
 
 export interface SessionReceiptOptions {
   /** Sidecar audit trail, normally <dcpDir>/audit.jsonl. */
@@ -119,36 +103,17 @@ export function buildSessionReceipt(
   );
   const scores = scoreSession(ledger, energy, audit);
 
-  const measured = audit.filter(
-    (e): e is AuditEvent & { bytesIn: number; bytesOut: number } =>
-      e.bytesIn !== undefined && e.bytesOut !== undefined,
-  );
-  const topDistillations = measured
-    .filter((e) => e.action === 'distill')
-    .map((e) => ({
-      label: typeof e.details?.['profile'] === 'string' ? (e.details['profile'] as string) : e.module,
-      ref: e.inputRef ?? e.id,
-      rawTokens: bytesToTokens(e.bytesIn),
-      servedTokens: bytesToTokens(e.bytesOut),
-      avoidedTokens: avoidedFor(e),
-    }))
-    .sort((a, b) => b.avoidedTokens - a.avoidedTokens)
-    .slice(0, 3);
-
-  const passthroughs = audit
-    .filter((e) => e.action === 'passthrough')
-    .map((e) => ({
-      path: typeof e.details?.['path'] === 'string' ? (e.details['path'] as string) : '(unnamed)',
-      rawTokens: bytesToTokens(e.bytesIn ?? 0),
-      reason:
-        typeof e.details?.['reason'] === 'string'
-          ? (e.details['reason'] as string)
-          : 'no skeleton available',
-    }))
-    .sort((a, b) => b.rawTokens - a.rawTokens);
-
-  const served = measured.filter((e) => e.action === 'distill' || e.action === 'serve-raw');
-  const contextEfficiency = scores.contextEfficiency;
+  // One computation, shared with the report: the two surfaces cannot
+  // disagree about what a session saved because there is only one answer.
+  const savings = computeSessionSavings({
+    ledger,
+    audit,
+    contextEfficiency: scores.contextEfficiency,
+    prices: loadPrices(options.pricesPath),
+    factors: loadEnergyFactors(),
+    grid: loadGridIntensity(),
+    region: options.region,
+  });
 
   return {
     sessionId: ledger.sessionId,
@@ -157,15 +122,14 @@ export function buildSessionReceipt(
     costUsd: cost.pricedTurns > 0 ? cost.totalUsd : undefined,
     grade: scores.composite === undefined ? undefined : renderCompositeValue(scores.composite),
     auditEvents: audit.length,
-    avoidedTokens: measured.reduce((n, e) => n + avoidedFor(e), 0),
-    topDistillations,
+    avoidedTokens: savings.avoidedTokens,
+    topDistillations: savings.topDistillations,
     posture: postureLineFor(options.posturePath, ledger.sessionId),
-    governed: served.length > 0,
-    notScorableReason: contextEfficiency.scorable ? undefined : contextEfficiency.reason,
-    passthroughs,
-    estimatedAvoidableTokens: Math.round(
-      passthroughs.reduce((n, p) => n + p.rawTokens, 0) * (1 - LIMITS.SIZE_SANITY_MAX_RATIO),
-    ),
+    governed: savings.governed,
+    notScorableReason: savings.notScorableReason,
+    passthroughs: savings.passthroughs,
+    estimatedAvoidableTokens: savings.estimatedAvoidableTokens,
+    savings,
   };
 }
 
@@ -190,7 +154,7 @@ export function renderReceiptBlock(receipt: SessionReceipt): string {
     if (receipt.notScorableReason !== undefined) {
       lines.push(`  context efficiency is not scorable: ${receipt.notScorableReason}`);
     }
-    lines.push(...passthroughLines(receipt));
+    lines.push(...passthroughLines(receipt.savings));
     return lines.join('\n');
   }
   lines.push(`  billed   ${fmt(receipt.billedTokens)} tokens across ${receipt.turns} turns, ${cost}`);
@@ -208,26 +172,7 @@ export function renderReceiptBlock(receipt: SessionReceipt): string {
       );
     });
   }
-  lines.push(...passthroughLines(receipt));
+  lines.push(...passthroughLines(receipt.savings));
   lines.push(`  grade    ${receipt.grade ?? 'not scorable'}`);
   return lines.join('\n');
-}
-
-/**
- * The artifacts that entered context whole, each with the reason no skeleton
- * covered it, and what distilling them would have saved. The saving is a
- * floor derived from the size gate every profile must clear, so it is stated
- * as an estimate and never as a measurement.
- */
-function passthroughLines(receipt: SessionReceipt): string[] {
-  if (receipt.passthroughs.length === 0) return [];
-  const lines = [`  read raw  ${receipt.passthroughs.length} large artifacts entered context whole`];
-  for (const p of receipt.passthroughs) {
-    lines.push(`    ${p.path}: ${fmt(p.rawTokens)} tokens, ${p.reason}`);
-  }
-  lines.push(
-    `  had those been distilled, an estimated ${fmt(receipt.estimatedAvoidableTokens)} tokens would have been avoided ` +
-      `(a floor: the size gate refuses any distillate over ${Math.round(LIMITS.SIZE_SANITY_MAX_RATIO * 100)} percent of its raw)`,
-  );
-  return lines;
 }
