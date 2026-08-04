@@ -144,8 +144,30 @@ export interface LastSessionOptions {
  */
 export function locateLastSessionLog(options: LastSessionOptions = {}): string | undefined {
   const root = options.root ?? defaultLogRoot();
-  const from = options.allProjects === true ? root : projectTranscriptDir(options.cwd, root);
-  return newestTranscriptUnder(from);
+  if (options.allProjects === true) return newestTranscriptUnder(root);
+  // A subdirectory belongs to the project that encloses it, and sessions are
+  // keyed to the directory claude was launched from, so the nearest ancestor
+  // holding sessions is this project. Without the walk, running redutok from
+  // packages/meter inside its own repo reports no session at all. The search
+  // never leaves the directory's own ancestry, so it cannot reach sideways
+  // into an unrelated project.
+  for (const dir of selfAndAncestors(options.cwd ?? process.cwd())) {
+    const found = newestTranscriptUnder(projectTranscriptDir(dir, root));
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+/** A directory and every directory above it, nearest first. */
+function selfAndAncestors(from: string): string[] {
+  const out: string[] = [];
+  let dir = path.resolve(from);
+  for (;;) {
+    out.push(dir);
+    const parent = path.dirname(dir);
+    if (parent === dir) return out;
+    dir = parent;
+  }
 }
 
 /** Newest .jsonl transcript under the given root, or undefined when none exist. */

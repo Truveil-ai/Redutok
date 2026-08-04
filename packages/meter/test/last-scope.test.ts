@@ -66,6 +66,16 @@ describe('--last is scoped to the current project', () => {
     expect(locateLastSessionLog({ root, cwd: empty, allProjects: true })).toBe(otherLog);
   });
 
+  it('resolves from a subdirectory to the project that encloses it', () => {
+    // Sessions are keyed to the directory claude was launched from, so
+    // running redutok from packages/meter inside its own repo has to find
+    // the repo's sessions rather than reporting none.
+    const { root, mine, mineLog } = twoProjectRoot();
+    const nested = path.join(mine, 'packages', 'meter');
+    mkdirSync(nested, { recursive: true });
+    expect(locateLastSessionLog({ root, cwd: nested })).toBe(mineLog);
+  });
+
   it('picks the newest of several sessions within the project', () => {
     const { root, mine } = twoProjectRoot();
     const dir = path.join(root, projectDirName(mine));

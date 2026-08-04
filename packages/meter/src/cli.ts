@@ -174,7 +174,7 @@ export async function main(argv: string[]): Promise<number> {
       console.error(
         allProjects
           ? `No .jsonl transcript found under ${defaultLogRoot()}.`
-          : `No transcript found for this project: no .jsonl session under ${projectTranscriptDir()}.\n` +
+          : `No transcript found for this project: no .jsonl session under ${projectTranscriptDir()}, or for any directory above it.\n` +
               'redutok --last is scoped to the current directory so it cannot report another project session.\n' +
               'Run it from the project you meant, or pass --all-projects to search every project.',
       );
