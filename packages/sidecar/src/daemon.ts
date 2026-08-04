@@ -10,6 +10,7 @@ import { distillArtifact, loadProfiles, zoom } from './distill.js';
 import { exploreGoal } from './explore.js';
 import { runGraduationMiner } from './graduation.js';
 import { NoopLlmPass, type LlmPass } from './llm.js';
+import { prepareSkeletonEntry } from './prepare.js';
 import { serveFile } from './serve.js';
 import { updateRollingState } from './state.js';
 import { createLogger, type Logger } from './log.js';
@@ -174,6 +175,54 @@ function handler(
         .catch((err: unknown) =>
           respond(400, { ok: false, error: err instanceof Error ? err.message : String(err) }),
         );
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/prepare-skeleton') {
+      // The artifact-size escape hatch (docs/POSTURE.md): the hook has an
+      // oversized artifact and no fresh mirror entry for it. Build one now,
+      // through the same profile and gates any other skeleton goes through.
+      if (engines === undefined) {
+        respond(503, { ok: false, error: 'daemon started without a profiles directory' });
+        return;
+      }
+      void readBody(req)
+        .then(async (payload) => {
+          const p = payload as Record<string, unknown>;
+          if (refuseIfCrossRepo(p)) return;
+          const sessionId = attributedSessionId(p['sessionId']);
+          const rel = String(p['path'] ?? '');
+          const result = await prepareSkeletonEntry(
+            { store: engines.store, audit: engines.audit, profiles: engines.profiles, repoRoot },
+            rel,
+            sessionId,
+          );
+          if (!result.ok) {
+            // Why this artifact enters context whole, recorded where the
+            // receipt can read it back (docs/RECEIPT.md).
+            const event: AuditEvent = {
+              id: `passthrough-${randomBytes(3).toString('hex')}`,
+              timestamp: new Date().toISOString(),
+              sessionId,
+              module: 'sidecar.prepare',
+              action: 'passthrough',
+              reason: `${rel} read raw: ${result.reason ?? 'no skeleton available'}`,
+              bytesIn: result.rawBytes ?? 0,
+              bytesOut: result.rawBytes ?? 0,
+              details: { path: rel, reason: result.reason ?? 'no skeleton available' },
+            };
+            try {
+              engines.audit.write(event);
+              engines.store.insertAuditEvent(event);
+            } catch (err) {
+              log.error('passthrough audit failed', { error: String(err) });
+            }
+          }
+          respond(200, result);
+        })
+        .catch((err: unknown) => {
+          log.error('request failed', { path: url.pathname, error: String(err) });
+          respond(400, { ok: false, error: err instanceof Error ? err.message : String(err) });
+        });
       return;
     }
     if (req.method === 'POST' && (url.pathname === '/distill' || url.pathname === '/zoom')) {

@@ -35,9 +35,15 @@ export interface MirrorIndex {
   files: Record<string, MirrorIndexEntry>;
 }
 
-/** Same shape as the codex hashes: sha256 truncated to 16 hex chars. */
-export const mirrorHash = (text: string): string =>
-  createHash('sha256').update(text).digest('hex').slice(0, 16);
+/**
+ * Same shape as the codex hashes: sha256 truncated to 16 hex chars. Accepts
+ * bytes as well as text so a binary document (a PDF has a skeleton too) can
+ * be checked for freshness without a lossy utf8 round trip. A valid-UTF-8
+ * string and its own bytes hash identically, so entries written before this
+ * stayed valid.
+ */
+export const mirrorHash = (content: string | Buffer): string =>
+  createHash('sha256').update(content).digest('hex').slice(0, 16);
 
 export function mirrorDir(root: string): string {
   return path.join(root, '.dcp', 'mirror');
@@ -76,6 +82,7 @@ export function buildMirrorHeader(
   rawLines: number,
   zoomId?: string,
   keepSymbols: readonly string[] = [],
+  rawLabel = 'raw',
 ): string {
   const fidelity =
     zoomId === undefined
@@ -85,7 +92,51 @@ export function buildMirrorHeader(
     keepSymbols.length === 0
       ? 'skeleton only'
       : `skeleton + full bodies of ${keepSymbols.join(', ')} (learned)`;
-  return `[dcp:mirror of ${realPath}, raw ${rawBytes} bytes / ${rawLines} lines, ${shape}; full fidelity: ${fidelity}]`;
+  return `[dcp:mirror of ${realPath}, ${rawLabel} ${rawBytes} bytes / ${rawLines} lines, ${shape}; full fidelity: ${fidelity}]`;
+}
+
+/**
+ * Writes one mirror entry and records it in the index. Shared by the offline
+ * refresh below and the daemon's on-demand preparation (prepare.ts), so an
+ * entry built either way is byte-identical in shape and equally serveable.
+ */
+export function writeMirrorEntry(
+  root: string,
+  rel: string,
+  entry: {
+    skeleton: string;
+    hash: string;
+    rawBytes: number;
+    rawLines: number;
+    realPath: string;
+    zoomId?: string;
+    keepSymbols?: readonly string[];
+    enrichment?: string;
+    /** Overrides the header's default description of what the raw is. */
+    rawLabel?: string;
+  },
+): string {
+  const entryPath = mirrorEntryPath(root, rel);
+  const header = buildMirrorHeader(
+    entry.realPath,
+    entry.rawBytes,
+    entry.rawLines,
+    entry.zoomId,
+    entry.keepSymbols ?? [],
+    entry.rawLabel,
+  );
+  mkdirSync(path.dirname(entryPath), { recursive: true });
+  writeFileSync(entryPath, `${header}\n\n${entry.skeleton}\n`, 'utf8');
+  const index = readMirrorIndex(root) ?? { version: 1 as const, files: {} };
+  index.files[rel] = {
+    hash: entry.hash,
+    rawBytes: entry.rawBytes,
+    rawLines: entry.rawLines,
+    ...(entry.enrichment === undefined ? {} : { enrichment: entry.enrichment }),
+  };
+  mkdirSync(mirrorDir(root), { recursive: true });
+  writeFileSync(mirrorIndexPath(root), JSON.stringify(index, null, 2) + '\n', 'utf8');
+  return entryPath;
 }
 
 /**
@@ -161,8 +212,11 @@ export async function refreshMirror(
       drop(rel);
       continue;
     }
-    const content = readFileSync(abs, 'utf8');
-    const hash = mirrorHash(content);
+    // Hashed over the bytes, matching what the hook and the on-demand
+    // preparation compare against.
+    const bytes = readFileSync(abs);
+    const content = bytes.toString('utf8');
+    const hash = mirrorHash(bytes);
     const entryPath = mirrorEntryPath(root, rel);
     const directive = enrichmentFor(rel, options.enrichments);
     const fingerprint = directive === undefined ? undefined : enrichmentFingerprint(directive);
