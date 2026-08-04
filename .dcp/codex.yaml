@@ -1,6 +1,6 @@
 version: "1"
 project: Redutok - Token Optimisation
-generatedAt: 2026-08-02T12:19:49.981Z
+generatedAt: 2026-08-04T21:43:20.126Z
 architecture: []
 map:
   - path: .
@@ -463,6 +463,11 @@ map:
     role: This module in packages/mcp/test serves to test the token optimization
       functionality within the Redutok project.
     roleSource: llm
+    keySymbols: []
+    locked: false
+  - path: packages/meter/scripts
+    role: maintenance scripts
+    roleSource: rules
     keySymbols: []
     locked: false
   - path: packages/meter/src
@@ -1251,8 +1256,8 @@ interfaces:
     signature: export const KNOWN_TRANSCRIPT_RECORD_TYPES = ['user', 'assistant',
       'summary', 'system'] as const;
     file: packages/meter/src/claude-compat.ts
-  - name: SETTINGS_PATHS
-    signature: export const SETTINGS_PATHS =
+  - name: projectDirName
+    signature: "export function projectDirName(cwd: string): string"
     file: packages/meter/src/claude-compat.ts
   - name: transcriptRoot
     signature: "export function transcriptRoot(): string"
@@ -1311,11 +1316,16 @@ interfaces:
   - name: PACKAGE_NAME
     signature: export const PACKAGE_NAME = 'redutok';
     file: packages/meter/src/index.ts
-  - name: DEFAULT_SIDECAR_PORT
-    signature: export const DEFAULT_SIDECAR_PORT = 48642;
+  - name: INSTALL_REMEDY
+    signature: "export const INSTALL_REMEDY = 'npm install --save-dev redutok, then
+      rerun: npx redutok init .';"
     file: packages/meter/src/installer.ts
-  - name: extractDcpBlock
-    signature: "export function extractDcpBlock(text: string): string | undefined"
+  - name: LauncherResolution
+    signature: export interface LauncherResolution
+    file: packages/meter/src/installer.ts
+  - name: resolveLauncherChain
+    signature: "export function resolveLauncherChain(targetDir: string):
+      LauncherResolution"
     file: packages/meter/src/installer.ts
   - name: shippedProtocolBlock
     signature: "export function shippedProtocolBlock(): string"
@@ -1359,11 +1369,11 @@ interfaces:
   - name: selectProfile
     signature: "export function selectProfile(command: string): string"
     file: packages/meter/src/pipe.ts
-  - name: buildSessionReceipt
-    signature: export function buildSessionReceipt(
-    file: packages/meter/src/receipt.ts
   - name: ReceiptDistillation
-    signature: export interface ReceiptDistillation
+    signature: export type ReceiptDistillation = Distillation;
+    file: packages/meter/src/receipt.ts
+  - name: ReceiptPassthrough
+    signature: export type ReceiptPassthrough = Passthrough;
     file: packages/meter/src/receipt.ts
   - name: SessionReceipt
     signature: export interface SessionReceipt
@@ -1396,6 +1406,19 @@ interfaces:
     signature: "export function unwrapCmdShim(shimPath: string, contents: string):
       string | undefined"
     file: packages/meter/src/safe-spawn.ts
+  - name: bytesToTokens
+    signature: "export const bytesToTokens = (bytes: number): number =>
+      Math.round(bytes / 4);"
+    file: packages/meter/src/savings.ts
+  - name: Distillation
+    signature: export interface Distillation
+    file: packages/meter/src/savings.ts
+  - name: Passthrough
+    signature: export interface Passthrough
+    file: packages/meter/src/savings.ts
+  - name: SessionSavings
+    signature: export interface SessionSavings
+    file: packages/meter/src/savings.ts
   - name: CompositeScore
     signature: export interface CompositeScore
     file: packages/meter/src/scoring.ts
@@ -1464,6 +1487,12 @@ interfaces:
   - name: SessionPostureRecord
     signature: export interface SessionPostureRecord extends PostureAssessment
     file: packages/shared/src/posture.ts
+  - name: normalizedRepoRoot
+    signature: "export function normalizedRepoRoot(p: string): string"
+    file: packages/shared/src/repo-root.ts
+  - name: sameRepoRoot
+    signature: "export function sameRepoRoot(a: string, b: string): boolean"
+    file: packages/shared/src/repo-root.ts
   - name: LedgerEntry
     signature: export type LedgerEntry = z.infer<typeof LedgerEntrySchema>;
     file: packages/shared/src/schemas.ts
@@ -1611,7 +1640,7 @@ interfaces:
     signature: "export function mirrorDir(root: string): string"
     file: packages/sidecar/src/mirror.ts
   - name: mirrorHash
-    signature: "export const mirrorHash = (text: string): string =>"
+    signature: "export const mirrorHash = (content: string | Buffer): string =>"
     file: packages/sidecar/src/mirror.ts
   - name: MirrorIndex
     signature: export interface MirrorIndex
@@ -1626,6 +1655,18 @@ interfaces:
   - name: PostureDecision
     signature: export interface PostureDecision
     file: packages/sidecar/src/posture.ts
+  - name: PrepareDeps
+    signature: export interface PrepareDeps
+    file: packages/sidecar/src/prepare.ts
+  - name: PrepareResult
+    signature: export interface PrepareResult
+    file: packages/sidecar/src/prepare.ts
+  - name: prepareSkeletonEntry
+    signature: export async function prepareSkeletonEntry(
+    file: packages/sidecar/src/prepare.ts
+  - name: skeletonProfileFor
+    signature: "export function skeletonProfileFor(rel: string): string | undefined"
+    file: packages/sidecar/src/prepare.ts
   - name: redact
     signature: "export function redact(input: string): RedactionResult"
     file: packages/sidecar/src/redact.ts
@@ -1643,6 +1684,9 @@ interfaces:
     file: packages/sidecar/src/serve.ts
   - name: serveFile
     signature: export function serveFile(
+    file: packages/sidecar/src/serve.ts
+  - name: ServeOptions
+    signature: export interface ServeOptions
     file: packages/sidecar/src/serve.ts
   - name: ServeResult
     signature: export interface ServeResult
@@ -2238,6 +2282,10 @@ importGraph:
     - ../src/index.js
   packages/hooks/test/pipe-rewrite.test.ts:
     - ../src/handlers.js
+  packages/hooks/test/posture-artifact-escape.test.ts:
+    - ../src/handlers.js
+  packages/hooks/test/session-end-contract.test.ts:
+    - ../src/handlers.js
   packages/mcp/src/main.ts:
     - ./config.js
     - ./server.js
@@ -2263,6 +2311,7 @@ importGraph:
   packages/meter/src/cli.ts:
     - ./audit-render.js
     - ./badge.js
+    - ./claude-compat.js
     - ./report.js
     - ./installer.js
     - ./sidecar-cli.js
@@ -2271,6 +2320,7 @@ importGraph:
   packages/meter/src/discipline.ts:
     - ./ledger.js
   packages/meter/src/doctor.ts:
+    - ./installer.js
     - ./sidecar-cli.js
   packages/meter/src/energy.ts:
     - ./ledger.js
@@ -2292,6 +2342,10 @@ importGraph:
     - ./energy.js
     - ./ledger.js
     - ./parser.js
+    - ./scoring.js
+  packages/meter/src/savings.ts:
+    - ./energy.js
+    - ./ledger.js
     - ./scoring.js
   packages/meter/src/scoring.ts:
     - ./discipline.js
@@ -2332,6 +2386,10 @@ importGraph:
     - ../src/index.js
   packages/meter/test/installer.test.ts:
     - ../src/installer.js
+  packages/meter/test/last-scope.test.ts:
+    - ../src/cli.js
+    - ../src/claude-compat.js
+    - ../src/report.js
   packages/meter/test/ledger.test.ts:
     - ../src/ledger.js
     - ../src/parser.js
@@ -2339,18 +2397,38 @@ importGraph:
     - ../src/installer.js
   packages/meter/test/parser.test.ts:
     - ../src/parser.js
+  packages/meter/test/pipe-cross-repo.test.ts:
+    - ../src/pipe.js
   packages/meter/test/pipe-launcher-e2e.test.ts:
     - ../src/installer.js
   packages/meter/test/pipe.test.ts:
     - ../src/pipe.js
+  packages/meter/test/receipt-explains.test.ts:
+    - ../src/ledger.js
+    - ../src/parser.js
+    - ../src/receipt.js
   packages/meter/test/receipt.test.ts:
     - ../src/ledger.js
     - ../src/parser.js
+    - ../src/receipt.js
+  packages/meter/test/report-json-not-scorable.test.ts:
+    - ../src/cli.js
+    - ../src/report.js
+    - ../src/badge.js
+    - ../src/scoring.js
+  packages/meter/test/report-savings.test.ts:
+    - ../src/ledger.js
+    - ../src/parser.js
+    - ../src/report.js
     - ../src/receipt.js
   packages/meter/test/report.test.ts:
     - ../src/report.js
   packages/meter/test/safe-spawn.test.ts:
     - ../src/safe-spawn.js
+  packages/meter/test/scoring-raw-denominator.test.ts:
+    - ../src/ledger.js
+    - ../src/parser.js
+    - ../src/scoring.js
   packages/meter/test/scoring.test.ts:
     - ../src/energy.js
     - ../src/ledger.js
@@ -2388,10 +2466,12 @@ importGraph:
     - ./audit.js
     - ./codex.js
     - ./mirror.js
+    - ./docs.js
     - ./distill.js
     - ./explore.js
     - ./graduation.js
     - ./llm.js
+    - ./prepare.js
     - ./serve.js
     - ./state.js
     - ./log.js
@@ -2417,9 +2497,17 @@ importGraph:
     - ./mirror.js
     - ./llm.js
   packages/sidecar/src/mirror.ts:
+    - ./llm.js
     - ./skeleton.js
   packages/sidecar/src/posture.ts:
     - ./codex.js
+  packages/sidecar/src/prepare.ts:
+    - ./audit.js
+    - ./distill.js
+    - ./llm.js
+    - ./mirror.js
+    - ./skeleton.js
+    - ./store.js
   packages/sidecar/src/redact.ts:
     - ./audit.js
     - ./store.js
@@ -2460,6 +2548,12 @@ importGraph:
     - ../src/distill.js
     - ../src/docs.js
     - ../src/llm.js
+    - ../src/store.js
+  packages/sidecar/test/doc-skeleton.test.ts:
+    - ../src/audit.js
+    - ../src/distill.js
+    - ../src/docs.js
+    - ../src/prepare.js
     - ../src/store.js
   packages/sidecar/test/docs-collision.test.ts:
     - ../src/llm.js
@@ -2515,6 +2609,12 @@ importGraph:
     - ../src/audit.js
     - ../src/redact.js
     - ../src/store.js
+  packages/sidecar/test/repo-identity.test.ts:
+    - ../src/client.js
+    - ../src/daemon.js
+  packages/sidecar/test/serve-raw-accounting.test.ts:
+    - ../src/client.js
+    - ../src/daemon.js
   packages/sidecar/test/serve.test.ts:
     - ../src/audit.js
     - ../src/serve.js
@@ -3080,7 +3180,7 @@ files:
   - path: fixtures/repos/repo-b/pkg/report.js
     hash: 9ef17dd209d93deb
   - path: packages/hooks/src/handlers.ts
-    hash: de7a4cbb447550e5
+    hash: 9f6d78435c31f680
   - path: packages/hooks/src/hook-main.ts
     hash: 432e72e07d5120a8
   - path: packages/hooks/src/index.ts
@@ -3088,69 +3188,77 @@ files:
   - path: packages/hooks/src/pipe-allowlist.ts
     hash: 33f6b9d819217a18
   - path: packages/hooks/test/handlers.test.ts
-    hash: ceb9c9dc15d7c158
+    hash: ffe7b901b4e4b976
   - path: packages/hooks/test/index.test.ts
     hash: 258fb0dedd59857e
   - path: packages/hooks/test/pipe-rewrite.test.ts
-    hash: 022fd34123c85ab4
+    hash: 39ce0a148e09d340
+  - path: packages/hooks/test/posture-artifact-escape.test.ts
+    hash: 56f0e88b9086de96
+  - path: packages/hooks/test/session-end-contract.test.ts
+    hash: 75846db31dc50148
   - path: packages/mcp/src/config.ts
-    hash: 12d87e34f23efc44
+    hash: 93b83b67479b7ede
   - path: packages/mcp/src/index.ts
     hash: 3ba4a35350c124a7
   - path: packages/mcp/src/main.ts
     hash: 703b6c3b71e2e2a5
   - path: packages/mcp/src/server.ts
-    hash: 420dd9b640d85cff
+    hash: e434b8e85d4a5501
   - path: packages/mcp/test/config.test.ts
     hash: 278566beb85a0356
   - path: packages/mcp/test/index.test.ts
     hash: 11c5c109167c3e04
   - path: packages/mcp/test/port-isolation.test.ts
-    hash: 05b8fc746ae736be
+    hash: 5e4e8d7a6d444ce4
   - path: packages/mcp/test/server.test.ts
     hash: cd9342a76eecd434
   - path: packages/mcp/test/zoom-handle.test.ts
     hash: ee434dda45b10d49
+  - path: packages/meter/scripts/bundle.mjs
+    hash: e593880f7f0ca8f9
   - path: packages/meter/src/audit-render.ts
     hash: 069761d8f6148343
   - path: packages/meter/src/badge.ts
-    hash: 449db0096ba2a961
+    hash: ec66eae1dcf77f65
   - path: packages/meter/src/bench.ts
-    hash: 099675b724e0bd35
+    hash: e717659783e304ea
   - path: packages/meter/src/candidates-render.ts
     hash: 41fbe441370e9ef4
   - path: packages/meter/src/claude-compat.ts
-    hash: d26fc4ed04fe7849
+    hash: 43478a7dcde8777e
   - path: packages/meter/src/cli.ts
-    hash: 6098b87902c8d505
+    hash: eb4a1fde9e21a746
   - path: packages/meter/src/cost.ts
     hash: 21e3b608ec2a18a5
   - path: packages/meter/src/discipline.ts
     hash: 7fa68a459239f57f
   - path: packages/meter/src/doctor.ts
-    hash: 05da16aa16f6722d
+    hash: 0ae65c5f16b760f1
   - path: packages/meter/src/energy.ts
     hash: 9c7ae872c20fce6c
   - path: packages/meter/src/index.ts
     hash: 8b24bdb4fdbd1116
   - path: packages/meter/src/installer.ts
-    hash: 2751cd280cfec7fb
+    hash: 8647e7e70a5ced51
   - path: packages/meter/src/ledger.ts
     hash: cfb870cec5663f95
   - path: packages/meter/src/parser.ts
     hash: 57340641b4b80b81
   - path: packages/meter/src/pipe.ts
-    hash: 4fe196a1ac243e7f
+    hash: 8053e59e48ba20df
   - path: packages/meter/src/receipt.ts
-    hash: c01f2b1c5ec99a2c
+    hash: 97bce5eb71b6601d
   - path: packages/meter/src/report.ts
-    hash: 547bc38e89547938
+    hash: 45d09b7a24ffdb29
   - path: packages/meter/src/safe-spawn.ts
     hash: 2f1cdd8481bf537d
+  - path: packages/meter/src/savings.ts
+    hash: b34ddb8e9c1f90da
   - path: packages/meter/src/scoring.ts
-    hash: 5c6a5d6a125cc78c
+    hash: 77a07a827848d5c3
   - path: packages/meter/src/sidecar-cli.ts
-    hash: 3c812c43b1509a68
+    hash: 2339f4739d0fe8de
   - path: packages/meter/test/audit-render.test.ts
     hash: 7603a5490f6f1680
   - path: packages/meter/test/badge.test.ts
@@ -3158,53 +3266,65 @@ files:
   - path: packages/meter/test/bench.test.ts
     hash: 6fea95e1a68475f5
   - path: packages/meter/test/bin.test.ts
-    hash: 65bc4a5a3044f073
+    hash: 4a6e8cba103dcbea
   - path: packages/meter/test/candidates-render.test.ts
     hash: 309a1eecdbccbd65
   - path: packages/meter/test/cli-args.test.ts
     hash: ef0f60fc6bdea2c7
   - path: packages/meter/test/cost.test.ts
-    hash: 362fbd5f1b15aec3
+    hash: dfbb8ba3d00de291
   - path: packages/meter/test/discipline.test.ts
     hash: aa4f484012d2225a
   - path: packages/meter/test/doctor.test.ts
-    hash: 2740ecd6337fd50d
+    hash: d792995b66d52d8f
   - path: packages/meter/test/e2e-smoke.test.ts
-    hash: a83f3a8a00b17f6d
+    hash: 9a0cad209753e950
   - path: packages/meter/test/energy.test.ts
-    hash: defce14488bad12a
+    hash: 15c45ac4965d7077
   - path: packages/meter/test/index.test.ts
     hash: 2978912d3fb5fc60
   - path: packages/meter/test/installer.test.ts
-    hash: db5f3631f988071e
+    hash: b9006f5dde2fb306
+  - path: packages/meter/test/last-scope.test.ts
+    hash: 4f2932e6da870916
   - path: packages/meter/test/ledger.test.ts
     hash: 0fd0bf1e48185abe
   - path: packages/meter/test/mirror-e2e.test.ts
-    hash: 033cf72fa138e786
+    hash: 461cf9270a16cbd7
   - path: packages/meter/test/pack.test.ts
-    hash: ac0aa6a7e970a585
+    hash: 9dcf841f0ab04adc
   - path: packages/meter/test/parser.test.ts
     hash: 06967a11e48d4947
+  - path: packages/meter/test/pipe-cross-repo.test.ts
+    hash: de7fb29f9f6afa6b
   - path: packages/meter/test/pipe-e2e.test.ts
     hash: 33e38ca4a307c1ee
   - path: packages/meter/test/pipe-launcher-e2e.test.ts
-    hash: 815c309197192412
+    hash: 979458f942f3eacd
   - path: packages/meter/test/pipe.test.ts
     hash: 0e878e97ae92d693
   - path: packages/meter/test/readme.test.ts
-    hash: 470788eac29915d2
+    hash: d5c76a02ccab22a6
+  - path: packages/meter/test/receipt-explains.test.ts
+    hash: f4e28068b99464f6
   - path: packages/meter/test/receipt.test.ts
-    hash: b14082b2852c9677
+    hash: c76fe05773fbabb6
+  - path: packages/meter/test/report-json-not-scorable.test.ts
+    hash: a8cccacd65ec9b55
+  - path: packages/meter/test/report-savings.test.ts
+    hash: f16be6c8c370984a
   - path: packages/meter/test/report.test.ts
-    hash: 4709054e95bec4f4
+    hash: 02f79f432ddb5f83
   - path: packages/meter/test/safe-spawn.test.ts
     hash: 16940e321bff2325
+  - path: packages/meter/test/scoring-raw-denominator.test.ts
+    hash: 074de9d16d768d2b
   - path: packages/meter/test/scoring.test.ts
-    hash: 51a78b96de1aad3e
+    hash: 3b9c70abe366ac38
   - path: packages/meter/test/security.test.ts
     hash: 312633166a7d28f5
   - path: packages/meter/test/sidecar-cli.test.ts
-    hash: 72072cf633543e7f
+    hash: ed95c4878838c1b1
   - path: packages/meter/test/slope.test.ts
     hash: 88765feaedec7143
   - path: packages/shared/src/audit-file.ts
@@ -3214,13 +3334,15 @@ files:
   - path: packages/shared/src/confidence.ts
     hash: d630529fe8ada5ce
   - path: packages/shared/src/index.ts
-    hash: cae96e7495d0c499
+    hash: dd5e9158aebcc4d1
   - path: packages/shared/src/limits.ts
-    hash: 1abbe03ea9d871c1
+    hash: 608e2993a8a04e49
   - path: packages/shared/src/posture.ts
     hash: 574d20ed046955bd
+  - path: packages/shared/src/repo-root.ts
+    hash: b43b6b321752d34c
   - path: packages/shared/src/schemas.ts
-    hash: c4e74f471a8f35f4
+    hash: c30278e52e534fc2
   - path: packages/shared/src/yaml.ts
     hash: bed7dde42f2b6f73
   - path: packages/shared/test/candidates-file.test.ts
@@ -3244,31 +3366,33 @@ files:
   - path: packages/sidecar/src/daemon-main.ts
     hash: 9059e2c1ed170d85
   - path: packages/sidecar/src/daemon.ts
-    hash: c77fbd02c79d6344
+    hash: dbd1175b2eae092f
   - path: packages/sidecar/src/distill.ts
-    hash: 5c8d9212cc5f2be2
+    hash: 135801392b995e38
   - path: packages/sidecar/src/docs.ts
-    hash: bba160f1722096d2
+    hash: 97fc924271172b5a
   - path: packages/sidecar/src/explore.ts
     hash: 66ebbc03f7a9238b
   - path: packages/sidecar/src/gates.ts
-    hash: 428795dc34cb1247
+    hash: 54a32ee2ba2db069
   - path: packages/sidecar/src/graduation.ts
     hash: 3dcc0a77e769105e
   - path: packages/sidecar/src/index.ts
-    hash: 08c8779e235dc46b
+    hash: f464d7b8690a457c
   - path: packages/sidecar/src/llm.ts
     hash: 34c91f059665933a
   - path: packages/sidecar/src/log.ts
     hash: 76c6b6a915a42baf
   - path: packages/sidecar/src/mirror.ts
-    hash: 67ef81ce4876771f
+    hash: 838faf8b311b48bf
   - path: packages/sidecar/src/posture.ts
     hash: 7e05e724ae173693
+  - path: packages/sidecar/src/prepare.ts
+    hash: 1eea3b6e914a78d0
   - path: packages/sidecar/src/redact.ts
     hash: 087f622d35b21373
   - path: packages/sidecar/src/serve.ts
-    hash: 98f830d3ee17798b
+    hash: 115387e8f8e28bff
   - path: packages/sidecar/src/skeleton.ts
     hash: 4924d777d346a3a2
   - path: packages/sidecar/src/state.ts
@@ -3290,9 +3414,11 @@ files:
   - path: packages/sidecar/test/daemon.test.ts
     hash: 0eed3ead6f28fc46
   - path: packages/sidecar/test/distill.test.ts
-    hash: 1c3c295bcc9ce307
+    hash: e45a86d51c3142ef
   - path: packages/sidecar/test/doc-distill.test.ts
     hash: 1afe5995681dc8df
+  - path: packages/sidecar/test/doc-skeleton.test.ts
+    hash: b1753b9107ed5478
   - path: packages/sidecar/test/docs-collision.test.ts
     hash: 6d756b6b823bcc30
   - path: packages/sidecar/test/docs-ranking.test.ts
@@ -3318,13 +3444,17 @@ files:
   - path: packages/sidecar/test/injection-budget.test.ts
     hash: e212808a2725679f
   - path: packages/sidecar/test/mirror.test.ts
-    hash: 212bf1d3bd3d1a17
+    hash: 7e4419f8aaf7d3df
   - path: packages/sidecar/test/pdf-doubling.test.ts
     hash: eb890164a4534feb
   - path: packages/sidecar/test/posture.test.ts
     hash: d3db822c5fee6379
   - path: packages/sidecar/test/redact.test.ts
     hash: 63a9ba3922f68c5e
+  - path: packages/sidecar/test/repo-identity.test.ts
+    hash: 2a6f21928f5b401c
+  - path: packages/sidecar/test/serve-raw-accounting.test.ts
+    hash: e8194346b98e2899
   - path: packages/sidecar/test/serve.test.ts
     hash: f2e6c0b31bf53fc2
   - path: packages/sidecar/test/session-attribution.test.ts
@@ -3420,7 +3550,7 @@ files:
   - path: scripts/measure-ratios.mjs
     hash: 079bdca601d0425f
   - path: scripts/prepublish-check.mjs
-    hash: b88a050aa6562852
+    hash: e913426cc1821e66
   - path: scripts/sbom.mjs
     hash: 3fd660811b659aad
   - path: scripts/slice-pdf-fixture.mjs
