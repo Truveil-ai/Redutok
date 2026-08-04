@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { buildReport, locateLastSessionLog, renderText } from '../src/report.js';
+import { buildReport, newestTranscriptUnder, renderText } from '../src/report.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name: string) => path.join(here, '..', '..', '..', 'fixtures', 'sessions', name);
@@ -129,7 +129,7 @@ describe('renderText', () => {
   });
 });
 
-describe('locateLastSessionLog', () => {
+describe('newestTranscriptUnder', () => {
   it('finds the newest .jsonl in a nested directory tree', () => {
     const root = mkdtempSync(path.join(os.tmpdir(), 'redutok-logs-'));
     const nested = path.join(root, 'project-a');
@@ -142,10 +142,10 @@ describe('locateLastSessionLog', () => {
     const now = Date.now() / 1000;
     utimesSync(older, now - 3600, now - 3600);
     utimesSync(newer, now, now);
-    expect(locateLastSessionLog(root)).toBe(newer);
+    expect(newestTranscriptUnder(root)).toBe(newer);
   });
 
   it('returns undefined when the directory does not exist', () => {
-    expect(locateLastSessionLog(path.join(os.tmpdir(), 'redutok-does-not-exist'))).toBeUndefined();
+    expect(newestTranscriptUnder(path.join(os.tmpdir(), 'redutok-does-not-exist'))).toBeUndefined();
   });
 });

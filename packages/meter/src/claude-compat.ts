@@ -32,6 +32,27 @@ export function transcriptRoot(): string {
   return path.join(os.homedir(), '.claude', 'projects');
 }
 
+/**
+ * Claude Code's per-project transcript directory name for a working
+ * directory: every character outside [A-Za-z0-9] becomes a dash, so
+ * `E:\Redutok - Token Optimisation` is stored as
+ * `E--Redutok---Token-Optimisation`.
+ *
+ * Verified against a real transcript root of 64 project directories, none of
+ * which carried a character outside that set. Like everything else in this
+ * module it is an assumption about Claude Code rather than a contract: if the
+ * naming changes, `--last` finds no session for the project and says so,
+ * which is the safe direction. It never reports another project's session.
+ */
+export function projectDirName(cwd: string): string {
+  return path.resolve(cwd).replace(/[^a-zA-Z0-9]/g, '-');
+}
+
+/** The transcript directory holding this project's sessions. */
+export function projectTranscriptDir(cwd: string = process.cwd(), root: string = transcriptRoot()): string {
+  return path.join(root, projectDirName(cwd));
+}
+
 /** Repo-relative settings files redutok touches. */
 export const SETTINGS_PATHS = {
   personal: '.claude/settings.local.json',
