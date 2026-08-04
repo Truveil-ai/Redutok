@@ -437,6 +437,11 @@ export async function distillArtifact(
       profile: request.profile.name,
       gates: gateReport.results,
       gateConfig,
+      // The artifact this served, so the trail names what was governed. The
+      // first serve used to carry it on a separate serve event; that event is
+      // now suppressed when this one supersedes it (serve.ts), and a trail
+      // that cannot say which file it distilled is not an audit trail.
+      ...(request.context?.filePath === undefined ? {} : { filePath: request.context.filePath }),
       ...(request.context?.enrichmentCandidate === undefined
         ? {}
         : { enrichmentCandidate: request.context.enrichmentCandidate }),

@@ -57,18 +57,39 @@ function contextEfficiency(audit: AuditEvent[], ledger: SessionLedger): ScoreRes
     }
     return { scorable: false, reason: 'no audit events recorded for this session (sidecar not installed or not used)' };
   }
+  // Every serve is measured against the raw it stood in for, so the score is
+  // the share of touched bytes that never entered context. A serve carrying
+  // no raw byte count cannot contribute: it says what was served and nothing
+  // about what that replaced.
+  //
+  // The redundancy signal the older ratio carried is preserved exactly. A raw
+  // serve (gate failure, no skeleton) has bytesOut equal to bytesIn, so it
+  // avoids nothing and pulls the score down by its full weight. What is gone
+  // is the degenerate case: a session where nothing failed open used to score
+  // 100 no matter how little it saved, and the on-demand document path
+  // contributed no raw serve at all, so that ratio ran against zero.
   const served = audit.filter(
-    (e) => (e.action === 'distill' || e.action === 'serve-raw') && e.bytesOut !== undefined,
+    (e): e is AuditEvent & { bytesIn: number; bytesOut: number } =>
+      (e.action === 'distill' || e.action === 'serve-raw') &&
+      e.bytesIn !== undefined &&
+      e.bytesOut !== undefined,
   );
-  const rawBytes = served.filter((e) => e.action === 'serve-raw').reduce((n, e) => n + (e.bytesOut ?? 0), 0);
-  const distilledBytes = served.filter((e) => e.action === 'distill').reduce((n, e) => n + (e.bytesOut ?? 0), 0);
-  const total = rawBytes + distilledBytes;
-  if (total === 0) return { scorable: false, reason: 'audit trail has no serve events with byte counts' };
-  const score = round((100 * distilledBytes) / total);
+  const rawBytes = served.reduce((n, e) => n + e.bytesIn, 0);
+  const servedBytes = served.reduce((n, e) => n + e.bytesOut, 0);
+  if (rawBytes === 0) {
+    return {
+      scorable: false,
+      reason:
+        'audit trail has no serve events carrying a raw byte count, so there is nothing to measure the served bytes against',
+    };
+  }
+  // Clamped: a distillate larger than its raw (a short document whose
+  // structure map exceeds it) would otherwise render a negative share.
+  const score = Math.min(100, Math.max(0, round((100 * (rawBytes - servedBytes)) / rawBytes)));
   return {
     scorable: true,
     score,
-    detail: `${distilledBytes}B distilled vs ${rawBytes}B raw across ${served.length} serves`,
+    detail: `${servedBytes}B served for ${rawBytes}B raw across ${served.length} serves`,
   };
 }
 

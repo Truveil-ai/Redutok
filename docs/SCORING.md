@@ -11,14 +11,28 @@ constants, not measured claims.
 
 ## Context Efficiency (weight 0.35)
 
-100 x distilledBytes / (distilledBytes + rawServedBytes), over audit events
-with action distill or serve-raw carrying bytesOut. Only events attributed to
-the transcript's session id count (see ARCHITECTURE.md 7.3). Raw serves where
-a distillation path existed are the redundancy signal. Not scorable without an
-audit trail or without serve events; when dcp tools are visible in the
-session's tool table but no audit events carry its session id, the reason
-reads "audit events not attributable to this session" — never a claim of
-non-use that the ledger contradicts.
+100 x (rawBytes - servedBytes) / rawBytes, over audit events with action
+distill or serve-raw carrying **both** bytesIn and bytesOut: the share of the
+raw a session touched that never entered its context. Only events attributed
+to the transcript's session id count (see ARCHITECTURE.md 7.3). Clamped to
+0..100, since a distillate can exceed its raw on a short artifact.
+
+Raw serves where a distillation path existed remain the redundancy signal: a
+raw serve carries bytesOut equal to bytesIn, so it avoids nothing and pulls
+the score down by its full weight.
+
+Not scorable without an audit trail, without serve events, or when no serve
+carries a raw byte count — a served byte count with nothing behind it says
+what was served and nothing about what it replaced. When dcp tools are visible
+in the session's tool table but no audit events carry its session id, the
+reason reads "audit events not attributable to this session" — never a claim
+of non-use that the ledger contradicts.
+
+This replaces an earlier ratio of distilled to raw-**served** bytes, which was
+degenerate in the common case: a session where nothing failed open scored 100
+regardless of what it saved, and the same artifact scored differently
+depending on which serve path handled it. A live 0.1.3 session scored 100 with
+the detail "22138B distilled vs 0B raw across 2 serves".
 
 ## Output Discipline (weight 0.25)
 

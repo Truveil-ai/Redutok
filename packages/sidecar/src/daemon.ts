@@ -155,17 +155,19 @@ function handler(
               // Not extractable: the caller's raw stands.
             }
           }
-          const served = serveFile(engines.store, engines.audit, sessionId, relPath, raw);
-          if (served.mode !== 'full') {
-            respond(200, { ...served, handle: `[dcp:file ${served.ref}]` });
-            return;
-          }
           // Prose documents distil to their structure map, code to its
           // signature list; the profile follows the artifact, not the caller.
           const profile = engines.profiles.get(
             docExtraction === undefined ? 'file-skeleton' : 'doc-skeleton',
           );
-          if (profile === undefined) {
+          // A first serve that this handler is about to distil is not a raw
+          // serve: the distillate is what reaches the model, and the distill
+          // event already books this artifact's raw. Recording both put the
+          // same bytes in the trail twice and read as a redundant raw serve.
+          const served = serveFile(engines.store, engines.audit, sessionId, relPath, raw, {
+            auditFullServe: profile === undefined,
+          });
+          if (served.mode !== 'full' || profile === undefined) {
             respond(200, { ...served, handle: `[dcp:file ${served.ref}]` });
             return;
           }

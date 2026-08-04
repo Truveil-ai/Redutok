@@ -12,6 +12,11 @@ import { computeSessionCost, type SessionCost } from './cost.js';
 import { computeSessionEnergy, type SessionEnergy } from './energy.js';
 import { buildLedger, grandTotal, type SessionLedger } from './ledger.js';
 import { parseSessionFile, type ParseCounts } from './parser.js';
+import {
+  computeSessionSavings,
+  renderSavingsLines,
+  type SessionSavings,
+} from './savings.js';
 import { renderCompositeValue, scoreSession, type SessionScores } from './scoring.js';
 
 export interface Report {
@@ -27,6 +32,12 @@ export interface Report {
    * scoring reads, so every audit count on the report agrees with the scores.
    */
   audit: AuditEvent[];
+  /**
+   * What the session saved, from the same computation the receipt reads
+   * (savings.ts). The report is what a user actually runs, so it has to
+   * answer the question the receipt was answering on its own.
+   */
+  savings: SessionSavings;
   notes: string[];
 }
 
@@ -82,6 +93,15 @@ export async function buildReport(
   // from what scoring saw. Parse skips are reported via parse counts, not here.
   const sessionAudit = buildAuditReport(ledger.sessionId, options.auditPath).events;
   const scores = scoreSession(ledger, energy, sessionAudit);
+  const savings = computeSessionSavings({
+    ledger,
+    audit: sessionAudit,
+    contextEfficiency: scores.contextEfficiency,
+    prices,
+    factors: loadEnergyFactors(),
+    grid: loadGridIntensity(),
+    region: options.region,
+  });
 
   return {
     source: filePath,
@@ -92,6 +112,7 @@ export async function buildReport(
     scores,
     parse: parsed.counts,
     audit: sessionAudit,
+    savings,
     notes,
   };
 }
@@ -178,6 +199,9 @@ export function renderText(report: Report): string {
       ? '  composite            not scorable: no individual score was computable'
       : `  composite            ${renderCompositeValue(report.scores.composite)}`,
   );
+  lines.push('');
+  lines.push('Savings (estimates, see docs/METHODOLOGY.md)');
+  lines.push(...renderSavingsLines(report.savings));
   const tools = Object.entries(ledger.byTool).sort((a, b) => b[1].calls - a[1].calls);
   if (tools.length > 0) {
     lines.push('');

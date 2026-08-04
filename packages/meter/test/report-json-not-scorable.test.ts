@@ -130,7 +130,7 @@ describe('report --json across every not-scorable combination', () => {
     );
     const { exit, report } = await reportJson(transcript);
     expect(exit).toBe(0);
-    expect(notScorable(report.scores.contextEfficiency)).toContain('no serve events with byte counts');
+    expect(notScorable(report.scores.contextEfficiency)).toContain('raw byte count');
     expect(report.scores.composite).toMatchObject({ contributing: 3, total: 4, partial: false });
     expect(report.scores.composite?.grade).toBeDefined();
   });
