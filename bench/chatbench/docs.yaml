@@ -1,0 +1,93 @@
+# Docs corpus question set — 10 questions asked as one continuous conversation.
+# Ground truth is the valuation-practice fixture at fixtures/doc-corpus:
+#   billing-policy.md, glossary.md, retention-schedule.txt,
+#   tools/fee-calculator.ts, engagement-letter.pdf (Session 5 addition),
+#   quality-review-checklist.docx (Session 5 addition).
+#
+# Categories per Session 5 spec:
+#   - single-doc lookup           (Q1, Q2, Q4, Q8)
+#   - cross-doc synthesis         (Q3, Q5, Q9)
+#   - detail-below-structure-map  (Q6, forces a zoom in the VAULT arm)
+#   - follow-up depending on Q3   (Q7)
+#   - follow-up depending on Q9   (Q10)
+#
+# Rubric: needle-fraction. Each `needles[]` entry contributes equally to the
+# per-question score; match is case-insensitive substring.
+
+corpus: docs
+questions:
+  - id: q1
+    category: single-doc-lookup
+    prompt: 'Per the billing policy, what interest rate accrues on invoices unpaid after the 30-day due window, and per what period?'
+    needles:
+      - '1.5'
+      - 'month'
+
+  - id: q2
+    category: single-doc-lookup
+    prompt: 'The records retention schedule sets a specific retention window for valuation workpapers. State the window and the trigger date it runs from.'
+    needles:
+      - 'seven year'
+      - 'report date'
+
+  - id: q3
+    category: cross-doc-synthesis
+    prompt: 'The billing policy invoice section names the Meridian engagement and cites a specific section of the engagement letter. Quote the glossary definition of "Workpapers" and state which engagement-letter section the invoice references.'
+    needles:
+      - 'workpapers'
+      - 'schedules'
+      - 'section 3'
+
+  - id: q4
+    category: single-doc-lookup
+    prompt: 'The fee-calculator source implements late-interest at the Billing Policy rate. What numeric constant does it multiply by, and per what unit of time?'
+    needles:
+      - '0.015'
+      - 'month'
+
+  - id: q5
+    category: cross-doc-synthesis
+    prompt: 'Which section of the Meridian engagement letter authorises the Practice to suspend work, and how does the billing policy trigger that authority?'
+    needles:
+      - 'section 4'
+      - '60 day'
+      - 'overdue'
+
+  - id: q6
+    category: detail-below-structure-map
+    prompt: 'Inside the fee-calculator source, what exact error message is thrown when the requested number of installment months is less than one? Quote the message verbatim.'
+    needles:
+      - 'at least one installment month is required'
+
+  - id: q7
+    category: follow-up
+    dependsOn: q3
+    prompt: 'Given the Meridian engagement-letter clause you just cited, how many monthly installments does it split the fixed fee into?'
+    needles:
+      - 'twelve'
+      - 'installment'
+
+  - id: q8
+    category: single-doc-lookup
+    prompt: 'The quality review checklist sets a Fair Market Value threshold above which a concurring partner review is required. State the threshold in USD.'
+    needles:
+      - '10,000,000'
+      - 'partner'
+
+  - id: q9
+    category: cross-doc-synthesis
+    prompt: 'A regulator asks a plain-English summary of what engagement records the Practice retains, for how long, and under what deletion trigger. Assemble the answer from the retention schedule and the quality-review checklist.'
+    needles:
+      - 'workpaper'
+      - 'seven year'
+      - 'client'
+      - 'permanent'
+
+  - id: q10
+    category: follow-up
+    dependsOn: q9
+    prompt: 'From that summary you just gave, which record category has the shortest retention window, and what triggers its destruction?'
+    needles:
+      - 'draft'
+      - 'destroyed'
+      - 'final report'

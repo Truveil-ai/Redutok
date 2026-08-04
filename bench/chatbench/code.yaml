@@ -1,0 +1,104 @@
+# Code corpus question set — 10 questions asked as one continuous conversation
+# against the vendored axios repo at fixtures/repos/axios. Needles were pinned
+# against the vendored source at pre-registration time (see files referenced
+# per question); if the vendored commit ever moves, this yaml is void and a
+# new registrationId must be issued.
+
+corpus: code
+questions:
+  - id: q1
+    category: single-file-lookup
+    # Ground truth: lib/axios.js:28 defines createInstance; lib/axios.js:47
+    # exports the default instance built by createInstance(defaults).
+    prompt: 'Which file exports the top-level default `axios` instance, and which function inside that file constructs it?'
+    needles:
+      - 'lib/axios.js'
+      - 'createInstance'
+
+  - id: q2
+    category: single-file-lookup
+    # Ground truth: lib/core/InterceptorManager.js — use() returns the numeric
+    # handler id which eject(id) uses to remove it.
+    prompt: 'In the InterceptorManager class, what does `use()` return and which method consumes that return value to remove the interceptor?'
+    needles:
+      - 'id'
+      - 'eject'
+
+  - id: q3
+    category: cross-file-synthesis
+    # Ground truth flow: lib/axios.js (default instance) -> lib/core/Axios.js
+    # (request method, interceptor chain) -> lib/core/dispatchRequest.js
+    # (adapter invocation) -> lib/adapters/adapters.js (getAdapter).
+    prompt: 'Trace a request from `axios(config)` at the entrypoint through the interceptor stage, the dispatch layer, and the adapter selection. Name the four files it touches, in order.'
+    needles:
+      - 'lib/axios.js'
+      - 'axios.js'
+      - 'dispatchrequest'
+      - 'adapters'
+
+  - id: q4
+    category: single-file-lookup
+    # Ground truth: lib/cancel/CanceledError.js defines CanceledError.
+    prompt: 'What is the class thrown when an axios request is cancelled via a CancelToken, and which file defines it?'
+    needles:
+      - 'canceledError'
+      - 'cancel/CanceledError'
+
+  - id: q5
+    category: cross-file-synthesis
+    # Ground truth: lib/adapters/adapters.js exports getAdapter which resolves
+    # against a knownAdapters map keyed by "http" | "xhr" | "fetch"; the pick
+    # is driven by the defaults.adapter list in lib/defaults/index.js.
+    prompt: 'How does axios pick the runtime adapter (http vs xhr vs fetch)? Name the resolver function, the map it consults, and where the default preference list lives.'
+    needles:
+      - 'getAdapter'
+      - 'knownAdapters'
+      - 'defaults'
+
+  - id: q6
+    category: detail-below-structure-map
+    # Ground truth: lib/utils.js:129-136 isPlainObject explicitly checks the
+    # prototype chain and rejects values carrying Symbol.toStringTag or
+    # Symbol.iterator. This is deep in a 760-line file and is the classic
+    # zoom-forcing detail.
+    prompt: 'Inside utils.js, `isPlainObject` is more restrictive than "typeof value === object". Beyond the prototype-chain check, which two Symbol properties on the value cause it to be rejected?'
+    needles:
+      - 'toStringTag'
+      - 'iterator'
+
+  - id: q7
+    category: follow-up
+    dependsOn: q3
+    # Ground truth: request interceptors run BEFORE dispatchRequest, chain
+    # assembled in lib/core/Axios.js request().
+    prompt: 'In the flow you just traced, does the request-interceptor promise chain execute before or after `dispatchRequest`, and in which file is the chain assembled?'
+    needles:
+      - 'before'
+      - 'axios.js'
+
+  - id: q8
+    category: single-file-lookup
+    # Ground truth: lib/core/mergeConfig.js exports the merge helper.
+    prompt: 'When per-request config is combined with instance defaults, which helper does the merging, and in which file?'
+    needles:
+      - 'mergeConfig'
+      - 'core/mergeConfig'
+
+  - id: q9
+    category: cross-file-synthesis
+    # Ground truth: default headers set in lib/defaults/index.js; merged with
+    # per-request headers by lib/core/mergeConfig.js (headers key uses the
+    # AxiosHeaders concat/merge semantics from lib/core/AxiosHeaders.js).
+    prompt: 'How are default request headers merged with per-request headers? Name the file where the defaults live and the file that performs the merge.'
+    needles:
+      - 'defaults'
+      - 'mergeConfig'
+
+  - id: q10
+    category: follow-up
+    dependsOn: q9
+    # Ground truth: when the same header key appears in both, per-request wins.
+    prompt: 'From that merge process you just described: if the same header key is set in both the instance defaults and the per-request config, which value wins on the wire?'
+    needles:
+      - 'per-request'
+      - 'wins'

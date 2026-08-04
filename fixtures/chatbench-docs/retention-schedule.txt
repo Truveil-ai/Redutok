@@ -1,0 +1,47 @@
+RECORDS RETENTION SCHEDULE
+
+1. PURPOSE
+
+This schedule governs how long the Practice keeps engagement records,
+including workpapers, correspondence, and issued reports. It applies to
+every engagement, whatever the client or subject matter.
+
+2. WORKPAPER RETENTION
+
+Valuation workpapers, including the Meridian engagement file, must be
+retained for seven years from the report date. Workpapers dated
+2026-03-31 are scheduled for destruction review on 2033-03-31. Retention
+beyond seven years requires written approval from the managing partner.
+
+3. LEGAL HOLDS
+
+When litigation or a regulatory inquiry is reasonably anticipated, all
+destruction under this schedule stops for the affected records until the
+hold is released in writing.
+
+4. CLIENT FILES
+
+Client acceptance records, conflict checks, and identity verification
+records are kept for the life of the client relationship plus five years.
+Correspondence that changes the scope of an engagement is filed with the
+engagement record it modifies, not in the general correspondence file.
+
+5. ISSUED REPORTS
+
+Signed reports and the transmittal letters that accompanied them are kept
+permanently in the report register. Draft reports are destroyed once the
+final report is issued, unless a legal hold applies at that time.
+
+6. DESTRUCTION METHOD
+
+Paper records are cross-cut shredded on site. Electronic records are
+deleted from primary storage and from backups on the next rotation cycle,
+and the destruction is logged in the disposition register with the date,
+the record series, and the approving partner.
+
+7. SCHEDULE REVIEW
+
+The managing partner reviews this schedule annually and after any change
+in applicable law. Amendments take effect when published to the practice
+manual, and earlier versions are retained under section 5 as issued
+documents.
