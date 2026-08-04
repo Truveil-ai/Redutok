@@ -9,11 +9,18 @@ import Parser from 'web-tree-sitter';
 
 export type SkeletonLanguage = 'ts' | 'js' | 'py';
 
+/**
+ * Grammars this build loads. HTML is not a SkeletonLanguage — a page has no
+ * signature list, it has a document structure (html.ts) — but it comes out of
+ * the same pinned wasm set, so the loader is shared rather than duplicated.
+ */
+export type ParserLanguage = SkeletonLanguage | 'html';
+
 const require = createRequire(import.meta.url);
 let initialized = false;
-const languages = new Map<SkeletonLanguage, Parser.Language>();
+const languages = new Map<ParserLanguage, Parser.Language>();
 
-async function loadLanguage(lang: SkeletonLanguage): Promise<Parser.Language> {
+async function loadLanguage(lang: ParserLanguage): Promise<Parser.Language> {
   if (!initialized) {
     await Parser.init();
     initialized = true;
@@ -25,10 +32,20 @@ async function loadLanguage(lang: SkeletonLanguage): Promise<Parser.Language> {
     ts: 'tree-sitter-typescript.wasm',
     js: 'tree-sitter-javascript.wasm',
     py: 'tree-sitter-python.wasm',
+    html: 'tree-sitter-html.wasm',
   }[lang];
   const language = await Parser.Language.load(path.join(wasmDir, file));
   languages.set(lang, language);
   return language;
+}
+
+/** A parser with the grammar already set. The caller owns it and must delete
+ * it; the loaded Language itself is cached and shared. */
+export async function loadTreeSitter(lang: ParserLanguage): Promise<Parser> {
+  const language = await loadLanguage(lang);
+  const parser = new Parser();
+  parser.setLanguage(language);
+  return parser;
 }
 
 const DECLARATION_TYPES = new Set([
@@ -108,14 +125,49 @@ function walk(
   }
 }
 
+/**
+ * The names a source block declares at its top level. What a one-line summary
+ * of an inline script needs (html.ts): the symbols it defines, in source
+ * order, without the bodies. Parsed rather than scanned, because a brace-blind
+ * scan mistakes the first brace inside a string literal for a block.
+ */
+export async function declaredSymbols(source: string, lang: SkeletonLanguage): Promise<string[]> {
+  const parser = await loadTreeSitter(lang);
+  try {
+    const root = parser.parse(source).rootNode;
+    const names: string[] = [];
+    for (let i = 0; i < root.namedChildCount; i += 1) {
+      const child = root.namedChild(i);
+      if (child === null) continue;
+      const target =
+        child.type === 'export_statement' || child.type === 'decorated_definition'
+          ? (child.namedChild(child.namedChildCount - 1) ?? child)
+          : child;
+      if (!DECLARATION_TYPES.has(target.type)) continue;
+      if (target.type === 'lexical_declaration' || target.type === 'variable_declaration') {
+        for (let j = 0; j < target.namedChildCount; j += 1) {
+          const declarator = target.namedChild(j);
+          if (declarator?.type !== 'variable_declarator') continue;
+          const name = declarator.childForFieldName('name')?.text;
+          if (name !== undefined && name !== '') names.push(name);
+        }
+        continue;
+      }
+      const name = target.childForFieldName('name')?.text;
+      if (name !== undefined && name !== '') names.push(name);
+    }
+    return [...new Set(names)];
+  } finally {
+    parser.delete();
+  }
+}
+
 export async function fileSkeleton(
   source: string,
   lang: SkeletonLanguage,
   keepSymbols: readonly string[] = [],
 ): Promise<string> {
-  const language = await loadLanguage(lang);
-  const parser = new Parser();
-  parser.setLanguage(language);
+  const parser = await loadTreeSitter(lang);
   const tree = parser.parse(source);
   const out: string[] = [];
   const importLines = source.split(/\r?\n/).filter((l) => /^\s*(import|from)\b/.test(l)).length;

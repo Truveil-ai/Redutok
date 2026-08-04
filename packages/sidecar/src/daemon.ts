@@ -9,6 +9,7 @@ import { enrichmentFor } from './mirror.js';
 import { buildStructureMap, extractDocument, isDocumentPath, type DocExtraction } from './docs.js';
 import { distillArtifact, loadProfiles, zoom } from './distill.js';
 import { exploreGoal } from './explore.js';
+import { buildHtmlSkeleton, isHtmlPath } from './html.js';
 import { runGraduationMiner } from './graduation.js';
 import { NoopLlmPass, type LlmPass } from './llm.js';
 import { prepareSkeletonEntry } from './prepare.js';
@@ -155,10 +156,15 @@ function handler(
               // Not extractable: the caller's raw stands.
             }
           }
-          // Prose documents distil to their structure map, code to its
-          // signature list; the profile follows the artifact, not the caller.
+          // Prose documents distil to their structure map, HTML pages to
+          // theirs, code to its signature list; the profile follows the
+          // artifact, not the caller.
           const profile = engines.profiles.get(
-            docExtraction === undefined ? 'file-skeleton' : 'doc-skeleton',
+            docExtraction !== undefined
+              ? 'doc-skeleton'
+              : isHtmlPath(relPath)
+                ? 'html-skeleton'
+                : 'file-skeleton',
           );
           // A first serve that this handler is about to distil is not a raw
           // serve: the distillate is what reaches the model, and the distill
@@ -184,6 +190,21 @@ function handler(
                   sections,
                   ...(docExtraction.pages === undefined ? {} : { pages: docExtraction.pages }),
                 },
+              },
+            });
+            respond(200, { mode: 'full', ref: served.ref, text: outcome.text, handle: outcome.handle });
+            return;
+          }
+          if (profile.name === 'html-skeleton') {
+            const built = await buildHtmlSkeleton(raw);
+            const outcome = await distillArtifact(engines.store, engines.audit, {
+              raw,
+              profile,
+              sessionId,
+              tool: 'dcp__read',
+              context: {
+                filePath: relPath,
+                doc: { sections: built.sections, regionLines: built.regionLines },
               },
             });
             respond(200, { mode: 'full', ref: served.ref, text: outcome.text, handle: outcome.handle });

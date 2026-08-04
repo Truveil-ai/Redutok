@@ -8,6 +8,7 @@ import {
   isDocumentPath,
   renderStructureMap,
 } from './docs.js';
+import { buildHtmlSkeleton, isHtmlPath } from './html.js';
 import { NoopLlmPass, type LlmPass } from './llm.js';
 import { fileSkeleton, languageForPath } from './skeleton.js';
 
@@ -217,6 +218,28 @@ async function buildSkeletonFor(
     const skeleton = await fileSkeleton(content, lang, options.enrichments ?? []);
     return { skeleton, raw: content, rawLabel: 'raw' };
   }
+  if (isHtmlPath(rel)) {
+    // A page is its own raw: the map addresses source lines, so what the
+    // skeleton replaced comes back as markup, not as stripped text.
+    const content = bytes.toString('utf8');
+    const built = await buildHtmlSkeleton(content);
+    if (built.sections.length < 2) return undefined;
+    const skeleton = renderStructureMap({
+      filePath: rel,
+      sections: built.sections,
+      zoomHint: `read ${rel} with offset/limit`,
+      maxBytes: Math.floor(
+        Buffer.byteLength(content, 'utf8') * LIMITS.SIZE_SANITY_MAX_RATIO * 0.95,
+      ),
+    });
+    if (
+      Buffer.byteLength(skeleton, 'utf8') >
+      Buffer.byteLength(content, 'utf8') * LIMITS.SIZE_SANITY_MAX_RATIO
+    ) {
+      return undefined;
+    }
+    return { skeleton, raw: content, rawLabel: 'raw' };
+  }
   if (!isDocumentPath(rel)) return undefined;
   const extraction = extractDocument(abs);
   if (extraction.outOfScope !== undefined) return undefined;
@@ -272,7 +295,7 @@ export async function refreshMirror(
   for (const relRaw of rels) {
     const rel = relRaw.replace(/\\/g, '/');
     const abs = path.join(root, rel);
-    if (languageForPath(rel) === undefined && !isDocumentPath(rel)) continue;
+    if (languageForPath(rel) === undefined && !isDocumentPath(rel) && !isHtmlPath(rel)) continue;
     if (!existsSync(abs)) {
       drop(rel);
       continue;

@@ -162,6 +162,15 @@ export interface DocDistillContext {
   pages?: DocPage[];
   /** The question being served; drives which sections ride along verbatim. */
   ask?: string;
+  /**
+   * The conclusion-relevant region, when the builder knows it better than the
+   * default rule does. Prose sections start on their own heading line, so the
+   * default (each section's first raw line) is exactly the map's promise; an
+   * HTML landmark starts on a tag full of layout attributes the map neither
+   * carries nor should, so html.ts supplies the heading and block-boundary
+   * lines instead (docs/HTML.md).
+   */
+  regionLines?: string[];
 }
 
 export interface DistillContext {
@@ -299,7 +308,11 @@ export async function runProfile(
       return genericStdoutDistill(raw, profile, context);
     case 'doc-serve':
       return docServeDistill(raw, profile, context);
+    // An HTML page's skeleton is a structure map too, over its own sections
+    // (html.ts): same renderer, same zoom addressing, its own profile so the
+    // gates and the audit trail say which kind of artifact was governed.
     case 'doc-skeleton':
+    case 'html-skeleton':
       return docSkeletonDistill(raw, profile, context);
     case 'doc-search':
       return docSearchDistill(raw, profile, context);
@@ -348,6 +361,9 @@ function withDocRegion(config: GateConfig, request: DistillRequest): GateConfig 
   // is that every section stays findable, so the region becomes the document's
   // heading lines. Without this the gate would pass on an empty region and
   // guarantee nothing about the one thing the map exists to carry.
+  if (doc.regionLines !== undefined) {
+    return { ...config, entity: { ...config.entity, regionLines: doc.regionLines } };
+  }
   const lines = request.raw.split(/\r?\n/);
   const headingLines = doc.sections
     .map((s) => lines[s.startLine - 1] ?? '')

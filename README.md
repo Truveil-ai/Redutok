@@ -104,7 +104,11 @@ each with symptom, diagnosis, and fix, are
 - **The skeleton mirror.** A large Read is answered with a skeleton through
   that same Read, rewritten at the hook, so compression costs no extra turn
   and no denial. The skeleton's first line names the real path, the raw
-  size, and the way back to full fidelity.
+  size, and the way back to full fidelity. Source files become signature
+  lists, prose documents become structure maps
+  ([docs/PROSE.md](docs/PROSE.md)), and HTML pages become document maps whose
+  inline script and style blocks are summarized rather than passed through
+  ([docs/HTML.md](docs/HTML.md)).
 - **The codex.** A verified structural map of the repository, injected once,
   so the session stops re-deriving structure it could have been told.
 - **Graduation.** Each session's miner proposes candidate learnings from
