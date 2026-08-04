@@ -216,6 +216,39 @@ describe('a single-file HTML app gets a map instead of its body', () => {
   });
 });
 
+describe('line endings survive the round trip', () => {
+  it('recovers a section of a CRLF page with its carriage returns intact', async () => {
+    // A Windows checkout hands the reader CRLF, and a slice that rejoined the
+    // lines with \n was not the byte-exact recovery the map promises. CI on
+    // windows-latest caught this; the fixture is LF on disk, so the CRLF case
+    // is pinned here explicitly rather than left to the runner.
+    const content = dashboard().replace(/\n/g, '\r\n');
+    const { root, dcpDir } = repoWith([{ rel: 'app/crlf.html', content }]);
+    const deps = depsFor(root, dcpDir);
+    try {
+      const result = await prepareSkeletonEntry(deps, 'app/crlf.html', 's-crlf');
+      expect(result.ok, `prepare refused: ${result.reason ?? ''}`).toBe(true);
+      const entry = readFileSync(result.mirrorPath as string, 'utf8');
+      const zoomId = /dcp__zoom\("(a[0-9a-f]+)"\)/.exec(entry)?.[1] as string;
+
+      const whole = zoom(deps.store, deps.audit, zoomId, undefined, undefined);
+      expect(whole.text).toBe(content);
+
+      const { sections } = await buildHtmlSkeleton(content);
+      const target = sections.find((s) => s.id === 'style') as { startLine: number; endLine: number };
+      const expected = content
+        .split('\n')
+        .slice(target.startLine - 1, target.endLine)
+        .join('\n');
+      const slice = zoom(deps.store, deps.audit, zoomId, 'style', undefined);
+      expect(slice.text).toBe(expected);
+      expect(slice.text).toContain('\r\n');
+    } finally {
+      deps.store.close();
+    }
+  });
+});
+
 describe('the mirror covers HTML like any other skeletonable file', () => {
   it('writes an entry on refresh and names the real path in the header', async () => {
     const content = dashboard();

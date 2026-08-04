@@ -92,8 +92,12 @@ describe('markdown extraction and structure', () => {
     const sections = await buildStructureMap(extraction, noop);
     const late = byId(sections, 's3');
     const slice = sectionText(extraction.text, late);
-    const lines = extraction.text.split(/\r?\n/);
+    // Byte-exact means the separators too: the expectation is a plain \n split
+    // of the source, which on a CRLF checkout keeps the carriage returns the
+    // old /\r?\n/ split rewrote.
+    const lines = extraction.text.split('\n');
     expect(slice).toBe(lines.slice(late.startLine - 1, late.endLine).join('\n'));
+    expect(extraction.text).toContain(slice);
     expect(slice).toContain('1.5% per month');
   });
 });
