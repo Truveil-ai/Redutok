@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quarterly Revenue Dashboard</title>
+<meta name="description" content="Single-file revenue dashboard, no build step, no dependencies.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #16181d;
+    --muted: #5f6672;
+    --line: #e3e6ea;
+    --accent: #2f6df6;
+    --accent-soft: #eaf0ff;
+    --good: #17864a;
+    --bad: #c0392b;
+    --radius: 10px;
+    --gutter: 20px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --fg: #e8eaed;
+      --muted: #98a0ad;
+      --line: #262a31;
+      --accent: #6f9bff;
+      --accent-soft: #1b2438;
+      --good: #45c07d;
+      --bad: #ef7a6d;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  a { color: var(--accent); }
+
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: var(--gutter);
+  }
+
+  header.masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  header.masthead h1 {
+    font-size: 20px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  header.masthead .stamp {
+    color: var(--muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  nav.tabs {
+    display: flex;
+    gap: 4px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+  }
+
+  nav.tabs button {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--fg);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  nav.tabs button[aria-selected="true"] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    margin-bottom: var(--gutter);
+  }
+
+  .filters label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .filters select,
+  .filters input {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+  }
+
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: var(--gutter);
+  }
+
+  .kpi {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+
+  .kpi .label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .kpi .value {
+    font-size: 26px;
+    font-variant-numeric: tabular-nums;
+    margin-top: 6px;
+  }
+
+  .kpi .delta { font-size: 13px; margin-top: 2px; }
+  .kpi .delta.up { color: var(--good); }
+  .kpi .delta.down { color: var(--bad); }
+
+  .chart-wrap {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: var(--gutter);
+  }
+
+  .chart-wrap h2,
+  .table-wrap h2 {
+    font-size: 15px;
+    margin: 0 0 10px;
+  }
+
+  svg.chart { width: 100%; height: 260px; display: block; }
+  svg.chart .bar { fill: var(--accent); }
+  svg.chart .bar:hover { fill: var(--fg); }
+  svg.chart .axis { stroke: var(--line); stroke-width: 1; }
+  svg.chart text { fill: var(--muted); font-size: 11px; }
+
+  .table-wrap {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+
+  table th,
+  table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  table th {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  table th[aria-sort="ascending"]::after { content: " \2191"; }
+  table th[aria-sort="descending"]::after { content: " \2193"; }
+  table td.num { text-align: right; }
+  table tbody tr:hover { background: var(--accent-soft); }
+
+  dialog.detail {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--fg);
+    max-width: 520px;
+    width: 92vw;
+    padding: 18px;
+  }
+
+  dialog.detail::backdrop { background: rgba(0, 0, 0, 0.45); }
+  dialog.detail dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
+  dialog.detail dt { color: var(--muted); font-size: 13px; }
+  dialog.detail dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+  footer.colophon {
+    margin-top: 28px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  code { font-family: var(--mono); font-size: 13px; }
+
+  @media (max-width: 720px) {
+    .page { padding: 12px; }
+    header.masthead { flex-direction: column; align-items: flex-start; gap: 4px; }
+    svg.chart { height: 200px; }
+    table th, table td { padding: 6px 7px; }
+  }
+
+  @media print {
+    nav.tabs, .filters, dialog.detail { display: none; }
+    .page { max-width: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="masthead" id="masthead">
+  <h1>Quarterly Revenue Dashboard</h1>
+  <div class="stamp">Data through 2026-06-30 &middot; refreshed <span id="refreshed">—</span></div>
+</header>
+
+<nav class="tabs" id="viewTabs" role="tablist" aria-label="Views">
+  <button role="tab" data-view="revenue" aria-selected="true">Revenue</button>
+  <button role="tab" data-view="pipeline" aria-selected="false">Pipeline</button>
+  <button role="tab" data-view="retention" aria-selected="false">Retention</button>
+  <button role="tab" data-view="margin" aria-selected="false">Gross margin</button>
+</nav>
+
+<section class="filters" id="filters" aria-label="Filters">
+  <div>
+    <label for="regionSelect">Region</label>
+    <select id="regionSelect">
+      <option value="all">All regions</option>
+      <option value="amer">Americas</option>
+      <option value="emea">EMEA</option>
+      <option value="apac">APAC</option>
+    </select>
+  </div>
+  <div>
+    <label for="segmentSelect">Segment</label>
+    <select id="segmentSelect">
+      <option value="all">All segments</option>
+      <option value="enterprise">Enterprise</option>
+      <option value="midmarket">Mid-market</option>
+      <option value="smb">SMB</option>
+    </select>
+  </div>
+  <div>
+    <label for="minValue">Minimum bookings (USD)</label>
+    <input id="minValue" type="number" min="0" step="1000" value="0">
+  </div>
+  <div>
+    <label for="searchBox">Search account</label>
+    <input id="searchBox" type="search" placeholder="e.g. Northwind">
+  </div>
+</section>
+
+<section class="kpis" id="kpis" aria-label="Key figures">
+  <div class="kpi">
+    <div class="label">Bookings</div>
+    <div class="value" id="kpiBookings">$0</div>
+    <div class="delta" id="kpiBookingsDelta">—</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Net revenue retention</div>
+    <div class="value" id="kpiNrr">0%</div>
+    <div class="delta" id="kpiNrrDelta">—</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Gross margin</div>
+    <div class="value" id="kpiMargin">0%</div>
+    <div class="delta" id="kpiMarginDelta">—</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Accounts</div>
+    <div class="value" id="kpiAccounts">0</div>
+    <div class="delta" id="kpiAccountsDelta">—</div>
+  </div>
+</section>
+
+<section class="chart-wrap" id="chartSection">
+  <h2>Bookings by quarter</h2>
+  <svg class="chart" id="chart" viewBox="0 0 960 260" role="img" aria-label="Bookings by quarter"></svg>
+</section>
+
+<section class="table-wrap" id="tableSection">
+  <h2>Accounts</h2>
+  <table id="accounts">
+    <thead>
+      <tr>
+        <th data-key="name" aria-sort="none">Account</th>
+        <th data-key="region" aria-sort="none">Region</th>
+        <th data-key="segment" aria-sort="none">Segment</th>
+        <th data-key="bookings" aria-sort="none" class="num">Bookings</th>
+        <th data-key="nrr" aria-sort="none" class="num">NRR</th>
+        <th data-key="closed" aria-sort="none">Closed</th>
+      </tr>
+    </thead>
+    <tbody id="accountRows"></tbody>
+  </table>
+</section>
+
+<dialog class="detail" id="detail">
+  <h2 id="detailTitle">Account</h2>
+  <dl id="detailBody"></dl>
+  <p><button id="detailClose">Close</button></p>
+</dialog>
+
+<footer class="colophon">
+  <p>Figures are unaudited. Bookings are net of credits; NRR excludes accounts under 12 months.
+  Source of record is the finance warehouse snapshot of 2026-07-02.</p>
+</footer>
+
+</div>
+
+<script>
+  'use strict';
+
+  const QUARTERS = ['2025-Q3', '2025-Q4', '2026-Q1', '2026-Q2'];
+
+  const ACCOUNTS = [
+    { id: 'a-1001', name: 'Northwind Traders', region: 'amer', segment: 'enterprise', bookings: 1842000, nrr: 118, margin: 74, closed: '2026-05-14' },
+    { id: 'a-1002', name: 'Contoso Health', region: 'amer', segment: 'enterprise', bookings: 1320500, nrr: 104, margin: 69, closed: '2026-06-02' },
+    { id: 'a-1003', name: 'Fabrikam Logistics', region: 'emea', segment: 'midmarket', bookings: 742300, nrr: 96, margin: 71, closed: '2026-04-28' },
+    { id: 'a-1004', name: 'Tailspin Toys', region: 'apac', segment: 'smb', bookings: 118400, nrr: 88, margin: 63, closed: '2026-06-19' },
+    { id: 'a-1005', name: 'Adventure Works', region: 'amer', segment: 'midmarket', bookings: 651900, nrr: 111, margin: 70, closed: '2026-03-31' },
+    { id: 'a-1006', name: 'Woodgrove Bank', region: 'emea', segment: 'enterprise', bookings: 2205000, nrr: 127, margin: 78, closed: '2026-06-25' },
+    { id: 'a-1007', name: 'Proseware Media', region: 'emea', segment: 'smb', bookings: 96250, nrr: 82, margin: 58, closed: '2026-01-17' },
+    { id: 'a-1008', name: 'Litware Robotics', region: 'apac', segment: 'enterprise', bookings: 1487600, nrr: 133, margin: 76, closed: '2026-05-30' },
+    { id: 'a-1009', name: 'Coho Vineyard', region: 'amer', segment: 'smb', bookings: 74100, nrr: 91, margin: 61, closed: '2026-02-11' },
+    { id: 'a-1010', name: 'Lucerne Publishing', region: 'emea', segment: 'midmarket', bookings: 508700, nrr: 99, margin: 67, closed: '2026-06-08' },
+    { id: 'a-1011', name: 'Wingtip Aviation', region: 'apac', segment: 'midmarket', bookings: 433250, nrr: 106, margin: 72, closed: '2026-04-04' },
+    { id: 'a-1012', name: 'Trey Research', region: 'amer', segment: 'enterprise', bookings: 1994800, nrr: 121, margin: 79, closed: '2026-06-27' }
+  ];
+
+  const HISTORY = {
+    '2025-Q3': { bookings: 8120000, nrr: 108, margin: 70, accounts: 11 },
+    '2025-Q4': { bookings: 9450500, nrr: 112, margin: 71, accounts: 11 },
+    '2026-Q1': { bookings: 9012400, nrr: 109, margin: 72, accounts: 12 },
+    '2026-Q2': { bookings: 11474800, nrr: 114, margin: 73, accounts: 12 }
+  };
+
+  const state = {
+    view: 'revenue',
+    region: 'all',
+    segment: 'all',
+    minValue: 0,
+    search: '',
+    sortKey: 'bookings',
+    sortDir: 'desc'
+  };
+
+  const el = (id) => document.getElementById(id);
+
+  const formatMoney = (value) => {
+    if (value >= 1000000) return '$' + (value / 1000000).toFixed(2) + 'M';
+    if (value >= 1000) return '$' + (value / 1000).toFixed(1) + 'K';
+    return '$' + value.toFixed(0);
+  };
+
+  const formatPercent = (value) => value.toFixed(1) + '%';
+
+  const formatDate = (iso) => {
+    const parts = iso.split('-');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[Number(parts[1]) - 1] + ' ' + Number(parts[2]) + ', ' + parts[0];
+  };
+
+  function visibleAccounts() {
+    const needle = state.search.trim().toLowerCase();
+    return ACCOUNTS.filter((account) => {
+      if (state.region !== 'all' && account.region !== state.region) return false;
+      if (state.segment !== 'all' && account.segment !== state.segment) return false;
+      if (account.bookings < state.minValue) return false;
+      if (needle !== '' && !account.name.toLowerCase().includes(needle)) return false;
+      return true;
+    });
+  }
+
+  function sortAccounts(rows) {
+    const key = state.sortKey;
+    const dir = state.sortDir === 'asc' ? 1 : -1;
+    return rows.slice().sort((a, b) => {
+      const left = a[key];
+      const right = b[key];
+      if (typeof left === 'number' && typeof right === 'number') return (left - right) * dir;
+      return String(left).localeCompare(String(right)) * dir;
+    });
+  }
+
+  function summarize(rows) {
+    if (rows.length === 0) {
+      return { bookings: 0, nrr: 0, margin: 0, accounts: 0 };
+    }
+    const bookings = rows.reduce((total, row) => total + row.bookings, 0);
+    const weighted = rows.reduce((total, row) => total + row.nrr * row.bookings, 0);
+    const margin = rows.reduce((total, row) => total + row.margin * row.bookings, 0);
+    return {
+      bookings: bookings,
+      nrr: weighted / bookings,
+      margin: margin / bookings,
+      accounts: rows.length
+    };
+  }
+
+  function deltaAgainstPrior(current, key) {
+    const prior = HISTORY['2026-Q1'][key];
+    if (!prior) return { text: '—', direction: 'flat' };
+    const change = ((current - prior) / prior) * 100;
+    return {
+      text: (change >= 0 ? '+' : '') + change.toFixed(1) + '% vs 2026-Q1',
+      direction: change >= 0 ? 'up' : 'down'
+    };
+  }
+
+  function renderKpis(rows) {
+    const totals = summarize(rows);
+    el('kpiBookings').textContent = formatMoney(totals.bookings);
+    el('kpiNrr').textContent = formatPercent(totals.nrr);
+    el('kpiMargin').textContent = formatPercent(totals.margin);
+    el('kpiAccounts').textContent = String(totals.accounts);
+
+    const pairs = [
+      ['kpiBookingsDelta', deltaAgainstPrior(totals.bookings, 'bookings')],
+      ['kpiNrrDelta', deltaAgainstPrior(totals.nrr, 'nrr')],
+      ['kpiMarginDelta', deltaAgainstPrior(totals.margin, 'margin')],
+      ['kpiAccountsDelta', deltaAgainstPrior(totals.accounts, 'accounts')]
+    ];
+    pairs.forEach((pair) => {
+      const node = el(pair[0]);
+      node.textContent = pair[1].text;
+      node.className = 'delta ' + pair[1].direction;
+    });
+  }
+
+  function renderChart() {
+    const svg = el('chart');
+    const width = 960;
+    const height = 260;
+    const padding = { top: 16, right: 16, bottom: 30, left: 56 };
+    const plotWidth = width - padding.left - padding.right;
+    const plotHeight = height - padding.top - padding.bottom;
+    const values = QUARTERS.map((quarter) => HISTORY[quarter].bookings);
+    const peak = Math.max.apply(null, values) * 1.1;
+    const slot = plotWidth / QUARTERS.length;
+    const barWidth = slot * 0.55;
+
+    const parts = [];
+    parts.push('<line class="axis" x1="' + padding.left + '" y1="' + (padding.top + plotHeight) +
+      '" x2="' + (padding.left + plotWidth) + '" y2="' + (padding.top + plotHeight) + '" />');
+
+    QUARTERS.forEach((quarter, index) => {
+      const value = HISTORY[quarter].bookings;
+      const barHeight = (value / peak) * plotHeight;
+      const x = padding.left + index * slot + (slot - barWidth) / 2;
+      const y = padding.top + plotHeight - barHeight;
+      parts.push('<rect class="bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) +
+        '" width="' + barWidth.toFixed(1) + '" height="' + barHeight.toFixed(1) +
+        '"><title>' + quarter + ': ' + formatMoney(value) + '</title></rect>');
+      parts.push('<text x="' + (x + barWidth / 2).toFixed(1) + '" y="' + (height - 10) +
+        '" text-anchor="middle">' + quarter + '</text>');
+      parts.push('<text x="' + (x + barWidth / 2).toFixed(1) + '" y="' + (y - 6).toFixed(1) +
+        '" text-anchor="middle">' + formatMoney(value) + '</text>');
+    });
+
+    svg.innerHTML = parts.join('');
+  }
+
+  function renderTable(rows) {
+    const body = el('accountRows');
+    body.innerHTML = '';
+    sortAccounts(rows).forEach((account) => {
+      const tr = document.createElement('tr');
+      tr.dataset.id = account.id;
+      tr.innerHTML =
+        '<td>' + account.name + '</td>' +
+        '<td>' + account.region.toUpperCase() + '</td>' +
+        '<td>' + account.segment + '</td>' +
+        '<td class="num">' + formatMoney(account.bookings) + '</td>' +
+        '<td class="num">' + account.nrr + '%</td>' +
+        '<td>' + formatDate(account.closed) + '</td>';
+      body.appendChild(tr);
+    });
+    if (rows.length === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="6">No accounts match these filters.</td>';
+      body.appendChild(tr);
+    }
+  }
+
+  function openDetail(id) {
+    const account = ACCOUNTS.find((candidate) => candidate.id === id);
+    if (!account) return;
+    el('detailTitle').textContent = account.name;
+    el('detailBody').innerHTML =
+      '<dt>Region</dt><dd>' + account.region.toUpperCase() + '</dd>' +
+      '<dt>Segment</dt><dd>' + account.segment + '</dd>' +
+      '<dt>Bookings</dt><dd>' + formatMoney(account.bookings) + '</dd>' +
+      '<dt>NRR</dt><dd>' + account.nrr + '%</dd>' +
+      '<dt>Gross margin</dt><dd>' + account.margin + '%</dd>' +
+      '<dt>Closed</dt><dd>' + formatDate(account.closed) + '</dd>';
+    el('detail').showModal();
+  }
+
+  function render() {
+    const rows = visibleAccounts();
+    renderKpis(rows);
+    renderChart();
+    renderTable(rows);
+    el('refreshed').textContent = new Date().toISOString().slice(0, 10);
+  }
+
+  function wireFilters() {
+    el('regionSelect').addEventListener('change', (event) => {
+      state.region = event.target.value;
+      render();
+    });
+    el('segmentSelect').addEventListener('change', (event) => {
+      state.segment = event.target.value;
+      render();
+    });
+    el('minValue').addEventListener('input', (event) => {
+      state.minValue = Number(event.target.value) || 0;
+      render();
+    });
+    el('searchBox').addEventListener('input', (event) => {
+      state.search = event.target.value;
+      render();
+    });
+  }
+
+  function wireTabs() {
+    el('viewTabs').addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-view]');
+      if (!button) return;
+      state.view = button.dataset.view;
+      Array.prototype.forEach.call(el('viewTabs').querySelectorAll('button'), (node) => {
+        node.setAttribute('aria-selected', node === button ? 'true' : 'false');
+      });
+      render();
+    });
+  }
+
+  function wireTable() {
+    el('accounts').querySelector('thead').addEventListener('click', (event) => {
+      const th = event.target.closest('th[data-key]');
+      if (!th) return;
+      const key = th.dataset.key;
+      state.sortDir = state.sortKey === key && state.sortDir === 'desc' ? 'asc' : 'desc';
+      state.sortKey = key;
+      Array.prototype.forEach.call(el('accounts').querySelectorAll('th'), (node) => {
+        node.setAttribute('aria-sort', node === th
+          ? (state.sortDir === 'asc' ? 'ascending' : 'descending')
+          : 'none');
+      });
+      render();
+    });
+    el('accountRows').addEventListener('click', (event) => {
+      const tr = event.target.closest('tr[data-id]');
+      if (tr) openDetail(tr.dataset.id);
+    });
+    el('detailClose').addEventListener('click', () => el('detail').close());
+  }
+
+  function boot() {
+    wireFilters();
+    wireTabs();
+    wireTable();
+    render();
+  }
+
+  document.addEventListener('DOMContentLoaded', boot);
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "name": "Quarterly Revenue Dashboard",
+  "temporalCoverage": "2025-07-01/2026-06-30",
+  "creator": { "@type": "Organization", "name": "Finance Systems" }
+}
+</script>
+</body>
+</html>

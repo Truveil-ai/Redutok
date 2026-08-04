@@ -10,6 +10,7 @@ export * from './llm.js';
 export * from './skeleton.js';
 export * from './distill.js';
 export * from './docs.js';
+export * from './html.js';
 export * from './codex.js';
 export * from './mirror.js';
 export * from './prepare.js';

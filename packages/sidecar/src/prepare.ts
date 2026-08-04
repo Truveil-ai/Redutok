@@ -10,6 +10,7 @@ import {
   type DocPage,
   type DocSection,
 } from './docs.js';
+import { buildHtmlSkeleton, isHtmlPath } from './html.js';
 import { NoopLlmPass, type LlmPass } from './llm.js';
 import { mirrorHash, readMirrorIndex, mirrorEntryPath, writeMirrorEntry } from './mirror.js';
 import { languageForPath } from './skeleton.js';
@@ -55,12 +56,14 @@ export interface PrepareResult {
 
 /**
  * The profile that turns this file into a skeleton, by type: tree-sitter
- * languages become signature lists, prose documents become structure maps.
+ * languages become signature lists, prose documents become structure maps,
+ * HTML pages become document maps with their inline blocks summarized.
  * Everything else has no skeleton builder and is read raw.
  */
 export function skeletonProfileFor(rel: string): string | undefined {
   if (languageForPath(rel) !== undefined) return 'file-skeleton';
   if (isDocumentPath(rel)) return 'doc-skeleton';
+  if (isHtmlPath(rel)) return 'html-skeleton';
   return undefined;
 }
 
@@ -107,8 +110,17 @@ export async function prepareSkeletonEntry(
   // over, and therefore what zoom has to return byte for byte.
   let content: string;
   let rawLabel = 'raw';
-  let doc: { sections: DocSection[]; pages?: DocPage[] } | undefined;
-  if (profileName === 'doc-skeleton') {
+  let doc: { sections: DocSection[]; pages?: DocPage[]; regionLines?: string[] } | undefined;
+  if (profileName === 'html-skeleton') {
+    // A page's raw is the page: sections address source lines, so zoom hands
+    // back the markup, the script and the stylesheet as written.
+    content = bytes.toString('utf8');
+    const built = await buildHtmlSkeleton(content);
+    if (built.sections.length < 2) {
+      return { ok: false, reason: 'no document structure detected in this page', rawBytes };
+    }
+    doc = { sections: built.sections, regionLines: built.regionLines };
+  } else if (profileName === 'doc-skeleton') {
     let extraction;
     try {
       extraction = extractDocument(abs);

@@ -1,0 +1,28 @@
+name: html-skeleton
+version: "1"
+description: HTML page reduced to its document structure, with inline script and style blocks summarized
+match:
+  tools: [Read]
+  contentType: html-file
+rules:
+  # The same structure-map rule the prose skeleton uses: every section as a
+  # citation line with its anchor and one-line summary. For a page the
+  # sections are its headings, its landmark elements, and the boundaries of
+  # each script and style block, whose bodies are summarized rather than
+  # carried — a single-file application keeps almost all of its bytes there.
+  - kind: structure-map
+    config: { maxSections: 400 }
+gates:
+  # The map's promise for a page is that its headings and block boundaries
+  # survive, so those source lines are the conclusion-relevant region (the
+  # region the html builder hands the gate). Layout attributes are not part
+  # of that promise and are not held to it.
+  entityPatterns: prose
+  entityPreservationMinRatio: 1
+  # A map earns its place only by being far smaller than the page. A short or
+  # markup-dense file that cannot clear this is served raw, exactly as it was
+  # before this profile existed.
+  sizeMaxRatio: 0.4
+  minOutputBytes: 40
+llm:
+  enabled: false

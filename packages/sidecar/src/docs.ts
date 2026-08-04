@@ -923,11 +923,18 @@ export async function buildStructureMap(
   return sections;
 }
 
-/** The byte-exact slice contract: a cited range recovers exactly these lines
- * of the stored text, joined with \n. */
+/**
+ * The byte-exact slice contract: a cited range recovers exactly these lines of
+ * the stored text, separators included. Split and join both on \n alone, so a
+ * CRLF source keeps its carriage returns — splitting on /\r?\n/ and rejoining
+ * with \n silently rewrote every line ending, which on a Windows checkout made
+ * a "byte-exact" HTML section slice differ from the file it came from
+ * (caught by CI, 2026-08-05). Line indices are unaffected: both forms break at
+ * every newline, so only the bytes at the end of each line differ.
+ */
 export function sectionText(text: string, range: { startLine: number; endLine: number }): string {
   return text
-    .split(/\r?\n/)
+    .split('\n')
     .slice(range.startLine - 1, range.endLine)
     .join('\n');
 }

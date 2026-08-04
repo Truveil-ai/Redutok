@@ -34,6 +34,10 @@ Covered types: Markdown, plain text, PDF and DOCX. A PDF's raw is its
 extracted text layer, not its container bytes — that is what a read puts in
 context, what the map is computed over, and therefore what zoom returns.
 
+HTML is mapped by the same renderer through its own builder and profile, since
+a page's structure is elements rather than prose headings and its raw is the
+source itself. See [HTML.md](HTML.md).
+
 ## Where it applies
 
 Three paths reach the same builder:
