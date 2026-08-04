@@ -544,5 +544,16 @@ registration id and a clean rerun.
   confidence was added. See [docs/FIELD-LOG.md](FIELD-LOG.md).
 - **No third-party reproducibility for the live audit table** in section 5.
   It comes from machine-local state that is not in version control.
+- **No comparison of context-efficiency scores across 0.1.4.** The metric
+  changed definition in that release, from a ratio against the bytes a session
+  served raw to the share of touched raw that never entered context (see
+  [docs/SCORING.md](SCORING.md)). Every run in this document predates 0.1.4
+  and therefore used the prior denominator, so its context-efficiency figures,
+  and the composite grades that carry them at weight 0.35, cannot be placed
+  beside anything scored on 0.1.4 or later. The change moves scores in no
+  fixed direction, so there is no correction factor: a session would have to
+  be rescored from its audit trail to be comparable. This affects the scores
+  only. The per-distillation ratios in section 5 are raw over served bytes on
+  individual artifacts and are untouched by it.
 
 Redutok by Truveil.
