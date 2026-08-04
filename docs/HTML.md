@@ -107,17 +107,16 @@ than two landmarks gets no entry at all.
 
 - the daemon's **on-demand preparation**, when the hook meets an oversized
   artifact nothing has indexed yet (see [POSTURE.md](POSTURE.md)). This is the
-  path that actually carries pages, and the one measured below;
+  path measured below, and the one that covers a page nothing has pre-built;
 - the **file-change notify**, which hands the mirror its full changed list, so
   a page edited in-session gains an entry;
+- the **offline refresh**, `redutok codex refresh`, which walks pages and
+  documents separately from the codex's own source list. In 0.1.6 it did not:
+  it fed the mirror the codex lock's file list, and the codex indexes source
+  extensions only, so a repository of pages reported "0 files indexed" and
+  wrote no mirror at all. Pages above `LIMITS.MIRROR_PREBUILD_MAX_BYTES` (8MB)
+  are still left to the on-demand path;
 - `/serve-file`, so `dcp__read` on a page returns a map.
-
-Not `redutok codex refresh`. The offline refresh feeds the mirror the codex
-lock's own file list, and the codex walks source extensions only, so it
-pre-builds no page entry — and no prose entry either. Nothing is lost: the
-on-demand path builds the map when the read happens, which is what the
-verification below exercises. Pre-building pages and documents offline is a
-separate change.
 
 Covered extensions: `.html`, `.htm`.
 

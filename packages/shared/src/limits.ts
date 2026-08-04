@@ -135,6 +135,17 @@ export const LIMITS = {
    */
   SKELETON_PREPARE_TIMEOUT_MS: 8_000,
   /**
+   * Size ceiling for the offline mirror pre-build of a prose document or an
+   * HTML page (`redutok codex refresh`). The source walk stops at 1MB because
+   * a source file that large is generated rather than written; a document
+   * that large is ordinary — the field case was a 1.2MB PDF — so documents and
+   * pages get their own, higher bound. Above it the artifact is left to the
+   * on-demand path, which builds its skeleton when a read actually asks for
+   * it, rather than making every refresh pay for a file nothing has opened.
+   * Product tuning constant, not a measured claim.
+   */
+  MIRROR_PREBUILD_MAX_BYTES: 8_388_608,
+  /**
    * SessionStart injection budgets (docs/POSTURE.md). CODEX_MAX_TOKENS caps
    * the rendered codex injection via the degrade-and-restore order in
    * buildInjection; TOTAL_MAX_TOKENS is the documented ceiling for the whole

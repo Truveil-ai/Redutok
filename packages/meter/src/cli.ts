@@ -44,10 +44,17 @@ export async function main(argv: string[]): Promise<number> {
     }
     const { writeCodex, semanticPass } = await import('@redutok/sidecar');
     const result = await writeCodex(process.cwd());
+    // The mirror count is reported separately because it is not the codex:
+    // a repository of documents and pages indexes no source at all, and
+    // "0 files indexed" on its own read as nothing having happened.
+    const mirrored =
+      result.mirrored.length === 0
+        ? ''
+        : ` ${result.mirrored.length} skeleton${result.mirrored.length === 1 ? '' : 's'} mirrored.`;
     console.log(
-      result.changed
+      (result.changed
         ? `Codex refreshed: ${result.codex.files.length} files indexed.`
-        : 'Codex already current; nothing changed.',
+        : 'Codex already current; nothing changed.') + mirrored,
     );
     if (rest.includes('--with-llm')) {
       const modelIndex = rest.indexOf('--model');

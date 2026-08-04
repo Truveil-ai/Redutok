@@ -332,8 +332,12 @@ export async function runIngest(rootDir: string, options: IngestOptions): Promis
     }
 
     // Codex and skeleton mirror over the source half, as redutok init +
-    // codex refresh would produce them.
-    await writeCodex(root);
+    // codex refresh would produce them. Explicitly the source half only: the
+    // loop above has already extracted and stored every document in this
+    // corpus, so letting the refresh pre-build document mirrors too would
+    // parse each of them a second time in the same run, for entries the
+    // Vault's own serve path never reads.
+    await writeCodex(root, { mirrorDocuments: false });
 
     const index: DocumentIndex = {
       version: '1',

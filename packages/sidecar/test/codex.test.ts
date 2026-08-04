@@ -1,14 +1,18 @@
-import { appendFileSync, cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import http from 'node:http';
 import { stringify as stringifyYaml } from 'yaml';
+import { LIMITS } from '@redutok/shared';
 import {
+  INDEXABLE_EXT,
   NoopFrontierPolish,
   buildCodexInjection,
   codexPaths,
+  listMirrorableDocuments,
+  listSourceFiles,
   readCodex,
   refreshFiles,
   semanticPass,
@@ -24,6 +28,54 @@ function cloneFixtureRepo(name: string): string {
   cpSync(path.join(repoRoot, 'fixtures', 'repos', name), dst, { recursive: true });
   return dst;
 }
+
+describe('the mirrorable document walk', () => {
+  /** A repo of the shape the codex is blind to: prose and pages, little code. */
+  function docRepo(): string {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'redutok-mirrorwalk-'));
+    const write = (rel: string, content: string | Buffer): void => {
+      const abs = path.join(root, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, content);
+    };
+    write('docs/policy.md', '# Policy\n\nBody.\n');
+    write('docs/notes.markdown', '# Notes\n');
+    write('notes/schedule.txt', 'SCHEDULE\n');
+    write('app/index.html', '<!doctype html>\n<html><body><h1>App</h1></body></html>\n');
+    write('legacy/page.htm', '<html><body><h1>Legacy</h1></body></html>\n');
+    write('sources/filing.pdf', '%PDF-1.4\n');
+    write('src/index.ts', 'export const a = 1;\n');
+    // Skipped directories and an oversized document, neither pre-built.
+    write('node_modules/pkg/readme.md', '# Vendor\n');
+    write('.dcp/mirror/docs/policy.md', 'mirror entry\n');
+    write('huge.md', Buffer.alloc(LIMITS.MIRROR_PREBUILD_MAX_BYTES + 1, 0x61));
+    return root;
+  }
+
+  it('finds documents and pages, and nothing the mirror would not build', () => {
+    const root = docRepo();
+    expect(listMirrorableDocuments(root)).toEqual([
+      'app/index.html',
+      'docs/notes.markdown',
+      'docs/policy.md',
+      'legacy/page.htm',
+      'notes/schedule.txt',
+      'sources/filing.pdf',
+    ]);
+    // The source list is untouched by the new walk: two questions, two answers.
+    expect(listSourceFiles(root)).toEqual(['src/index.ts']);
+  });
+
+  it('leaves the posture universe alone', () => {
+    // posture.ts counts a session's files through INDEXABLE_EXT. Widening it
+    // to documents would move the idle and light gears for every documents
+    // repository, which is why the document walk is separate.
+    for (const ext of ['.md', '.markdown', '.txt', '.pdf', '.docx', '.html', '.htm']) {
+      expect(INDEXABLE_EXT.has(ext), ext).toBe(false);
+    }
+    expect([...INDEXABLE_EXT].sort()).toEqual(['.cjs', '.js', '.mjs', '.mts', '.py', '.ts', '.tsx']);
+  });
+});
 
 describe('structural codex on the pinned fixture repos', () => {
   it('produces a valid structural-only codex for repo-a with no LLM anywhere', async () => {
