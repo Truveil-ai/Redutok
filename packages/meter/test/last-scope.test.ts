@@ -34,15 +34,24 @@ function twoProjectRoot(): { root: string; mine: string; other: string; mineLog:
 }
 
 describe('project directory naming', () => {
+  // The path has to be absolute on the host platform: projectDirName
+  // resolves before encoding, so a Windows-shaped path on Linux would be
+  // resolved against the current directory and encode that prefix too.
+  const win32 = process.platform === 'win32';
+  const absolute = win32 ? 'C:\\Users\\k\\Desktop\\App' : '/users/k/Desktop/App';
+  const encoded = win32 ? 'C--Users-k-Desktop-App' : '-users-k-Desktop-App';
+
   it('matches how Claude Code encodes a working directory', () => {
-    // Every character outside [A-Za-z0-9] becomes a dash, verified against
-    // the real transcript root: "E:\\Redutok - Token Optimisation" is stored
-    // as "E--Redutok---Token-Optimisation".
+    // Every character outside [A-Za-z0-9] becomes a dash, verified against a
+    // real transcript root of 64 project directories.
+    expect(projectDirName(absolute)).toBe(encoded);
+    expect(projectTranscriptDir(absolute, '/root')).toBe(path.join('/root', encoded));
+  });
+
+  it.runIf(win32)('encodes the observed win32 case exactly', () => {
+    // "E:\Redutok - Token Optimisation" is stored as
+    // "E--Redutok---Token-Optimisation" in the real root.
     expect(projectDirName('E:\\Redutok - Token Optimisation')).toBe('E--Redutok---Token-Optimisation');
-    expect(projectDirName('C:\\Users\\k\\Desktop\\App')).toBe('C--Users-k-Desktop-App');
-    expect(projectTranscriptDir('C:\\Users\\k\\Desktop\\App', '/root')).toBe(
-      path.join('/root', 'C--Users-k-Desktop-App'),
-    );
   });
 });
 
