@@ -5,7 +5,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildAuditReport, renderAuditText } from './audit-render.js';
 import { renderBadgeSvg, renderShareLine } from './badge.js';
-import { buildReport, locateLastSessionLog, renderText } from './report.js';
+import { projectTranscriptDir } from './claude-compat.js';
+import { buildReport, defaultLogRoot, locateLastSessionLog, renderText } from './report.js';
 import { initRepo, removeRepo } from './installer.js';
 import { sidecarDown, sidecarStatus, sidecarUp } from './sidecar-cli.js';
 
@@ -13,7 +14,8 @@ const USAGE = `Usage: redutok <report|badge|audit|candidates|up|down|status> [ar
 
 report and badge take a transcript:
   session.jsonl  path to a Claude Code session transcript
-  --last         use the newest transcript under the default log directory
+  --last         use this project's newest transcript
+  --all-projects (with --last) widen the search to every project
   --json         (report) emit the full report as JSON instead of text
   --out <file>   (badge) write the SVG to this path (default redutok-badge.svg)
 
@@ -163,9 +165,19 @@ export async function main(argv: string[]): Promise<number> {
 
   let target = positional[0];
   if (last) {
-    target = locateLastSessionLog();
+    // Scoped to this project by default: the newest transcript anywhere is
+    // very often another project's, and reporting it here would be wrong
+    // without looking wrong.
+    const allProjects = rest.includes('--all-projects');
+    target = locateLastSessionLog({ allProjects });
     if (target === undefined) {
-      console.error('No .jsonl transcript found under the default log directory.');
+      console.error(
+        allProjects
+          ? `No .jsonl transcript found under ${defaultLogRoot()}.`
+          : `No transcript found for this project: no .jsonl session under ${projectTranscriptDir()}.\n` +
+              'redutok --last is scoped to the current directory so it cannot report another project session.\n' +
+              'Run it from the project you meant, or pass --all-projects to search every project.',
+      );
       return 1;
     }
   }
