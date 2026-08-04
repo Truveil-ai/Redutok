@@ -1,5 +1,11 @@
 # Bench report: the full evidence record
 
+Why this document exists: Redutok writes its criteria down before a run and
+publishes the outcome either way. That only means something if the outcomes
+are somewhere a reader can reach, at the volume they were recorded at rather
+than the volume that flatters the project. This file is that place. It is a
+working document, not a summary assembled afterwards to fit a result.
+
 This is the complete measurement history of Redutok, including the runs that
 went against it. It exists so that anyone deciding whether to trust the
 project can check the arithmetic instead of the adjectives.
@@ -547,5 +553,16 @@ registration id and a clean rerun.
   confidence was added. See [docs/FIELD-LOG.md](FIELD-LOG.md).
 - **No third-party reproducibility for the live audit table** in section 5.
   It comes from machine-local state that is not in version control.
+- **No comparison of context-efficiency scores across 0.1.4.** The metric
+  changed definition in that release, from a ratio against the bytes a session
+  served raw to the share of touched raw that never entered context (see
+  [docs/SCORING.md](SCORING.md)). Every run in this document predates 0.1.4
+  and therefore used the prior denominator, so its context-efficiency figures,
+  and the composite grades that carry them at weight 0.35, cannot be placed
+  beside anything scored on 0.1.4 or later. The change moves scores in no
+  fixed direction, so there is no correction factor: a session would have to
+  be rescored from its audit trail to be comparable. This affects the scores
+  only. The per-distillation ratios in section 5 are raw over served bytes on
+  individual artifacts and are untouched by it.
 
 Redutok by Truveil.

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readAuditFile } from '@redutok/shared';
 import { startDaemon } from '@redutok/sidecar';
 import { handlePreToolUse, handleSessionStart, handleStop } from '@redutok/hooks';
@@ -31,6 +31,20 @@ function snapshot(dir: string): Map<string, string> {
   walk(dir);
   return files;
 }
+
+// init refuses to write launchers it knows cannot resolve. These bare temp
+// repos have no redutok in their node_modules, so REDUTOK_HOME points at this
+// repository, which is a resolvable install -- the same mechanism the launcher
+// itself honours.
+let priorHome: string | undefined;
+beforeEach(() => {
+  priorHome = process.env['REDUTOK_HOME'];
+  process.env['REDUTOK_HOME'] = repoRoot;
+});
+afterEach(() => {
+  if (priorHome === undefined) delete process.env['REDUTOK_HOME'];
+  else process.env['REDUTOK_HOME'] = priorHome;
+});
 
 describe('phase 4 end-to-end smoke', () => {
   it('init, distilled read, zoom, fail-open, byte-identical remove', async () => {
@@ -67,14 +81,22 @@ describe('phase 4 end-to-end smoke', () => {
       expect(start.hookSpecificOutput?.additionalContext).toContain('Delta Context Protocol');
 
       // 2. v3 pillar B: reads govern themselves. No codex has been built in
-      //    this repo, so there is no mirror entry and the large Read passes
-      //    through raw (fail-open) instead of being denied toward dcp__read.
-      //    The mirror rewrite itself is proven in mirror-e2e.test.ts.
+      //    this repo, so no mirror entry exists — and because the artifact is
+      //    over the escape-hatch threshold the sidecar builds its skeleton on
+      //    demand rather than letting it enter context whole
+      //    (docs/POSTURE.md). The pre-built mirror path is proven in
+      //    mirror-e2e.test.ts.
       const pre = await handlePreToolUse(
         { tool_name: 'Read', tool_input: { file_path: bigPath } },
         hookDeps,
       );
-      expect(pre).toEqual({});
+      expect(pre.hookSpecificOutput?.permissionDecision).toBe('allow');
+      const preServed = readFileSync(
+        (pre.hookSpecificOutput?.updatedInput as { file_path: string }).file_path,
+        'utf8',
+      );
+      expect(preServed).toContain('[dcp:mirror of');
+      expect(preServed.length).toBeLessThan(bigSource.length * 0.4);
 
       // 3. The distilled path is taken through the MCP tool and audited.
       const mcpDeps: McpDeps = { target: { port: daemon.port }, timeoutMs: 10_000, sessionId: 's-e2e' };

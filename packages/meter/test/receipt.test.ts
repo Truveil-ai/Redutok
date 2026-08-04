@@ -115,10 +115,13 @@ describe('renderReceiptBlock', () => {
     expect(text).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);
   });
 
-  it('prints the no-distillations line instead of zeros for an unattributed session', async () => {
+  it('says nothing was governed, rather than zeros, for an unattributed session', async () => {
     const missing = path.join(os.tmpdir(), 'redutok-receipt-none', 'audit.jsonl');
     const text = renderReceiptBlock(buildSessionReceipt(await smallLedger(), { auditPath: missing }));
-    expect(text).toContain('no distillations this session');
+    // No serve at all is the ungoverned case: the receipt leads with it and
+    // names why the score is missing (docs/SCORING.md).
+    expect(text).toContain('nothing was governed this session');
+    expect(text).toContain('context efficiency is not scorable');
     expect(text).not.toContain('avoided  0 tokens');
     expect(text).not.toContain('top distillations');
   });

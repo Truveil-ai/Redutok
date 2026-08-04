@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readd
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readAuditFile } from '@redutok/shared';
 import { mirrorEntryPath, startDaemon, writeCodex } from '@redutok/sidecar';
 import { sidecarRequest } from '@redutok/sidecar/client';
@@ -38,6 +38,20 @@ function snapshot(dir: string): Map<string, string> {
   walk(dir);
   return files;
 }
+
+// init refuses to write launchers it knows cannot resolve. These bare temp
+// repos have no redutok in their node_modules, so REDUTOK_HOME points at this
+// repository, which is a resolvable install -- the same mechanism the launcher
+// itself honours.
+let priorHome: string | undefined;
+beforeEach(() => {
+  priorHome = process.env['REDUTOK_HOME'];
+  process.env['REDUTOK_HOME'] = repoRoot;
+});
+afterEach(() => {
+  if (priorHome === undefined) delete process.env['REDUTOK_HOME'];
+  else process.env['REDUTOK_HOME'] = priorHome;
+});
 
 describe('skeleton mirror end-to-end (zero API cost)', () => {
   it('rewrites large reads to the mirror, passes small and stale raw, audits, removes clean', async () => {
@@ -91,14 +105,22 @@ describe('skeleton mirror end-to-end (zero API cost)', () => {
       );
       expect(small).toEqual({});
 
-      // 3. Stale mirror: the source changes and, until the file-change
-      //    notify refreshes the mirror, the Read passes through raw.
+      // 3. Stale mirror: the source changes before any file-change notify
+      //    refreshes it. The stale entry is never served — but the artifact
+      //    is over the escape-hatch threshold, so rather than letting it
+      //    enter context whole the sidecar rebuilds the skeleton on demand
+      //    and the Read is governed against the edited source
+      //    (docs/POSTURE.md).
       appendFileSync(bigPath, '\nexport const EDITED = true;\n');
       const stale = await handlePreToolUse(
         { tool_name: 'Read', tool_input: { file_path: bigPath }, session_id: SESSION },
         hookDeps,
       );
-      expect(stale).toEqual({});
+      expect(stale.hookSpecificOutput?.permissionDecision).toBe('allow');
+      expect(
+        readFileSync((stale.hookSpecificOutput?.updatedInput as { file_path: string }).file_path, 'utf8'),
+        'a stale entry must never be served: the rebuild reflects the edit',
+      ).toContain('EDITED');
       await sidecarRequest(
         { port: daemon.port },
         'POST',

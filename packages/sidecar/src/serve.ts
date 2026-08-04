@@ -23,12 +23,26 @@ export interface ServeResult {
   text: string;
 }
 
+export interface ServeOptions {
+  /**
+   * Whether a first (full) serve is recorded as a serve event.
+   *
+   * False when the caller will distil this content and serve the distillate
+   * instead: the full text never reaches the model, so recording it as a raw
+   * serve would book bytes that never entered context and count the same
+   * artifact's raw twice, once here and once on the distill event. A diff or
+   * unchanged serve is always recorded, because that text is what is served.
+   */
+  auditFullServe?: boolean;
+}
+
 export function serveFile(
   store: Store,
   audit: AuditWriter,
   sessionId: string,
   relPath: string,
   content: string,
+  options: ServeOptions = {},
 ): ServeResult {
   const hash = short(content, 16);
   const ref = `${fileIdFor(relPath)}@${hash}`;
@@ -54,6 +68,8 @@ export function serveFile(
     result = { mode: 'diff', ref, text: patch };
     reason = `${relPath} served as unified diff ${prior.hash} to ${hash}`;
   }
+
+  if (result.mode === 'full' && options.auditFullServe === false) return result;
 
   const event: AuditEvent = {
     id: `serve-${short(sessionId + relPath + now + result.mode, 8)}`,

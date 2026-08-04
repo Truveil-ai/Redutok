@@ -1,5 +1,11 @@
 # Field log: the Vault on a real patent corpus
 
+Why this document exists: Redutok pre-registers its criteria and publishes
+outcomes either way, and the same rule covers what breaks in the field. These
+are the working notes of that session, written as the defects surfaced rather
+than reconstructed once the fixes had landed and the story had tidied itself
+up. The bench report is the same discipline applied to measurement.
+
 Every fix in this log came from one professional using the Vault for real
 work, not from a test suite. The order below is the order the defects
 surfaced. Each entry states what the user saw, what was actually wrong, and

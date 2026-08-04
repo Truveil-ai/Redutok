@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { buildReport, locateLastSessionLog, renderText } from '../src/report.js';
+import { buildReport, newestTranscriptUnder, renderText } from '../src/report.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name: string) => path.join(here, '..', '..', '..', 'fixtures', 'sessions', name);
@@ -45,6 +45,8 @@ describe('buildReport on small.jsonl', () => {
         module: 'sidecar.distill',
         action,
         reason: 'x',
+        // Both halves: a serve says what it replaced, not only what it served.
+        bytesIn: action === 'serve-raw' ? bytesOut : bytesOut * 10,
         bytesOut,
       });
     writeFileSync(
@@ -57,7 +59,9 @@ describe('buildReport on small.jsonl', () => {
       ].join('\n') + '\n',
     );
     const report = await buildReport(fixture('small.jsonl'), { auditPath });
-    expect(report.scores.contextEfficiency).toMatchObject({ scorable: true, score: 90 });
+    // 9000B raw distilled to 900B plus 100B served raw: 8100 of 9100 avoided.
+    // The foreign session's 90,000B never enters either half.
+    expect(report.scores.contextEfficiency).toMatchObject({ scorable: true, score: 89 });
   });
 
   it('footer audit-event count and scoring serve count read the same trail', async () => {
@@ -71,6 +75,8 @@ describe('buildReport on small.jsonl', () => {
         module: 'sidecar.distill',
         action,
         reason: 'x',
+        // Both halves: a serve says what it replaced, not only what it served.
+        bytesIn: action === 'serve-raw' ? bytesOut : bytesOut * 10,
         bytesOut,
       });
     writeFileSync(
@@ -116,12 +122,14 @@ describe('renderText', () => {
     expect(text).toMatch(/context efficiency\s+not scorable:/);
     expect(text).toMatch(/output discipline\s+100/);
     expect(text).toMatch(/cache utilization\s+92/);
-    expect(text).toMatch(/composite\s+97 \(A\)/);
+    // Three of the four scores contribute here, so the grade stands but the
+    // line now says what it rests on (docs/SCORING.md, composite disclosure).
+    expect(text).toMatch(/composite\s+97 \(A, from 3 of 4 scores\)/);
     expect(text).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);
   });
 });
 
-describe('locateLastSessionLog', () => {
+describe('newestTranscriptUnder', () => {
   it('finds the newest .jsonl in a nested directory tree', () => {
     const root = mkdtempSync(path.join(os.tmpdir(), 'redutok-logs-'));
     const nested = path.join(root, 'project-a');
@@ -134,10 +142,10 @@ describe('locateLastSessionLog', () => {
     const now = Date.now() / 1000;
     utimesSync(older, now - 3600, now - 3600);
     utimesSync(newer, now, now);
-    expect(locateLastSessionLog(root)).toBe(newer);
+    expect(newestTranscriptUnder(root)).toBe(newer);
   });
 
   it('returns undefined when the directory does not exist', () => {
-    expect(locateLastSessionLog(path.join(os.tmpdir(), 'redutok-does-not-exist'))).toBeUndefined();
+    expect(newestTranscriptUnder(path.join(os.tmpdir(), 'redutok-does-not-exist'))).toBeUndefined();
   });
 });

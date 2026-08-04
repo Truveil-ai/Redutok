@@ -1,6 +1,14 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { LIMITS } from '@redutok/shared';
+import {
+  buildStructureMap,
+  extractDocument,
+  isDocumentPath,
+  renderStructureMap,
+} from './docs.js';
+import { NoopLlmPass, type LlmPass } from './llm.js';
 import { fileSkeleton, languageForPath } from './skeleton.js';
 
 /**
@@ -35,9 +43,15 @@ export interface MirrorIndex {
   files: Record<string, MirrorIndexEntry>;
 }
 
-/** Same shape as the codex hashes: sha256 truncated to 16 hex chars. */
-export const mirrorHash = (text: string): string =>
-  createHash('sha256').update(text).digest('hex').slice(0, 16);
+/**
+ * Same shape as the codex hashes: sha256 truncated to 16 hex chars. Accepts
+ * bytes as well as text so a binary document (a PDF has a skeleton too) can
+ * be checked for freshness without a lossy utf8 round trip. A valid-UTF-8
+ * string and its own bytes hash identically, so entries written before this
+ * stayed valid.
+ */
+export const mirrorHash = (content: string | Buffer): string =>
+  createHash('sha256').update(content).digest('hex').slice(0, 16);
 
 export function mirrorDir(root: string): string {
   return path.join(root, '.dcp', 'mirror');
@@ -76,6 +90,7 @@ export function buildMirrorHeader(
   rawLines: number,
   zoomId?: string,
   keepSymbols: readonly string[] = [],
+  rawLabel = 'raw',
 ): string {
   const fidelity =
     zoomId === undefined
@@ -85,7 +100,51 @@ export function buildMirrorHeader(
     keepSymbols.length === 0
       ? 'skeleton only'
       : `skeleton + full bodies of ${keepSymbols.join(', ')} (learned)`;
-  return `[dcp:mirror of ${realPath}, raw ${rawBytes} bytes / ${rawLines} lines, ${shape}; full fidelity: ${fidelity}]`;
+  return `[dcp:mirror of ${realPath}, ${rawLabel} ${rawBytes} bytes / ${rawLines} lines, ${shape}; full fidelity: ${fidelity}]`;
+}
+
+/**
+ * Writes one mirror entry and records it in the index. Shared by the offline
+ * refresh below and the daemon's on-demand preparation (prepare.ts), so an
+ * entry built either way is byte-identical in shape and equally serveable.
+ */
+export function writeMirrorEntry(
+  root: string,
+  rel: string,
+  entry: {
+    skeleton: string;
+    hash: string;
+    rawBytes: number;
+    rawLines: number;
+    realPath: string;
+    zoomId?: string;
+    keepSymbols?: readonly string[];
+    enrichment?: string;
+    /** Overrides the header's default description of what the raw is. */
+    rawLabel?: string;
+  },
+): string {
+  const entryPath = mirrorEntryPath(root, rel);
+  const header = buildMirrorHeader(
+    entry.realPath,
+    entry.rawBytes,
+    entry.rawLines,
+    entry.zoomId,
+    entry.keepSymbols ?? [],
+    entry.rawLabel,
+  );
+  mkdirSync(path.dirname(entryPath), { recursive: true });
+  writeFileSync(entryPath, `${header}\n\n${entry.skeleton}\n`, 'utf8');
+  const index = readMirrorIndex(root) ?? { version: 1 as const, files: {} };
+  index.files[rel] = {
+    hash: entry.hash,
+    rawBytes: entry.rawBytes,
+    rawLines: entry.rawLines,
+    ...(entry.enrichment === undefined ? {} : { enrichment: entry.enrichment }),
+  };
+  mkdirSync(mirrorDir(root), { recursive: true });
+  writeFileSync(mirrorIndexPath(root), JSON.stringify(index, null, 2) + '\n', 'utf8');
+  return entryPath;
 }
 
 /**
@@ -125,6 +184,64 @@ export interface RefreshMirrorOptions {
   findHandle?: (rel: string, hash: string) => string | undefined;
   /** Skeleton-enrichment directives from the codex learned section. */
   enrichments?: readonly SkeletonEnrichment[];
+  /** Section one-liners for prose documents; the deterministic
+   * first-sentence rule stands in when no model is configured. */
+  llm?: LlmPass;
+}
+
+/** What a mirror entry is built from, once its type is known. */
+interface SkeletonBuild {
+  skeleton: string;
+  /** The text the skeleton describes, which zoom must return. */
+  raw: string;
+  rawLabel: string;
+}
+
+/**
+ * The skeleton for one file, by type. Markdown, plain text and PDF are the
+ * most common large artifacts in a real project and had no skeleton path at
+ * all until now: the mirror covered tree-sitter languages only, so every
+ * document read entered context whole. A document's skeleton is its structure
+ * map, and the text it describes is the extracted text layer, not the
+ * container bytes.
+ */
+async function buildSkeletonFor(
+  abs: string,
+  rel: string,
+  bytes: Buffer,
+  options: { enrichments?: readonly string[]; llm?: LlmPass },
+): Promise<SkeletonBuild | undefined> {
+  const lang = languageForPath(rel);
+  if (lang !== undefined) {
+    const content = bytes.toString('utf8');
+    const skeleton = await fileSkeleton(content, lang, options.enrichments ?? []);
+    return { skeleton, raw: content, rawLabel: 'raw' };
+  }
+  if (!isDocumentPath(rel)) return undefined;
+  const extraction = extractDocument(abs);
+  if (extraction.outOfScope !== undefined) return undefined;
+  const sections = await buildStructureMap(extraction, options.llm ?? new NoopLlmPass());
+  // A document with no headings yields a single positional section covering
+  // the whole file. That is not a map of anything: serving it would hide the
+  // document behind one line. Structure has to exist to be summarized.
+  if (sections.length < 2) return undefined;
+  // The gated paths (prepare, serve-file) take this ceiling from the
+  // profile's size-sanity gate; this offline path has no gate runner, so it
+  // applies the same one itself rather than shipping a map that saves nothing.
+  const rawBytes = Buffer.byteLength(extraction.text, 'utf8');
+  const skeleton = renderStructureMap({
+    filePath: rel,
+    sections,
+    pages: extraction.pages,
+    // No stored artifact on the offline path, so the recovery route is a
+    // slice of the real file; the daemon's on-demand build offers zoom.
+    zoomHint: `read ${rel} with offset/limit`,
+    maxBytes: Math.floor(rawBytes * LIMITS.SIZE_SANITY_MAX_RATIO * 0.95),
+  });
+  if (Buffer.byteLength(skeleton, 'utf8') > rawBytes * LIMITS.SIZE_SANITY_MAX_RATIO) {
+    return undefined;
+  }
+  return { skeleton, raw: extraction.text, rawLabel: `${extraction.method} raw` };
 }
 
 /**
@@ -155,14 +272,15 @@ export async function refreshMirror(
   for (const relRaw of rels) {
     const rel = relRaw.replace(/\\/g, '/');
     const abs = path.join(root, rel);
-    const lang = languageForPath(rel);
-    if (lang === undefined) continue;
+    if (languageForPath(rel) === undefined && !isDocumentPath(rel)) continue;
     if (!existsSync(abs)) {
       drop(rel);
       continue;
     }
-    const content = readFileSync(abs, 'utf8');
-    const hash = mirrorHash(content);
+    // Hashed over the bytes, matching what the hook and the on-demand
+    // preparation compare against.
+    const bytes = readFileSync(abs);
+    const hash = mirrorHash(bytes);
     const entryPath = mirrorEntryPath(root, rel);
     const directive = enrichmentFor(rel, options.enrichments);
     const fingerprint = directive === undefined ? undefined : enrichmentFingerprint(directive);
@@ -173,29 +291,33 @@ export async function refreshMirror(
     ) {
       continue;
     }
-    let skeleton: string;
+    let build: SkeletonBuild | undefined;
     try {
-      skeleton = await fileSkeleton(content, lang, directive?.symbols ?? []);
+      build = await buildSkeletonFor(abs, rel, bytes, {
+        enrichments: directive?.symbols ?? [],
+        llm: options.llm,
+      });
     } catch {
-      skeleton = '';
+      build = undefined;
     }
-    if (skeleton.trim() === '') {
+    if (build === undefined || build.skeleton.trim() === '') {
       // Nothing structural to show; serving a header-only mirror would hide
       // the whole file. No entry means the hook passes the raw file through.
       drop(rel);
       continue;
     }
-    const rawBytes = Buffer.byteLength(content, 'utf8');
-    const rawLines = content.split('\n').length;
+    const rawBytes = Buffer.byteLength(build.raw, 'utf8');
+    const rawLines = build.raw.split('\n').length;
     const header = buildMirrorHeader(
       abs,
       rawBytes,
       rawLines,
       options.findHandle?.(rel, hash),
       directive?.symbols ?? [],
+      build.rawLabel,
     );
     mkdirSync(path.dirname(entryPath), { recursive: true });
-    writeFileSync(entryPath, `${header}\n\n${skeleton}\n`, 'utf8');
+    writeFileSync(entryPath, `${header}\n\n${build.skeleton}\n`, 'utf8');
     index.files[rel] = { hash, rawBytes, rawLines, ...(fingerprint === undefined ? {} : { enrichment: fingerprint }) };
     dirty = true;
     written.push(rel);

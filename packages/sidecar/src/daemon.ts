@@ -2,14 +2,16 @@ import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { AuditEvent, DistillProfile } from '@redutok/shared';
+import { sameRepoRoot, type AuditEvent, type DistillProfile } from '@redutok/shared';
 import { AuditWriter } from './audit.js';
 import { enrichmentDirectives, readCodex, refreshFiles } from './codex.js';
 import { enrichmentFor } from './mirror.js';
+import { buildStructureMap, extractDocument, isDocumentPath, type DocExtraction } from './docs.js';
 import { distillArtifact, loadProfiles, zoom } from './distill.js';
 import { exploreGoal } from './explore.js';
 import { runGraduationMiner } from './graduation.js';
 import { NoopLlmPass, type LlmPass } from './llm.js';
+import { prepareSkeletonEntry } from './prepare.js';
 import { serveFile } from './serve.js';
 import { updateRollingState } from './state.js';
 import { createLogger, type Logger } from './log.js';
@@ -63,13 +65,6 @@ function readBody(req: http.IncomingMessage): Promise<unknown> {
   });
 }
 
-/** Roots compare after resolution, trailing-separator strip, and (win32)
- * case folding, so `E:\repo\` and `e:/repo` agree. */
-function normalizedRoot(p: string): string {
-  const resolved = path.resolve(p).replace(/[\\/]+$/, '');
-  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
-}
-
 function handler(
   log: Logger,
   repoRoot: string,
@@ -96,13 +91,17 @@ function handler(
       res.end(JSON.stringify(body));
     };
     log.info('request', { method: req.method, path: url.pathname });
-    // Defense in depth for the port-collision scenario: serve and zoom
-    // payloads carry the caller's repoRoot, and a caller rooted in another
+    // Defense in depth for the port-collision scenario: every governed
+    // payload carries the caller's repoRoot, and a caller rooted in another
     // repo is refused with an audited error instead of silently answered.
+    // The 0.1.1 field install proved the half-guarded version corrupts both
+    // repos: /distill minted handles the caller's /zoom was then refused,
+    // and /notify let a foreign repo steal session attribution and feed its
+    // session-end to the wrong repo's graduation miner.
     const refuseIfCrossRepo = (p: Record<string, unknown>): boolean => {
       const caller = p['repoRoot'];
       if (typeof caller !== 'string' || caller === '') return false;
-      if (normalizedRoot(caller) === normalizedRoot(repoRoot)) return false;
+      if (sameRepoRoot(caller, repoRoot)) return false;
       const reason = `cross-repo ${url.pathname} refused: this daemon serves ${repoRoot}, caller is rooted at ${caller}`;
       if (engines !== undefined) {
         const event: AuditEvent = {
@@ -138,15 +137,56 @@ function handler(
           if (refuseIfCrossRepo(p)) return;
           const sessionId = attributedSessionId(p['sessionId']);
           const relPath = String(p['path'] ?? '');
-          const raw = String(p['raw'] ?? '');
-          const served = serveFile(engines.store, engines.audit, sessionId, relPath, raw);
-          if (served.mode !== 'full') {
+          // A document's text is extracted here rather than taken from the
+          // caller: the MCP server reads bytes as utf8, which is the document
+          // itself for Markdown and text but mojibake for a PDF. Extraction
+          // failure falls back to what the caller sent, never an error.
+          let raw = String(p['raw'] ?? '');
+          let docExtraction: DocExtraction | undefined;
+          if (isDocumentPath(relPath)) {
+            try {
+              const abs = path.isAbsolute(relPath) ? relPath : path.join(repoRoot, relPath);
+              const extracted = extractDocument(abs);
+              if (extracted.outOfScope === undefined && extracted.text.trim() !== '') {
+                docExtraction = extracted;
+                raw = extracted.text;
+              }
+            } catch {
+              // Not extractable: the caller's raw stands.
+            }
+          }
+          // Prose documents distil to their structure map, code to its
+          // signature list; the profile follows the artifact, not the caller.
+          const profile = engines.profiles.get(
+            docExtraction === undefined ? 'file-skeleton' : 'doc-skeleton',
+          );
+          // A first serve that this handler is about to distil is not a raw
+          // serve: the distillate is what reaches the model, and the distill
+          // event already books this artifact's raw. Recording both put the
+          // same bytes in the trail twice and read as a redundant raw serve.
+          const served = serveFile(engines.store, engines.audit, sessionId, relPath, raw, {
+            auditFullServe: profile === undefined,
+          });
+          if (served.mode !== 'full' || profile === undefined) {
             respond(200, { ...served, handle: `[dcp:file ${served.ref}]` });
             return;
           }
-          const profile = engines.profiles.get('file-skeleton');
-          if (profile === undefined) {
-            respond(200, { ...served, handle: `[dcp:file ${served.ref}]` });
+          if (docExtraction !== undefined) {
+            const sections = await buildStructureMap(docExtraction, engines.llm);
+            const outcome = await distillArtifact(engines.store, engines.audit, {
+              raw,
+              profile,
+              sessionId,
+              tool: 'dcp__read',
+              context: {
+                filePath: relPath,
+                doc: {
+                  sections,
+                  ...(docExtraction.pages === undefined ? {} : { pages: docExtraction.pages }),
+                },
+              },
+            });
+            respond(200, { mode: 'full', ref: served.ref, text: outcome.text, handle: outcome.handle });
             return;
           }
           // Skeleton enrichment (docs/GRADUATION.md): a graduated hotspot
@@ -179,6 +219,54 @@ function handler(
         );
       return;
     }
+    if (req.method === 'POST' && url.pathname === '/prepare-skeleton') {
+      // The artifact-size escape hatch (docs/POSTURE.md): the hook has an
+      // oversized artifact and no fresh mirror entry for it. Build one now,
+      // through the same profile and gates any other skeleton goes through.
+      if (engines === undefined) {
+        respond(503, { ok: false, error: 'daemon started without a profiles directory' });
+        return;
+      }
+      void readBody(req)
+        .then(async (payload) => {
+          const p = payload as Record<string, unknown>;
+          if (refuseIfCrossRepo(p)) return;
+          const sessionId = attributedSessionId(p['sessionId']);
+          const rel = String(p['path'] ?? '');
+          const result = await prepareSkeletonEntry(
+            { store: engines.store, audit: engines.audit, profiles: engines.profiles, repoRoot },
+            rel,
+            sessionId,
+          );
+          if (!result.ok) {
+            // Why this artifact enters context whole, recorded where the
+            // receipt can read it back (docs/SCORING.md).
+            const event: AuditEvent = {
+              id: `passthrough-${randomBytes(3).toString('hex')}`,
+              timestamp: new Date().toISOString(),
+              sessionId,
+              module: 'sidecar.prepare',
+              action: 'passthrough',
+              reason: `${rel} read raw: ${result.reason ?? 'no skeleton available'}`,
+              bytesIn: result.rawBytes ?? 0,
+              bytesOut: result.rawBytes ?? 0,
+              details: { path: rel, reason: result.reason ?? 'no skeleton available' },
+            };
+            try {
+              engines.audit.write(event);
+              engines.store.insertAuditEvent(event);
+            } catch (err) {
+              log.error('passthrough audit failed', { error: String(err) });
+            }
+          }
+          respond(200, result);
+        })
+        .catch((err: unknown) => {
+          log.error('request failed', { path: url.pathname, error: String(err) });
+          respond(400, { ok: false, error: err instanceof Error ? err.message : String(err) });
+        });
+      return;
+    }
     if (req.method === 'POST' && (url.pathname === '/distill' || url.pathname === '/zoom')) {
       if (engines === undefined) {
         respond(503, { ok: false, error: 'daemon started without a profiles directory' });
@@ -187,8 +275,8 @@ function handler(
       void readBody(req)
         .then(async (payload) => {
           const p = payload as Record<string, unknown>;
+          if (refuseIfCrossRepo(p)) return;
           if (url.pathname === '/zoom') {
-            if (refuseIfCrossRepo(p)) return;
             // The codex rides along so a query naming a symbol of the
             // artifact's file resolves to the full definition body.
             let codex;
@@ -230,6 +318,7 @@ function handler(
       void readBody(req)
         .then(async (payload) => {
           const p = payload as Record<string, unknown>;
+          if (refuseIfCrossRepo(p)) return;
           const dossier = await exploreGoal(engines.store, engines.audit, engines.profiles, engines.llm, {
             goal: String(p['goal'] ?? ''),
             scope: Array.isArray(p['scope']) ? (p['scope'] as unknown[]).map(String) : undefined,
@@ -251,6 +340,9 @@ function handler(
         pid: process.pid,
         uptimeMs: Date.now() - startedAt,
         activeSessionId: session.activeId ?? null,
+        // Identity, so a client that discovered this port through a shared
+        // default can tell whether the daemon is actually its repo's.
+        repoRoot,
       });
       return;
     }
@@ -266,6 +358,7 @@ function handler(
       void readBody(req)
         .then(async (payload) => {
           log.info('notify', { payload });
+          if (refuseIfCrossRepo(payload as Record<string, unknown>)) return;
           const p = payload as {
             kind?: string;
             tool?: string;
@@ -473,10 +566,28 @@ export async function startDaemon(options: DaemonOptions): Promise<DaemonHandle>
         };
   const listener = handler(log, repoRoot, engines, onFileChange, onNotify, onSessionEnd);
   const httpServer = http.createServer(listener);
-  await new Promise<void>((resolve, reject) => {
-    httpServer.once('error', reject);
-    httpServer.listen(options.port, '127.0.0.1', resolve);
-  });
+  const listenOn = (port: number): Promise<void> =>
+    new Promise((resolve, reject) => {
+      const onError = (err: Error): void => reject(err);
+      httpServer.once('error', onError);
+      httpServer.listen(port, '127.0.0.1', () => {
+        httpServer.removeListener('error', onError);
+        resolve();
+      });
+    });
+  try {
+    await listenOn(options.port);
+  } catch (err) {
+    // Another repo's daemon may hold the configured port (the 0.1.1 field
+    // machine had every install pinned to one shared default). A busy port
+    // must not leave this repo without a daemon: fall back to an ephemeral
+    // one — the pidfile below carries the real port, and pidfile beats
+    // config in every client's discovery.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'EADDRINUSE' || options.port === 0) throw err;
+    log.info('configured port busy, falling back to an ephemeral port', { configured: options.port });
+    await listenOn(0);
+  }
   const address = httpServer.address();
   const port = typeof address === 'object' && address !== null ? address.port : options.port;
 

@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { extractDcpBlock, initRepo, removeRepo, shippedProtocolBlock } from '../src/installer.js';
 
 function snapshot(dir: string): Map<string, string> {
@@ -47,6 +47,59 @@ function makeRepo(withExisting: boolean): string {
   }
   return dir;
 }
+
+/**
+ * init refuses to write launchers it knows cannot resolve, so these temp
+ * repos have to model a real install. REDUTOK_HOME is the supported way to
+ * point the launchers at one, and this repository is a resolvable install of
+ * redutok, so it stands in for `npm install --save-dev redutok` in the target.
+ */
+const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+let priorHome: string | undefined;
+beforeEach(() => {
+  priorHome = process.env['REDUTOK_HOME'];
+  process.env['REDUTOK_HOME'] = repoRoot;
+});
+afterEach(() => {
+  if (priorHome === undefined) delete process.env['REDUTOK_HOME'];
+  else process.env['REDUTOK_HOME'] = priorHome;
+});
+
+describe('initRepo resolvability precondition', () => {
+  it('refuses, and writes nothing, when redutok is not installed in the target', () => {
+    delete process.env['REDUTOK_HOME'];
+    const repo = makeRepo(false);
+    const before = snapshot(repo);
+
+    expect(() => initRepo(repo)).toThrow(/npm install --save-dev redutok/);
+
+    // A half-written setup is worse than none: the launchers would be present
+    // and broken, and doctor would have something to report as registered.
+    expect(snapshot(repo)).toEqual(before);
+    expect(existsSync(path.join(repo, '.claude', 'redutok', 'hook.mjs'))).toBe(false);
+    expect(existsSync(path.join(repo, '.dcp'))).toBe(false);
+  });
+
+  it('names the npx cache as the reason, not a generic missing module', () => {
+    delete process.env['REDUTOK_HOME'];
+    const repo = makeRepo(false);
+    let message = '';
+    try {
+      initRepo(repo);
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    expect(message).toContain('npx');
+    expect(message).toContain('REDUTOK_HOME');
+  });
+
+  it('proceeds when REDUTOK_HOME points at a resolvable install', () => {
+    process.env['REDUTOK_HOME'] = repoRoot;
+    const repo = makeRepo(false);
+    expect(() => initRepo(repo)).not.toThrow();
+    expect(existsSync(path.join(repo, '.claude', 'redutok', 'hook.mjs'))).toBe(true);
+  });
+});
 
 describe('initRepo', () => {
   it('demotes the protocol block fully: reads and commands govern themselves (v3 pillar B)', () => {
@@ -241,5 +294,32 @@ describe('removeRepo reverts byte-identical', () => {
     expect(existsSync(path.join(repo, '.claude'))).toBe(false);
     expect(existsSync(path.join(repo, '.mcp.json'))).toBe(false);
     expect(existsSync(path.join(repo, 'CLAUDE.md'))).toBe(false);
+  });
+});
+
+describe('per-repo sidecar port', () => {
+  it('derives a stable port from the repo path, inside the reserved range', async () => {
+    const { portForRepo } = await import('../src/installer.js');
+    const a = portForRepo('/home/user/repo-a');
+    const b = portForRepo('/home/user/repo-b');
+    expect(portForRepo('/home/user/repo-a')).toBe(a);
+    expect(a).not.toBe(b);
+    for (const port of [a, b]) {
+      expect(port).toBeGreaterThanOrEqual(42000);
+      expect(port).toBeLessThan(50000);
+    }
+    // Windows and POSIX spellings of one path agree, like the daemon's own
+    // normalizedRoot comparison.
+    expect(portForRepo('E:\\repo\\')).toBe(portForRepo('E:/repo'));
+  });
+
+  it('init writes the per-repo port, not one shared default, into .dcp/config.json', async () => {
+    const { portForRepo } = await import('../src/installer.js');
+    const repo = makeRepo(false);
+    initRepo(repo);
+    const config = JSON.parse(readFileSync(path.join(repo, '.dcp', 'config.json'), 'utf8')) as {
+      port?: number;
+    };
+    expect(config.port).toBe(portForRepo(repo));
   });
 });

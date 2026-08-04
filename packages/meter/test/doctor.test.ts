@@ -27,16 +27,49 @@ describe('redutok doctor', () => {
     expect(text).toMatch(/\d+ checks: \d+ pass, \d+ warn, \d+ fail\./);
   }, 60_000);
 
-  it('reports registered hooks as pass', async () => {
+  /**
+   * Registration is not the same as being runnable. A pure `npx redutok init`
+   * used to leave hooks registered against a launcher that could not resolve
+   * the package -- npx runs from a temp cache that is never in the project's
+   * node_modules -- and doctor called that pass while every hook silently
+   * no-opped. Registered but unresolvable is a failure, not a pass.
+   */
+  it('fails registered hooks whose launcher cannot resolve the package', async () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'redutok-doctor-'));
     mkdirSync(path.join(dir, '.claude'));
     writeFileSync(
       path.join(dir, '.claude', 'settings.local.json'),
       JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: 'node .dcp/redutok/hook.mjs' }] }] } }),
     );
-    const checks = await doctor(dir, { ollamaBaseUrl: 'http://127.0.0.1:1', skipPnpm: true });
-    const byName = new Map(checks.map((c) => [c.name, c]));
-    expect(byName.get('hooks')?.status).toBe('pass');
+    const priorHome = process.env['REDUTOK_HOME'];
+    delete process.env['REDUTOK_HOME'];
+    try {
+      const checks = await doctor(dir, { ollamaBaseUrl: 'http://127.0.0.1:1', skipPnpm: true });
+      const byName = new Map(checks.map((c) => [c.name, c]));
+      expect(byName.get('hooks')?.status).toBe('fail');
+      expect(byName.get('hooks')?.remedy).toContain('npm install --save-dev redutok');
+    } finally {
+      if (priorHome !== undefined) process.env['REDUTOK_HOME'] = priorHome;
+    }
+  }, 60_000);
+
+  it('passes registered hooks when the launcher resolves', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'redutok-doctor-'));
+    mkdirSync(path.join(dir, '.claude'));
+    writeFileSync(
+      path.join(dir, '.claude', 'settings.local.json'),
+      JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: 'node .dcp/redutok/hook.mjs' }] }] } }),
+    );
+    const priorHome = process.env['REDUTOK_HOME'];
+    process.env['REDUTOK_HOME'] = repoRoot;
+    try {
+      const checks = await doctor(dir, { ollamaBaseUrl: 'http://127.0.0.1:1', skipPnpm: true });
+      const byName = new Map(checks.map((c) => [c.name, c]));
+      expect(byName.get('hooks')?.status).toBe('pass');
+    } finally {
+      if (priorHome === undefined) delete process.env['REDUTOK_HOME'];
+      else process.env['REDUTOK_HOME'] = priorHome;
+    }
   }, 60_000);
 
   it('passes tree-sitter and codex freshness on this repository', async () => {

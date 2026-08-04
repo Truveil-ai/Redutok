@@ -28,6 +28,15 @@ export interface EntityGateConfig {
   region?: string;
   /** Fraction of extracted entities that must appear verbatim in the distillate. */
   minRatio: number;
+  /**
+   * A region made of disjoint lines rather than contiguous prose: a structure
+   * map's heading set, where line N and line N+1 are unrelated. Entities are
+   * extracted per line and unioned, because a pattern whose separator is \s+
+   * would otherwise match across the join and invent an entity that exists in
+   * neither line ("SCHEDULE" ending one heading and "1" opening the next read
+   * as one Schedule reference). Takes precedence over region.
+   */
+  regionLines?: string[];
   /** Only the first N matching lines form the region; unset means all matches. */
   limit?: number;
   /** Which deterministic extraction set applies: code output (default) or prose. */
@@ -124,6 +133,23 @@ export function entityPreservationGate(
   config: EntityGateConfig,
 ): GateResult {
   let region: string;
+  if (config.regionLines !== undefined) {
+    const extractOne = config.patternSet === 'prose' ? extractProseEntities : extractEntities;
+    const perLine = [...new Set(config.regionLines.flatMap((line) => extractOne(line)))];
+    if (perLine.length === 0) {
+      return { gate: 'entity-preservation', passed: true, detail: 'no entities in relevant region' };
+    }
+    const absent = perLine.filter((e) => !distilled.includes(e));
+    const kept = (perLine.length - absent.length) / perLine.length;
+    const ok = kept >= config.minRatio;
+    return {
+      gate: 'entity-preservation',
+      passed: ok,
+      detail: ok
+        ? `${perLine.length - absent.length}/${perLine.length} entities preserved`
+        : `missing entities: ${absent.slice(0, 5).join(', ')} (${absent.length} of ${perLine.length})`,
+    };
+  }
   if (config.region !== undefined) {
     region = config.region;
   } else if (config.relevantLinePattern !== undefined) {

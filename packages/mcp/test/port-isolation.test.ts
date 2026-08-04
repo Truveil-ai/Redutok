@@ -104,3 +104,25 @@ describe('two daemons, two repos: each MCP server hits its own daemon', () => {
     expect(zoomText).toContain('cross-repo');
   });
 });
+
+describe('distill traffic carries repo identity', () => {
+  it('a misdirected dcp__run is refused by the foreign daemon and serves raw', async () => {
+    const a = await makeRepoWithDaemon('redutok-iso-a-');
+    const b = await makeRepoWithDaemon('redutok-iso-b-');
+    const misdirected: McpDeps = {
+      target: { port: b.daemon.port },
+      repoRoot: a.repo,
+      sessionId: 'iso-run-a',
+      timeoutMs: 10_000,
+    };
+    const text = await callTool(misdirected, 'dcp__run', {
+      command: `node -e "console.log('x'.repeat(9000))"`,
+      cwd: a.repo,
+    });
+    // Fail-open: the command's raw output, and no handle minted into a store
+    // this repo's zoom would then be refused against.
+    expect(text).toContain('[dcp notice: sidecar unavailable, raw passthrough]');
+    expect(auditText(b.repo)).not.toContain('"action":"distill"');
+    expect(auditText(b.repo)).toContain('"action":"refuse"');
+  });
+});

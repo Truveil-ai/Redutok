@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { LIMITS } from '@redutok/shared';
+import { LIMITS, sameRepoRoot } from '@redutok/shared';
 import {
   buildLedger,
   buildSessionReceipt,
@@ -53,11 +53,25 @@ export const SMALL_READ_BYTES = 16_384;
 /** Reads above this serve the skeleton mirror; between, updatedInput caps the read. */
 export const LARGE_READ_BYTES = 65_536;
 
+/** The repo these hooks govern: the parent of the .dcp state directory. */
+function repoRootOf(deps: HookDeps): string {
+  return path.dirname(path.resolve(deps.dcpDir));
+}
+
 async function sidecarUp(deps: HookDeps): Promise<boolean> {
   const res = await sidecarRequest(deps.target, 'GET', '/health', undefined, {
     timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS,
   });
-  return res.ok && res.status === 200;
+  if (!res.ok || res.status !== 200) return false;
+  // Identity, not just liveness: with every install sharing one default
+  // port, a healthy answer can come from another repo's daemon (the 0.1.1
+  // field install did exactly that). Engaging governance against it corrupts
+  // both repos, so a foreign daemon counts as down — vanilla passthrough.
+  const daemonRoot = (res.body as { repoRoot?: unknown }).repoRoot;
+  if (typeof daemonRoot === 'string' && daemonRoot !== '') {
+    return sameRepoRoot(daemonRoot, repoRootOf(deps));
+  }
+  return true;
 }
 
 /**
@@ -71,7 +85,7 @@ async function registerSession(sessionId: string | undefined, deps: HookDeps): P
     deps.target,
     'POST',
     '/notify',
-    { kind: 'session-start', sessionId },
+    { kind: 'session-start', sessionId, repoRoot: repoRootOf(deps) },
     { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
   );
 }
@@ -157,6 +171,7 @@ export async function handleSessionStart(
     {
       kind: 'session-posture',
       sessionId: input.session_id,
+      repoRoot: repoRootOf(deps),
       posture: decision.posture,
       pinned: decision.pinned,
       ...decision.assessment,
@@ -193,15 +208,74 @@ export async function handleSessionStart(
   };
 }
 
+/** The pre-built mirror entry for this source, when one is fresh for it. */
+function freshMirrorEntry(root: string, rel: string, filePath: string): string | undefined {
+  try {
+    const entry = readMirrorIndex(root)?.files[rel];
+    if (entry === undefined) return undefined;
+    const mirrorPath = mirrorEntryPath(root, rel);
+    if (!existsSync(mirrorPath)) return undefined;
+    // Hashed over the bytes, not decoded text: a PDF has a skeleton too and
+    // must not be forced through a utf8 round trip to check its freshness.
+    if (entry.hash !== mirrorHash(readFileSync(filePath))) return undefined;
+    return mirrorPath;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Asks the sidecar to build a skeleton for this artifact now. Fail-open like
+ * every hook path: anything other than a prepared entry means the raw read
+ * proceeds untouched, and the sidecar has already audited why.
+ */
+async function prepareSkeleton(
+  deps: HookDeps,
+  rel: string,
+  sessionId: string | undefined,
+): Promise<string | undefined> {
+  const res = await sidecarRequest(
+    deps.target,
+    'POST',
+    '/prepare-skeleton',
+    { path: rel, repoRoot: repoRootOf(deps), sessionId },
+    { timeoutMs: LIMITS.SKELETON_PREPARE_TIMEOUT_MS },
+  );
+  if (!res.ok || res.status !== 200) return undefined;
+  const body = res.body as { ok?: boolean; mirrorPath?: string };
+  return body.ok === true && typeof body.mirrorPath === 'string' ? body.mirrorPath : undefined;
+}
+
+/**
+ * An artifact large enough to govern in any posture (docs/POSTURE.md). Read
+ * with an explicit offset/limit is a deliberate slice and never counts, on
+ * the same rule the mirror rewrite uses.
+ */
+function oversizedRead(tool: string, args: Record<string, unknown>): boolean {
+  if (tool !== 'Read') return false;
+  if (args['offset'] !== undefined || args['limit'] !== undefined) return false;
+  const filePath = String(args['file_path'] ?? '');
+  if (filePath === '') return false;
+  try {
+    return statSync(filePath).size >= LIMITS.GOVERN_ANY_ARTIFACT_BYTES;
+  } catch {
+    return false;
+  }
+}
+
 export async function handlePreToolUse(
   input: { tool_name?: string; tool_input?: Record<string, unknown>; session_id?: string },
   deps: HookDeps,
 ): Promise<HookOutput> {
-  // Idle gear (docs/POSTURE.md): everything passes through untouched, no
-  // sidecar probe, no rewrite, no deny — zero per-turn overhead.
-  if (idleFor(deps, input.session_id)) return {};
   const tool = input.tool_name ?? '';
   const args = input.tool_input ?? {};
+  // Idle gear (docs/POSTURE.md): everything passes through untouched, no
+  // sidecar probe, no rewrite, no deny — zero per-turn overhead. The single
+  // exception is the artifact-size escape hatch: posture decides the
+  // session's default engagement, never whether one particular artifact may
+  // enter context whole. Below the threshold idle stays genuinely idle, so
+  // the idle worst case is unchanged.
+  if (idleFor(deps, input.session_id) && !oversizedRead(tool, args)) return {};
   const deny = (reason: string): HookOutput => ({
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
@@ -225,15 +299,19 @@ export async function handlePreToolUse(
         // slice — the mirror header itself recommends one — and passes raw.
         // Stale or missing mirror, sidecar down, or any doubt: raw, fail-open.
         if (args['offset'] !== undefined || args['limit'] !== undefined) return {};
-        const root = path.dirname(path.resolve(deps.dcpDir));
+        const root = repoRootOf(deps);
         const rel = path.relative(root, path.resolve(filePath)).replace(/\\/g, '/');
         if (rel.startsWith('..') || path.isAbsolute(rel)) return {};
-        const entry = readMirrorIndex(root)?.files[rel];
-        if (entry === undefined) return {};
-        const mirrorPath = mirrorEntryPath(root, rel);
-        if (!existsSync(mirrorPath)) return {};
-        if (entry.hash !== mirrorHash(readFileSync(filePath, 'utf8'))) return {};
         if (!(await sidecarUp(deps))) return {};
+        // A fresh pre-built entry serves immediately; otherwise the sidecar
+        // builds one now (docs/POSTURE.md). Nothing indexes an idle repo, and
+        // a file added since the last refresh has no entry either, so without
+        // the on-demand build "governed regardless of posture" would hold
+        // only for artifacts something happened to have indexed already.
+        const mirrorPath =
+          freshMirrorEntry(root, rel, filePath) ??
+          (await prepareSkeleton(deps, rel, input.session_id));
+        if (mirrorPath === undefined) return {};
         await sidecarRequest(
           deps.target,
           'POST',
@@ -244,6 +322,7 @@ export async function handlePreToolUse(
             realPath: filePath,
             mirrorPath,
             sessionId: input.session_id,
+            repoRoot: repoRootOf(deps),
           },
           { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
         );
@@ -306,7 +385,7 @@ export async function handlePreToolUse(
         deps.target,
         'POST',
         '/notify',
-        { kind: 'command-rewrite', rule: decision.rule, command, sessionId: input.session_id },
+        { kind: 'command-rewrite', rule: decision.rule, command, sessionId: input.session_id, repoRoot: repoRootOf(deps) },
         { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
       );
       return {
@@ -347,7 +426,7 @@ export async function handlePostToolUse(
     deps.target,
     'POST',
     '/notify',
-    { kind, tool, path: input.tool_input?.['file_path'], sessionId: input.session_id },
+    { kind, tool, path: input.tool_input?.['file_path'], sessionId: input.session_id, repoRoot: repoRootOf(deps) },
     { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
   );
   return {};
@@ -416,7 +495,7 @@ export async function handleSessionEnd(
     deps.target,
     'POST',
     '/notify',
-    { kind: 'session-end', sessionId: input.session_id },
+    { kind: 'session-end', sessionId: input.session_id, repoRoot: repoRootOf(deps) },
     { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
   );
   return {};

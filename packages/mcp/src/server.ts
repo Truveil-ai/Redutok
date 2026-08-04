@@ -128,7 +128,7 @@ async function distillViaSidecar(
     deps.target ?? {},
     'POST',
     '/distill',
-    { raw, profile, sessionId: deps.sessionId ?? 'mcp-session', filePath },
+    { raw, profile, sessionId: deps.sessionId ?? 'mcp-session', filePath, repoRoot: deps.repoRoot },
     { timeoutMs: deps.timeoutMs ?? 2500 },
   );
   if (!res.ok || res.status !== 200) return `${raw}\n${NOTICE}`;
@@ -242,7 +242,7 @@ async function toolExplore(deps: McpDeps, args: Record<string, unknown>): Promis
     deps.target ?? {},
     'POST',
     '/explore',
-    { goal, scope, budget, sessionId: deps.sessionId ?? 'mcp-session' },
+    { goal, scope, budget, sessionId: deps.sessionId ?? 'mcp-session', repoRoot: deps.repoRoot },
     { timeoutMs: deps.timeoutMs ?? 20_000 },
   );
   if (!res.ok || res.status !== 200) {

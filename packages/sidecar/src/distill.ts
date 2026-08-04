@@ -3,6 +3,7 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import {
   DistillProfileSchema,
+  LIMITS,
   loadYamlFile,
   type AuditEvent,
   type CodexFile,
@@ -12,6 +13,7 @@ import type { AuditWriter } from './audit.js';
 import {
   matchedDocSections,
   parseSectionRefs,
+  renderStructureMap,
   sectionAnchor,
   sectionMatchesRef,
   sectionText,
@@ -234,6 +236,31 @@ function docServeDistill(raw: string, profile: DistillProfile, context: DistillC
 }
 
 /**
+ * Prose document skeleton: the structure map alone. This is the repo-tool
+ * counterpart of the code skeleton — a Markdown, text or PDF read arrives
+ * with no ask, so there are no relevant sections to include verbatim and the
+ * whole body is elided behind the zoom handle. Every section keeps its
+ * citation line (id, title, anchor, one-line summary) so the reader can name
+ * what to zoom to, which is exactly what a signature list does for code.
+ */
+function docSkeletonDistill(raw: string, profile: DistillProfile, context: DistillContext): string {
+  const doc = context.doc;
+  if (doc === undefined) return '';
+  // The map is rendered to fit the profile's own size gate, with a small
+  // margin, so a heavily sectioned document degrades to a shorter map
+  // instead of failing the gate and serving the whole document raw.
+  const maxRatio = profileGateConfig(profile).size?.maxRatio ?? LIMITS.SIZE_SANITY_MAX_RATIO;
+  return renderStructureMap({
+    filePath: context.filePath,
+    sections: doc.sections,
+    pages: doc.pages,
+    zoomHint: zoomRef(context),
+    maxSections: Number(ruleConfig(profile, 'structure-map')['maxSections'] ?? 400),
+    maxBytes: Math.floor(Buffer.byteLength(raw, 'utf8') * maxRatio * 0.95),
+  });
+}
+
+/**
  * Cross-document search: the hit lines arrive pre-ranked (document, section,
  * page context already inline), so the distillate is a header plus the head
  * of the list, kept verbatim for the prose entity gate.
@@ -272,6 +299,8 @@ export async function runProfile(
       return genericStdoutDistill(raw, profile, context);
     case 'doc-serve':
       return docServeDistill(raw, profile, context);
+    case 'doc-skeleton':
+      return docSkeletonDistill(raw, profile, context);
     case 'doc-search':
       return docSearchDistill(raw, profile, context);
     default:
@@ -312,10 +341,18 @@ function withDocRegion(config: GateConfig, request: DistillRequest): GateConfig 
     ruleConfig(request.profile, 'relevant-sections')['maxSections'] ?? 4,
   );
   const matched = matchedDocSections(request.raw, doc.sections, doc.ask, maxSections);
-  return {
-    ...config,
-    entity: { ...config.entity, region: matched.map((m) => m.text).join('\n') },
-  };
+  if (matched.length > 0) {
+    return { ...config, entity: { ...config.entity, region: matched.map((m) => m.text).join('\n') } };
+  }
+  // No ask, so no conclusion-relevant region: a structure map's own promise
+  // is that every section stays findable, so the region becomes the document's
+  // heading lines. Without this the gate would pass on an empty region and
+  // guarantee nothing about the one thing the map exists to carry.
+  const lines = request.raw.split(/\r?\n/);
+  const headingLines = doc.sections
+    .map((s) => lines[s.startLine - 1] ?? '')
+    .filter((l) => l.trim() !== '');
+  return { ...config, entity: { ...config.entity, regionLines: headingLines } };
 }
 
 export function estimateTokens(text: string): number {
@@ -400,6 +437,11 @@ export async function distillArtifact(
       profile: request.profile.name,
       gates: gateReport.results,
       gateConfig,
+      // The artifact this served, so the trail names what was governed. The
+      // first serve used to carry it on a separate serve event; that event is
+      // now suppressed when this one supersedes it (serve.ts), and a trail
+      // that cannot say which file it distilled is not an audit trail.
+      ...(request.context?.filePath === undefined ? {} : { filePath: request.context.filePath }),
       ...(request.context?.enrichmentCandidate === undefined
         ? {}
         : { enrichmentCandidate: request.context.enrichmentCandidate }),

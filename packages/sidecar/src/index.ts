@@ -12,6 +12,7 @@ export * from './distill.js';
 export * from './docs.js';
 export * from './codex.js';
 export * from './mirror.js';
+export * from './prepare.js';
 export * from './serve.js';
 export * from './state.js';
 export * from './explore.js';

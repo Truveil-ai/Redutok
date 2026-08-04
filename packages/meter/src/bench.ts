@@ -8,7 +8,7 @@ import { computeSessionCost } from './cost.js';
 import { computeSessionEnergy, type SessionEnergy } from './energy.js';
 import { buildLedger, grandTotal, type SessionLedger } from './ledger.js';
 import { parseSessionFile } from './parser.js';
-import { scoreSession, type SessionScores } from './scoring.js';
+import { compositeCell, scoreSession, type SessionScores } from './scoring.js';
 
 /**
  * Bench harness, architecture section 8. Replay mode measures committed
@@ -545,7 +545,7 @@ export function generateResults(measurements: RunMeasurement[], n: number): stri
     const t = m.ledger.totals;
     const e = m.energy;
     lines.push(
-      `| ${m.taskId} | ${m.tier} | ${m.variant} | ${fmt(t.input)} | ${fmt(t.output)} | ${fmt(t.cacheRead)} | ${fmt(t.cacheWrite)} | ${fmt(t.thinking)} | ${fmt(m.totalTokens)} | ${m.costUsd.toFixed(4)} | ${e.wh.base.toFixed(2)} (${e.wh.low.toFixed(2)} to ${e.wh.high.toFixed(2)}) | ${e.gCo2e.base.toFixed(2)} (${e.gCo2e.low.toFixed(2)} to ${e.gCo2e.high.toFixed(2)}) | ${m.wallMs} | ${m.scores.composite?.grade ?? 'n/a'} | ${m.success ? 'pass' : 'FAIL'} |`,
+      `| ${m.taskId} | ${m.tier} | ${m.variant} | ${fmt(t.input)} | ${fmt(t.output)} | ${fmt(t.cacheRead)} | ${fmt(t.cacheWrite)} | ${fmt(t.thinking)} | ${fmt(m.totalTokens)} | ${m.costUsd.toFixed(4)} | ${e.wh.base.toFixed(2)} (${e.wh.low.toFixed(2)} to ${e.wh.high.toFixed(2)}) | ${e.gCo2e.base.toFixed(2)} (${e.gCo2e.low.toFixed(2)} to ${e.gCo2e.high.toFixed(2)}) | ${m.wallMs} | ${compositeCell(m.scores.composite)} | ${m.success ? 'pass' : 'FAIL'} |`,
     );
   }
   lines.push('', '## Savings per task (vanilla over redutok, medians across repetitions)', '');
@@ -808,7 +808,7 @@ export function generateLiveResults(
     const t = m.ledger.totals;
     const e = m.energy;
     lines.push(
-      `| ${m.taskId} | ${m.tier} | ${m.variant} | ${m.rep} | ${fmt(t.input)} | ${fmt(t.output)} | ${fmt(t.cacheRead)} | ${fmt(t.cacheWrite)} | ${fmt(t.thinking)} | ${fmt(m.totalTokens)} | ${m.costUsd.toFixed(4)} | ${e.wh.base.toFixed(2)} (${e.wh.low.toFixed(2)} to ${e.wh.high.toFixed(2)}) | ${e.gCo2e.base.toFixed(2)} (${e.gCo2e.low.toFixed(2)} to ${e.gCo2e.high.toFixed(2)}) | ${m.wallMs} | ${m.scores.composite?.grade ?? 'n/a'} | ${m.success ? 'pass' : 'FAIL'} |`,
+      `| ${m.taskId} | ${m.tier} | ${m.variant} | ${m.rep} | ${fmt(t.input)} | ${fmt(t.output)} | ${fmt(t.cacheRead)} | ${fmt(t.cacheWrite)} | ${fmt(t.thinking)} | ${fmt(m.totalTokens)} | ${m.costUsd.toFixed(4)} | ${e.wh.base.toFixed(2)} (${e.wh.low.toFixed(2)} to ${e.wh.high.toFixed(2)}) | ${e.gCo2e.base.toFixed(2)} (${e.gCo2e.low.toFixed(2)} to ${e.gCo2e.high.toFixed(2)}) | ${m.wallMs} | ${compositeCell(m.scores.composite)} | ${m.success ? 'pass' : 'FAIL'} |`,
     );
   }
 

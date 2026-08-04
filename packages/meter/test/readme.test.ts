@@ -42,6 +42,50 @@ describe('README claim hygiene', () => {
     }
   });
 
+  // Sentence-level checks. Wrapping splits a claim across lines, so these read
+  // the flowed text and look at one sentence at a time.
+  const sentences = readme
+    .replace(/\s+/g, ' ')
+    .split(/(?<=\.) /)
+    .map((s) => s.toLowerCase());
+
+  it('never presents a cost avoided figure as anything but an estimate', () => {
+    for (const sentence of sentences) {
+      if (sentence.includes('usd') && sentence.includes('avoided')) {
+        expect(sentence, `unestimated cost-avoided claim: ${sentence}`).toContain('estimat');
+      }
+    }
+  });
+
+  it('never presents energy or carbon as measured', () => {
+    // Nothing in this project measures energy. Every Wh and CO2 figure is a
+    // banded estimate, and the README has to say so wherever it mentions one.
+    for (const sentence of sentences) {
+      if (sentence.includes('co2') || sentence.includes('watt-hour')) {
+        const hedged = sentence.includes('band') || sentence.includes('estimat');
+        expect(hedged, `energy stated as measured: ${sentence}`).toBe(true);
+      }
+    }
+  });
+
+  /**
+   * This guard used to require the README to say the npm package was a
+   * placeholder wherever it told you to npx it. redutok@0.1.0 is published, so
+   * that warning is now false -- but the hazard it guarded against is not
+   * gone, it moved: `npx redutok init` on its own still writes a setup that
+   * cannot run, because npx executes from a temp cache the launchers can never
+   * resolve. Same rule, current hazard: never hand out the npx instruction
+   * without the install that makes it work.
+   */
+  it('pairs every npx redutok init instruction with installing into the project', () => {
+    if (readme.includes('npx redutok init')) {
+      expect(readme).toContain('npm install --save-dev redutok');
+    }
+    expect(readme, 'the placeholder warning is stale; 0.1.0 is published').not.toContain(
+      'placeholder release',
+    );
+  });
+
   it('never claims a chat-savings multiple before the chatbench has run', () => {
     // Wrapping is a formatting choice; the sentence has to survive it.
     const flowed = readme.replace(/\s+/g, ' ');

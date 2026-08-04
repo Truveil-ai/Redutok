@@ -1,6 +1,7 @@
 {
   "name": "@redutok/vault",
   "version": "0.0.1",
+  "private": true,
   "description": "Redutok Vault: MCP server (streamable HTTP + stdio) exposing the sidecar engines over a mounted corpus",
   "type": "module",
   "main": "./dist/index.js",

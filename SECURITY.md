@@ -10,7 +10,7 @@ raw bytes of the store, WAL, and audit files never contain them.
 ## Reporting a vulnerability
 
 Use GitHub private vulnerability reporting at
-https://github.com/imkaran7/redutok/security/advisories/new, or email the
+https://github.com/Truveil-ai/Redutok/security/advisories/new, or email the
 maintainer at er.karansharma07@gmail.com with the subject "redutok security".
 Please do not open public issues for suspected vulnerabilities. You can
 expect an acknowledgement within a week.

@@ -100,23 +100,23 @@ describe('allowlist matching', () => {
   it('rewrites plain node invocations of test-or-verify-shaped scripts, the s02 regression shape', () => {
     // s02-redutok-{1,2,3} (2026-07-30 N=3): the bench task's own verify
     // command ran raw, so the one fail-then-pass pair the error-fix miner
-    // feeds on produced zero distill events. These are the exact commands
-    // from those transcripts.
+    // feeds on produced zero distill events. These are the commands from
+    // those transcripts, with the home-directory user segment genericized.
     const exact1 =
-      'cd "C:\\Users\\Karan\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-1" && node scripts/verify-url-assembly.mjs';
+      'cd "C:\\Users\\user\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-1" && node scripts/verify-url-assembly.mjs';
     const exact3 =
-      'cd "C:\\Users\\Karan\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-3" && node scripts/verify-url-assembly.mjs 2>&1';
+      'cd "C:\\Users\\user\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-3" && node scripts/verify-url-assembly.mjs 2>&1';
     for (const command of [exact1, exact3]) {
       const decision = decideRewrite(command, list);
       expect(decision?.rule, command).toBe('node-script');
     }
     // The cd prefix stays outside the wrap so the pipe inherits the right cwd.
     expect(decideRewrite(exact1, list)?.command).toBe(
-      'cd "C:\\Users\\Karan\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-1" && ' +
+      'cd "C:\\Users\\user\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-1" && ' +
         `node .claude/redutok/pipe.mjs -c ${shellQuote('node scripts/verify-url-assembly.mjs')}`,
     );
     expect(decideRewrite(exact3, list)?.command).toBe(
-      'cd "C:\\Users\\Karan\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-3" && ' +
+      'cd "C:\\Users\\user\\AppData\\Local\\Temp\\redutok-bench-slope-slope-axios-redutok-3" && ' +
         `node .claude/redutok/pipe.mjs -c ${shellQuote('node scripts/verify-url-assembly.mjs 2>&1')}`,
     );
     // Without a cd prefix the shape still rewrites.

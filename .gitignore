@@ -2,12 +2,23 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
+
+# Runtime assets copied into the redutok package by scripts/bundle.mjs so the
+# inlined `dirname(import.meta.url)/..` lookups resolve inside the tarball.
+# Build outputs, not sources: the originals live in packages/{shared,sidecar}
+# and docs/.
+/packages/meter/docs/
+/packages/meter/migrations/
+/packages/meter/profiles/
+/packages/meter/prices.yaml
+/packages/meter/energy_factors.yaml
+/packages/meter/grid_intensity.yaml
 .DS_Store
 .dcp/*
 !.dcp/codex.yaml
 !.dcp/codex.lock
-
-# Corpus state the vault ingest tests and verify scripts build beside a
-# fixture: sqlite stores, write-ahead logs, ledger, audit trail. Regenerated
-# on demand, machine-local, never an artifact anything cites.
-fixtures/**/.dcp/
+# Nested .dcp dirs (vault ledger, WAL, audit) hold live state, never committed.
+# Excluding the directory itself, which "**/.dcp/" would also do to the root one,
+# stops git descending into it and would defeat the negations above. This also
+# covers the corpus state the vault ingest tests build beside a fixture.
+**/*/.dcp/

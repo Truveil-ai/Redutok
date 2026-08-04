@@ -5,18 +5,23 @@ import { loadEnergyFactors, loadGridIntensity, type AuditEvent } from '@redutok/
 import { computeSessionEnergy } from '../src/energy.js';
 import { buildLedger } from '../src/ledger.js';
 import { parseSessionFile } from '../src/parser.js';
-import { gradeFor, scoreSession } from '../src/scoring.js';
+import { gradeFor, renderCompositeValue, scoreSession } from '../src/scoring.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name: string) => path.join(here, '..', '..', '..', 'fixtures', 'sessions', name);
 
-const auditEvent = (action: 'distill' | 'serve-raw', bytesOut: number): AuditEvent => ({
+/**
+ * Serve events carry both halves: the raw touched and what was served in its
+ * place. A serve-raw avoids nothing, so its two counts are equal.
+ */
+const auditEvent = (action: 'distill' | 'serve-raw', bytesOut: number, bytesIn?: number): AuditEvent => ({
   id: `e-${action}-${bytesOut}`,
   timestamp: '2026-07-19T10:00:00.000Z',
   sessionId: 's-small',
   module: 'sidecar.distill',
   action,
   reason: 'x',
+  bytesIn: bytesIn ?? (action === 'serve-raw' ? bytesOut : bytesOut * 10),
   bytesOut,
 });
 
@@ -51,9 +56,11 @@ describe('scoreSession on small.jsonl, hand computed', () => {
 
   it('scores context efficiency from audit serve bytes when present', async () => {
     const ledger = buildLedger(await parseSessionFile(fixture('small.jsonl')));
+    // 9000B raw distilled to 900B, plus 100B that went in raw and saved
+    // nothing: 8100 of 9100 bytes avoided.
     const audit = [auditEvent('distill', 900), auditEvent('serve-raw', 100)];
     const scores = scoreSession(ledger, undefined, audit);
-    expect(scores.contextEfficiency).toMatchObject({ scorable: true, score: 90 });
+    expect(scores.contextEfficiency).toMatchObject({ scorable: true, score: 89 });
     // Energy missing is explicit, never defaulted.
     expect(scores.energyPerOutcome).toEqual({ scorable: false, reason: 'no energy estimate available' });
   });
@@ -122,5 +129,65 @@ describe('gradeFor', () => {
     expect(gradeFor(70)).toBe('C');
     expect(gradeFor(60)).toBe('D');
     expect(gradeFor(59)).toBe('F');
+  });
+});
+
+describe('composite honesty: how many scores contributed', () => {
+  // A live claude-opus-5 session rendered "composite 100 (A)" while only
+  // output discipline and cache utilization were scorable. Two blank scores
+  // cannot average to an A, so the count now travels with the composite and
+  // the letter is withheld when too few contributed.
+  const load = async () => {
+    const ledger = buildLedger(await parseSessionFile(fixture('small.jsonl')));
+    const energy = computeSessionEnergy(ledger, loadEnergyFactors(), loadGridIntensity());
+    return { ledger, energy };
+  };
+  const audit = [auditEvent('distill', 900), auditEvent('serve-raw', 100)];
+
+  it('four of four renders a bare grade, with no count to disclose', async () => {
+    const { ledger, energy } = await load();
+    const scores = scoreSession(ledger, energy, audit);
+    const c = scores.composite;
+    expect(c?.contributing).toBe(4);
+    expect(c?.total).toBe(4);
+    expect(c?.partial).toBe(false);
+    expect(c?.grade).toBeDefined();
+    expect(renderCompositeValue(c!)).toBe(`${c!.value} (${c!.grade})`);
+  });
+
+  it('three of four keeps the grade but states the count', async () => {
+    const { ledger, energy } = await load();
+    // No audit events: context efficiency drops out, the other three stand.
+    const scores = scoreSession(ledger, energy, []);
+    const c = scores.composite;
+    expect(c?.contributing).toBe(3);
+    expect(c?.partial).toBe(false);
+    expect(c?.grade).toBe('A');
+    expect(renderCompositeValue(c!)).toBe(`${c!.value} (A, from 3 of 4 scores)`);
+  });
+
+  it('two of four withholds the letter grade entirely', async () => {
+    const { ledger } = await load();
+    // No audit and no energy estimate: the exact shape of the live session.
+    const scores = scoreSession(ledger, undefined, []);
+    const c = scores.composite;
+    expect(c?.contributing).toBe(2);
+    expect(c?.partial).toBe(true);
+    expect(c?.grade).toBeUndefined();
+    const rendered = renderCompositeValue(c!);
+    expect(rendered).toContain('partial');
+    expect(rendered).toContain('2 of 4 scores');
+    // The regression: no bare letter grade anywhere in the line.
+    expect(rendered).not.toMatch(/\([A-F][),]/);
+    expect(rendered).not.toMatch(/\bgrade [A-F]\b/);
+  });
+
+  it('still reports a value for the partial case rather than hiding it', async () => {
+    const { ledger } = await load();
+    const c = scoreSession(ledger, undefined, []).composite;
+    // Honesty cuts both ways: the number is real and stays visible, it just
+    // no longer wears a grade it did not earn. OD 100 and CU 92 at equal
+    // weights renormalize to (25 + 23) / 0.5 = 96.
+    expect(c?.value).toBe(96);
   });
 });
