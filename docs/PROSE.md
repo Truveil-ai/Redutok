@@ -40,12 +40,37 @@ source itself. See [HTML.md](HTML.md).
 
 ## Where it applies
 
-Three paths reach the same builder:
+Four paths reach the same builder:
 
-- the offline mirror refresh (`redutok codex refresh`, file-change notifies),
+- the offline mirror refresh, `redutok codex refresh`. It walks documents and
+  pages separately from the codex's own source list (`listMirrorableDocuments`
+  in codex.ts), because the codex is a map of the code and indexes source
+  only. Until 0.1.6 the refresh took its work from the codex lock alone, so a
+  repository of Markdown and PDFs had every skeleton the mirror supports and
+  not one of them built; the on-demand path covered it at first read, which is
+  why nothing was ever served wrong. Documents above
+  `LIMITS.MIRROR_PREBUILD_MAX_BYTES` (8MB) are still left to that path rather
+  than making every refresh pay for a file nothing has opened,
+- the file-change notify, which hands the mirror its full changed list,
 - the daemon's on-demand preparation, when the hook meets an oversized
   artifact nothing has indexed yet (see [POSTURE.md](POSTURE.md)),
 - `/serve-file`, so `dcp__read` on a document returns a map.
+
+The Vault's ingest is the one caller that opts out
+(`writeCodex(root, { mirrorDocuments: false })`): it has already extracted and
+stored every document in the corpus by the time it refreshes, so a document
+mirror pass would parse each of them twice in one run.
+
+Measured on this repository's own docs tree (18 artifacts: 15 Markdown files,
+the two real USPTO PDF fixtures, and a single-file HTML application): the
+first refresh built all 18 skeletons in **254ms**; the second rebuilt nothing
+in **34ms**. Re-parsing is not a recurring cost, because `refreshMirror`
+compares the source hash and skips every fresh entry, so a steady-state
+refresh only hashes. Two of the Markdown files got no entry at all: their maps
+could not beat their sources, which is the same honest refusal a read would
+have produced. The CLI now reports the mirror count separately
+(`Codex refreshed: 0 files indexed. 17 skeletons mirrored.`), because on a
+documents repository the codex count alone read as nothing having happened.
 
 ## Guarantees, and where they stop
 

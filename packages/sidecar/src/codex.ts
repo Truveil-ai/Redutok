@@ -12,6 +12,8 @@ import {
   type LearnedEntry,
 } from '@redutok/shared';
 import { estimateTokens } from './distill.js';
+import { isDocumentPath } from './docs.js';
+import { isHtmlPath } from './html.js';
 import { refreshMirror, type RefreshMirrorOptions, type SkeletonEnrichment } from './mirror.js';
 import { fileSkeleton, languageForPath } from './skeleton.js';
 
@@ -37,6 +39,43 @@ export function listSourceFiles(root: string): string[] {
       const stats = statSync(full);
       if (stats.isDirectory()) walk(full);
       else if (SOURCE_EXT.has(path.extname(name)) && stats.size < 1_000_000) {
+        out.push(path.relative(root, full).replace(/\\/g, '/'));
+      }
+    }
+  };
+  walk(root);
+  return out.sort();
+}
+
+/**
+ * Prose documents and HTML pages the mirror can skeletonize but the codex
+ * does not index.
+ *
+ * The codex is a map of the code, so its file list is the source list, and
+ * the offline mirror refresh took its work from that list — which meant a
+ * repository of Markdown, PDFs and pages had every skeleton the mirror
+ * supports and not one of them built. Field check on 0.1.6: a repo holding
+ * one 134KB single-file application reported "0 files indexed" and wrote no
+ * mirror at all, so the first read of that page paid the on-demand build.
+ *
+ * Deliberately a separate walk rather than a wider SOURCE_EXT: posture.ts
+ * shares INDEXABLE_EXT to count a session's source files, and widening it
+ * there would move the idle and light gears for every documents repository.
+ * What the codex indexes and what the mirror can skeletonize are two
+ * different questions and now have two different answers.
+ */
+export function listMirrorableDocuments(root: string): string[] {
+  const out: string[] = [];
+  const walk = (dir: string): void => {
+    for (const name of readdirSync(dir)) {
+      if (SKIP_DIRS.has(name)) continue;
+      const full = path.join(dir, name);
+      const stats = statSync(full);
+      if (stats.isDirectory()) walk(full);
+      else if (
+        (isDocumentPath(name) || isHtmlPath(name)) &&
+        stats.size <= LIMITS.MIRROR_PREBUILD_MAX_BYTES
+      ) {
         out.push(path.relative(root, full).replace(/\\/g, '/'));
       }
     }
@@ -195,7 +234,28 @@ export async function buildStructuralCodex(root: string): Promise<CodexResult> {
   return { changed: true, codex: preserveLocked(generated, existing), lock };
 }
 
-export async function writeCodex(root: string): Promise<CodexResult> {
+export interface WriteCodexOptions {
+  /**
+   * Whether the refresh also pre-builds mirror entries for prose documents
+   * and HTML pages (listMirrorableDocuments). True for the operator-invoked
+   * refresh, which is the whole point of pre-building. The Vault's ingest
+   * turns it off: it has already extracted and stored every document in the
+   * corpus by the time it calls this, so a mirror pass would parse each of
+   * them a second time in the same run for a mirror its own serve path never
+   * reads.
+   */
+  mirrorDocuments?: boolean;
+}
+
+export interface WriteCodexResult extends CodexResult {
+  /** Mirror entries (re)written by this refresh, source and documents alike. */
+  mirrored: string[];
+}
+
+export async function writeCodex(
+  root: string,
+  options: WriteCodexOptions = {},
+): Promise<WriteCodexResult> {
   const result = await buildStructuralCodex(root);
   if (result.changed) {
     const paths = codexPaths(root);
@@ -207,10 +267,19 @@ export async function writeCodex(root: string): Promise<CodexResult> {
   // (not gated on changed) so a repo with an up-to-date codex still gains its
   // mirror on the first refresh after the mirror feature exists; refreshMirror
   // itself skips fresh entries, keeping unchanged input byte-stable.
-  await refreshMirror(root, Object.keys(result.lock.files), {
+  //
+  // The codex's own file list is the source list, so documents and pages are
+  // walked separately and appended: they are mirrorable without being
+  // indexable, and taking the mirror's work from the lock alone left every
+  // one of them unbuilt (docs/PROSE.md, docs/HTML.md).
+  const rels = [
+    ...Object.keys(result.lock.files),
+    ...(options.mirrorDocuments === false ? [] : listMirrorableDocuments(root)),
+  ];
+  const mirrored = await refreshMirror(root, rels, {
     enrichments: enrichmentDirectives(result.codex),
   });
-  return result;
+  return { ...result, mirrored };
 }
 
 /** Incremental path: re-skeleton and re-hash exactly the given files. */

@@ -1,4 +1,14 @@
-import { appendFileSync, cpSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -192,5 +202,95 @@ describe('mirror sizes', () => {
     await writeCodex(root);
     const entry = readFileSync(mirrorEntryPath(root, 'big.ts'), 'utf8');
     expect(entry.length).toBeLessThan(big.length * 0.4);
+  });
+});
+
+describe('the offline refresh pre-builds documents and pages', () => {
+  /**
+   * Field check on 0.1.6: a repository holding one 134KB single-file
+   * application reported "Codex refreshed: 0 files indexed" and wrote no
+   * mirror at all, because the refresh took its work from the codex lock and
+   * the codex indexes source only. Every document and page in a real docs
+   * repository paid the on-demand build at first read for the same reason.
+   */
+  function proseRepo(): string {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'redutok-mirror-docs-'));
+    mkdirSync(path.join(root, 'docs'));
+    mkdirSync(path.join(root, 'app'));
+    const policy = [
+      '# Data Retention Policy\n',
+      ...Array.from(
+        { length: 40 },
+        (_, i) =>
+          `\n## Section ${i + 1}. Retention of Class ${i + 1} Records\n` +
+          // First sentence becomes the section's one-liner; the filler after
+          // it is body, and body is what the map must not carry.
+          `Records in this class are retained for ${i + 1} years. ` +
+          'The controller reviews the schedule annually and records the outcome. '.repeat(12) +
+          '\n',
+      ),
+    ].join('');
+    writeFileSync(path.join(root, 'docs', 'policy.md'), policy);
+    cpSync(
+      path.join(here, 'fixtures', 'revenue-dashboard.html'),
+      path.join(root, 'app', 'index.html'),
+    );
+    return root;
+  }
+
+  it('mirrors a repo whose only artifacts are a document and a page', async () => {
+    const root = proseRepo();
+    const result = await writeCodex(root);
+    // No source at all: the codex indexes nothing, and that used to be the
+    // end of it.
+    expect(result.codex.files).toEqual([]);
+    expect(result.mirrored).toEqual(['app/index.html', 'docs/policy.md']);
+
+    const index = readMirrorIndex(root);
+    expect(Object.keys(index?.files ?? {}).sort()).toEqual(['app/index.html', 'docs/policy.md']);
+
+    const page = readFileSync(mirrorEntryPath(root, 'app/index.html'), 'utf8');
+    expect(page).toContain('[dcp:mirror of ');
+    expect(page).toMatch(/inline script, \d+ lines/);
+    expect(page).not.toContain('Northwind Traders');
+
+    const doc = readFileSync(mirrorEntryPath(root, 'docs/policy.md'), 'utf8');
+    expect(doc).toContain('Section 40. Retention of Class 40 Records');
+    expect(doc).not.toContain('The controller reviews the schedule annually');
+  });
+
+  it('is byte-stable: a second refresh rebuilds nothing', async () => {
+    const root = proseRepo();
+    await writeCodex(root);
+    const before = readFileSync(mirrorEntryPath(root, 'app/index.html'), 'utf8');
+    const second = await writeCodex(root);
+    expect(second.mirrored).toEqual([]);
+    expect(readFileSync(mirrorEntryPath(root, 'app/index.html'), 'utf8')).toBe(before);
+  });
+
+  it('rebuilds exactly the document that changed', async () => {
+    const root = proseRepo();
+    await writeCodex(root);
+    appendFileSync(
+      path.join(root, 'docs', 'policy.md'),
+      '\n## Section 41. Retention of Class 41 Records\n' +
+        'Records in this class are retained for 41 years. ' +
+        'The controller reviews the schedule annually and records the outcome. '.repeat(12) +
+        '\n',
+    );
+    const result = await writeCodex(root);
+    expect(result.mirrored).toEqual(['docs/policy.md']);
+    expect(readFileSync(mirrorEntryPath(root, 'docs/policy.md'), 'utf8')).toContain(
+      'Section 41. Retention of Class 41 Records',
+    );
+  });
+
+  it('leaves documents to the caller that has already parsed them', async () => {
+    // The Vault's ingest path: every document is extracted and stored before
+    // the refresh runs, so a document mirror pass would parse each one twice.
+    const root = proseRepo();
+    const result = await writeCodex(root, { mirrorDocuments: false });
+    expect(result.mirrored).toEqual([]);
+    expect(readMirrorIndex(root)?.files ?? {}).toEqual({});
   });
 });
