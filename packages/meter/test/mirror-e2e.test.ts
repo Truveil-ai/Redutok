@@ -105,14 +105,22 @@ describe('skeleton mirror end-to-end (zero API cost)', () => {
       );
       expect(small).toEqual({});
 
-      // 3. Stale mirror: the source changes and, until the file-change
-      //    notify refreshes the mirror, the Read passes through raw.
+      // 3. Stale mirror: the source changes before any file-change notify
+      //    refreshes it. The stale entry is never served — but the artifact
+      //    is over the escape-hatch threshold, so rather than letting it
+      //    enter context whole the sidecar rebuilds the skeleton on demand
+      //    and the Read is governed against the edited source
+      //    (docs/POSTURE.md).
       appendFileSync(bigPath, '\nexport const EDITED = true;\n');
       const stale = await handlePreToolUse(
         { tool_name: 'Read', tool_input: { file_path: bigPath }, session_id: SESSION },
         hookDeps,
       );
-      expect(stale).toEqual({});
+      expect(stale.hookSpecificOutput?.permissionDecision).toBe('allow');
+      expect(
+        readFileSync((stale.hookSpecificOutput?.updatedInput as { file_path: string }).file_path, 'utf8'),
+        'a stale entry must never be served: the rebuild reflects the edit',
+      ).toContain('EDITED');
       await sidecarRequest(
         { port: daemon.port },
         'POST',

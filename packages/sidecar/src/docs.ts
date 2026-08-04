@@ -635,9 +635,19 @@ export function extractDocument(absPath: string): DocExtraction {
  * whitespace. v5: sections carry the running page header as part context, so
  * a repeated enumeration can be told apart by the part it sits in. v6: a
  * glyph re-painted inside a clip region is extracted once, so text that
- * straddles clip boundaries reads as written.
+ * straddles clip boundaries reads as written. v7: a Markdown line that is
+ * entirely bold counts as a heading, so documents converted out of word
+ * processors and PDFs map to their real structure instead of to the handful
+ * of ATX headings they happen to carry.
  */
-export const DETECTOR_VERSION = 6;
+export const DETECTOR_VERSION = 7;
+
+/**
+ * A Markdown line that is entirely bold, the heading form of every document
+ * converted out of a word processor or a PDF. Requires the emphasis to open
+ * the line and close it, so an inline bold phrase never matches.
+ */
+const BOLD_LINE_HEADING = /^\*\*\s*(\S[^*]*?)\s*\*\*[:.]?$/;
 
 const NUMBERED_HEADING = /^(\d+(?:\.\d+)*)[.)]\s+(\S.*)$/;
 /**
@@ -683,7 +693,20 @@ function detectHeadings(
     if (trimmed === '') return;
     if (kind === 'markdown') {
       const md = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(trimmed);
-      if (md !== null) headings.push({ line: i + 1, level: (md[1] as string).length, title: md[2] as string });
+      if (md !== null) {
+        headings.push({ line: i + 1, level: (md[1] as string).length, title: md[2] as string });
+        return;
+      }
+      // A whole line in bold, standing alone, is a heading in every document
+      // converted from a word processor or a PDF. The field case is NIST AI
+      // 600-1: 2,499 lines carrying four ATX headings and all of its real
+      // structure in bold lines, which mapped to four sections covering the
+      // entire document. Length-guarded like the plain-text detectors so a
+      // bold sentence inside a paragraph does not qualify.
+      const bold = BOLD_LINE_HEADING.exec(trimmed);
+      if (bold !== null && (bold[1] as string).trim().length <= 100) {
+        headings.push({ line: i + 1, level: 2, title: (bold[1] as string).trim() });
+      }
       return;
     }
     // Heading heuristic length guard: a heading is a short standalone line,
@@ -911,6 +934,72 @@ export function sectionText(text: string, range: { startLine: number; endLine: n
 
 /** Anchor a section the way a professional cites it: page when the format
  * has pages, paragraph (line) anchor otherwise. */
+/**
+ * The rendered structure map: a document's skeleton, one citation line per
+ * section carrying the id, title, anchor and one-line summary. Shared by the
+ * doc-skeleton distiller (which has a stored artifact and so can offer a zoom
+ * handle) and the offline mirror refresh (which cannot), so a document's
+ * skeleton reads the same however it was built.
+ */
+export function renderStructureMap(options: {
+  filePath?: string;
+  sections: DocSection[];
+  pages?: DocPage[];
+  /** Pre-formatted recovery hint, e.g. `zoom: dcp__zoom("a1b2c3", query?)`. */
+  zoomHint: string;
+  maxSections?: number;
+  /**
+   * Byte budget the map should fit. A heavily sectioned document (the field
+   * PDF: 171 sections over an 85KB text layer) produces a map that is itself
+   * bulky, and a map that does not shrink the artifact has no reason to be
+   * served. Rather than refuse outright, the per-section summaries are
+   * dropped and the section list kept, which is the part that carries
+   * navigation; the drop is disclosed inline.
+   *
+   * There is deliberately no third step that drops sections. Every section
+   * the map lists, it lists faithfully — that is what lets the prose entity
+   * gate hold at ratio 1. A document whose bare section list still will not
+   * fit is one that is mostly headings, so there is no body to elide and
+   * nothing to save: it is served raw, which is the honest outcome.
+   */
+  maxBytes?: number;
+}): string {
+  const { sections, pages, zoomHint } = options;
+  if (sections.length === 0) return '';
+  const shown = sections.slice(0, options.maxSections ?? 400);
+
+  const render = (count: number, withSummaries: boolean): string => {
+    const kept = shown.slice(0, count);
+    const out: string[] = [
+      `document ${options.filePath ?? '(unnamed)'}: ${sections.length} sections${
+        pages === undefined ? '' : `, ${pages.length} pages`
+      }`,
+      `[full document elided, ${zoomHint}; a section id or title recovers that section byte-exact]`,
+    ];
+    for (const section of kept) {
+      const line = `§${section.id} ${section.title} (${sectionAnchor(section)})`;
+      out.push(withSummaries ? `${line} — ${section.summary}` : line);
+    }
+    if (!withSummaries) {
+      out.push('[dcp: per-section summaries omitted to fit the serve budget]');
+    }
+    const omitted = sections.length - kept.length;
+    if (omitted > 0) {
+      out.push(`[dcp: omitted ${omitted} further sections, ${zoomHint}]`);
+    }
+    return out.join('\n');
+  };
+
+  const fits = (text: string): boolean =>
+    options.maxBytes === undefined || Buffer.byteLength(text, 'utf8') <= options.maxBytes;
+
+  const full = render(shown.length, true);
+  if (fits(full)) return full;
+  // Terse: the section list without summaries. When even this is over budget
+  // the caller's size gate refuses it and the document is served raw.
+  return render(shown.length, false);
+}
+
 export function sectionAnchor(section: DocSection): string {
   return section.page === undefined ? `¶${section.startLine}` : `p.${section.page}`;
 }

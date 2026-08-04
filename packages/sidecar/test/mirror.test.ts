@@ -110,13 +110,39 @@ describe('skeleton mirror store (v3 pillar B)', () => {
     expect(header).not.toContain('offset/limit');
   });
 
-  it('non-source files and files outside the index are simply skipped', async () => {
+  it('files of a type with no skeleton builder are simply skipped', async () => {
     const root = cloneFixtureRepo('repo-a');
     await writeCodex(root);
-    writeFileSync(path.join(root, 'notes.txt'), 'x'.repeat(100));
-    const written = await refreshMirror(root, ['notes.txt']);
+    // Neither a tree-sitter language nor a prose document: nothing can build
+    // a skeleton for it, so the hook serves it raw.
+    writeFileSync(path.join(root, 'data.csv'), 'a,b\n'.repeat(100));
+    const written = await refreshMirror(root, ['data.csv']);
     expect(written).toEqual([]);
-    expect(readMirrorIndex(root)?.files['notes.txt']).toBeUndefined();
+    expect(readMirrorIndex(root)?.files['data.csv']).toBeUndefined();
+  });
+
+  it('a structureless document is skipped, a structured one is mirrored', async () => {
+    const root = cloneFixtureRepo('repo-a');
+    await writeCodex(root);
+    // No headings anywhere: a structure map would be one positional section
+    // over the whole file, which hides the document instead of mapping it.
+    writeFileSync(path.join(root, 'flat.txt'), 'x'.repeat(100));
+    expect(await refreshMirror(root, ['flat.txt'])).toEqual([]);
+
+    // Sized like a real document: a map only earns its place when it is far
+    // smaller than the prose it maps, which the size ceiling enforces.
+    const structured = Array.from(
+      { length: 12 },
+      (_, i) =>
+        `## Section ${i + 1}. Retention\n\n` +
+        'The controller retains these records and reviews the schedule annually. '.repeat(10) +
+        '\n',
+    ).join('\n');
+    writeFileSync(path.join(root, 'notes.md'), `# Retention Policy\n\n${structured}`);
+    expect(await refreshMirror(root, ['notes.md'])).toEqual(['notes.md']);
+    const entry = readMirrorIndex(root)?.files['notes.md'];
+    expect(entry).toBeDefined();
+    expect(readFileSync(mirrorEntryPath(root, 'notes.md'), 'utf8')).toContain('§');
   });
 });
 

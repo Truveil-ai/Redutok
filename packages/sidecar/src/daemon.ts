@@ -6,10 +6,12 @@ import { sameRepoRoot, type AuditEvent, type DistillProfile } from '@redutok/sha
 import { AuditWriter } from './audit.js';
 import { enrichmentDirectives, readCodex, refreshFiles } from './codex.js';
 import { enrichmentFor } from './mirror.js';
+import { buildStructureMap, extractDocument, isDocumentPath, type DocExtraction } from './docs.js';
 import { distillArtifact, loadProfiles, zoom } from './distill.js';
 import { exploreGoal } from './explore.js';
 import { runGraduationMiner } from './graduation.js';
 import { NoopLlmPass, type LlmPass } from './llm.js';
+import { prepareSkeletonEntry } from './prepare.js';
 import { serveFile } from './serve.js';
 import { updateRollingState } from './state.js';
 import { createLogger, type Logger } from './log.js';
@@ -135,15 +137,54 @@ function handler(
           if (refuseIfCrossRepo(p)) return;
           const sessionId = attributedSessionId(p['sessionId']);
           const relPath = String(p['path'] ?? '');
-          const raw = String(p['raw'] ?? '');
+          // A document's text is extracted here rather than taken from the
+          // caller: the MCP server reads bytes as utf8, which is the document
+          // itself for Markdown and text but mojibake for a PDF. Extraction
+          // failure falls back to what the caller sent, never an error.
+          let raw = String(p['raw'] ?? '');
+          let docExtraction: DocExtraction | undefined;
+          if (isDocumentPath(relPath)) {
+            try {
+              const abs = path.isAbsolute(relPath) ? relPath : path.join(repoRoot, relPath);
+              const extracted = extractDocument(abs);
+              if (extracted.outOfScope === undefined && extracted.text.trim() !== '') {
+                docExtraction = extracted;
+                raw = extracted.text;
+              }
+            } catch {
+              // Not extractable: the caller's raw stands.
+            }
+          }
           const served = serveFile(engines.store, engines.audit, sessionId, relPath, raw);
           if (served.mode !== 'full') {
             respond(200, { ...served, handle: `[dcp:file ${served.ref}]` });
             return;
           }
-          const profile = engines.profiles.get('file-skeleton');
+          // Prose documents distil to their structure map, code to its
+          // signature list; the profile follows the artifact, not the caller.
+          const profile = engines.profiles.get(
+            docExtraction === undefined ? 'file-skeleton' : 'doc-skeleton',
+          );
           if (profile === undefined) {
             respond(200, { ...served, handle: `[dcp:file ${served.ref}]` });
+            return;
+          }
+          if (docExtraction !== undefined) {
+            const sections = await buildStructureMap(docExtraction, engines.llm);
+            const outcome = await distillArtifact(engines.store, engines.audit, {
+              raw,
+              profile,
+              sessionId,
+              tool: 'dcp__read',
+              context: {
+                filePath: relPath,
+                doc: {
+                  sections,
+                  ...(docExtraction.pages === undefined ? {} : { pages: docExtraction.pages }),
+                },
+              },
+            });
+            respond(200, { mode: 'full', ref: served.ref, text: outcome.text, handle: outcome.handle });
             return;
           }
           // Skeleton enrichment (docs/GRADUATION.md): a graduated hotspot
@@ -174,6 +215,54 @@ function handler(
         .catch((err: unknown) =>
           respond(400, { ok: false, error: err instanceof Error ? err.message : String(err) }),
         );
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/prepare-skeleton') {
+      // The artifact-size escape hatch (docs/POSTURE.md): the hook has an
+      // oversized artifact and no fresh mirror entry for it. Build one now,
+      // through the same profile and gates any other skeleton goes through.
+      if (engines === undefined) {
+        respond(503, { ok: false, error: 'daemon started without a profiles directory' });
+        return;
+      }
+      void readBody(req)
+        .then(async (payload) => {
+          const p = payload as Record<string, unknown>;
+          if (refuseIfCrossRepo(p)) return;
+          const sessionId = attributedSessionId(p['sessionId']);
+          const rel = String(p['path'] ?? '');
+          const result = await prepareSkeletonEntry(
+            { store: engines.store, audit: engines.audit, profiles: engines.profiles, repoRoot },
+            rel,
+            sessionId,
+          );
+          if (!result.ok) {
+            // Why this artifact enters context whole, recorded where the
+            // receipt can read it back (docs/SCORING.md).
+            const event: AuditEvent = {
+              id: `passthrough-${randomBytes(3).toString('hex')}`,
+              timestamp: new Date().toISOString(),
+              sessionId,
+              module: 'sidecar.prepare',
+              action: 'passthrough',
+              reason: `${rel} read raw: ${result.reason ?? 'no skeleton available'}`,
+              bytesIn: result.rawBytes ?? 0,
+              bytesOut: result.rawBytes ?? 0,
+              details: { path: rel, reason: result.reason ?? 'no skeleton available' },
+            };
+            try {
+              engines.audit.write(event);
+              engines.store.insertAuditEvent(event);
+            } catch (err) {
+              log.error('passthrough audit failed', { error: String(err) });
+            }
+          }
+          respond(200, result);
+        })
+        .catch((err: unknown) => {
+          log.error('request failed', { path: url.pathname, error: String(err) });
+          respond(400, { ok: false, error: err instanceof Error ? err.message : String(err) });
+        });
       return;
     }
     if (req.method === 'POST' && (url.pathname === '/distill' || url.pathname === '/zoom')) {

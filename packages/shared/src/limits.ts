@@ -111,6 +111,30 @@ export const LIMITS = {
     LIGHT_MAX_SOURCE_BYTES: 2_097_152,
   },
   /**
+   * The artifact-size escape hatch (docs/POSTURE.md). Posture decides the
+   * session's default engagement; it never vetoes an individual artifact. A
+   * single read at or above this size engages distillation in every posture,
+   * idle included, because one artifact this large outweighs the whole
+   * per-session overhead the idle bound was protecting against: at the
+   * meter's ~4 bytes per token heuristic it is roughly 32,000 tokens from one
+   * tool call, a sixth of a 200K context window. Everything below it in idle
+   * stays vanilla, so the idle worst case is unchanged. The field case is a
+   * documents repo assessed light at 81 files where a 263KB Markdown, a 186KB
+   * Markdown and a 1.2MB PDF all entered context raw.
+   * Product tuning constant, not a measured claim.
+   */
+  GOVERN_ANY_ARTIFACT_BYTES: 131_072,
+  /**
+   * Budget for the on-demand skeleton build the escape hatch falls back to
+   * when nothing has indexed the artifact yet (docs/POSTURE.md). Deliberately
+   * far above HOOK_FAIL_OPEN_MS: that budget bounds a liveness probe against a
+   * dead sidecar, while this one pays for real work on an artifact already
+   * known to be over GOVERN_ANY_ARTIFACT_BYTES — parsing a 1.2MB PDF text
+   * layer is seconds, and the alternative is that artifact entering context
+   * whole. A timeout here still fails open to the raw read.
+   */
+  SKELETON_PREPARE_TIMEOUT_MS: 8_000,
+  /**
    * SessionStart injection budgets (docs/POSTURE.md). CODEX_MAX_TOKENS caps
    * the rendered codex injection via the degrade-and-restore order in
    * buildInjection; TOTAL_MAX_TOKENS is the documented ceiling for the whole
