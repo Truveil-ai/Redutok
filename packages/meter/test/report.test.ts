@@ -45,6 +45,8 @@ describe('buildReport on small.jsonl', () => {
         module: 'sidecar.distill',
         action,
         reason: 'x',
+        // Both halves: a serve says what it replaced, not only what it served.
+        bytesIn: action === 'serve-raw' ? bytesOut : bytesOut * 10,
         bytesOut,
       });
     writeFileSync(
@@ -57,7 +59,9 @@ describe('buildReport on small.jsonl', () => {
       ].join('\n') + '\n',
     );
     const report = await buildReport(fixture('small.jsonl'), { auditPath });
-    expect(report.scores.contextEfficiency).toMatchObject({ scorable: true, score: 90 });
+    // 9000B raw distilled to 900B plus 100B served raw: 8100 of 9100 avoided.
+    // The foreign session's 90,000B never enters either half.
+    expect(report.scores.contextEfficiency).toMatchObject({ scorable: true, score: 89 });
   });
 
   it('footer audit-event count and scoring serve count read the same trail', async () => {
@@ -71,6 +75,8 @@ describe('buildReport on small.jsonl', () => {
         module: 'sidecar.distill',
         action,
         reason: 'x',
+        // Both halves: a serve says what it replaced, not only what it served.
+        bytesIn: action === 'serve-raw' ? bytesOut : bytesOut * 10,
         bytesOut,
       });
     writeFileSync(

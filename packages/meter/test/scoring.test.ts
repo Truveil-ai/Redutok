@@ -10,13 +10,18 @@ import { gradeFor, renderCompositeValue, scoreSession } from '../src/scoring.js'
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name: string) => path.join(here, '..', '..', '..', 'fixtures', 'sessions', name);
 
-const auditEvent = (action: 'distill' | 'serve-raw', bytesOut: number): AuditEvent => ({
+/**
+ * Serve events carry both halves: the raw touched and what was served in its
+ * place. A serve-raw avoids nothing, so its two counts are equal.
+ */
+const auditEvent = (action: 'distill' | 'serve-raw', bytesOut: number, bytesIn?: number): AuditEvent => ({
   id: `e-${action}-${bytesOut}`,
   timestamp: '2026-07-19T10:00:00.000Z',
   sessionId: 's-small',
   module: 'sidecar.distill',
   action,
   reason: 'x',
+  bytesIn: bytesIn ?? (action === 'serve-raw' ? bytesOut : bytesOut * 10),
   bytesOut,
 });
 
@@ -51,9 +56,11 @@ describe('scoreSession on small.jsonl, hand computed', () => {
 
   it('scores context efficiency from audit serve bytes when present', async () => {
     const ledger = buildLedger(await parseSessionFile(fixture('small.jsonl')));
+    // 9000B raw distilled to 900B, plus 100B that went in raw and saved
+    // nothing: 8100 of 9100 bytes avoided.
     const audit = [auditEvent('distill', 900), auditEvent('serve-raw', 100)];
     const scores = scoreSession(ledger, undefined, audit);
-    expect(scores.contextEfficiency).toMatchObject({ scorable: true, score: 90 });
+    expect(scores.contextEfficiency).toMatchObject({ scorable: true, score: 89 });
     // Energy missing is explicit, never defaulted.
     expect(scores.energyPerOutcome).toEqual({ scorable: false, reason: 'no energy estimate available' });
   });
