@@ -1,5 +1,12 @@
 import { readFileSync } from 'node:fs';
-import { loadEnergyFactors, loadGridIntensity, loadPrices, readAuditFile } from '@redutok/shared';
+import {
+  governanceReceiptReason,
+  loadEnergyFactors,
+  loadGridIntensity,
+  loadPrices,
+  readAuditFile,
+  type GovernanceStatus,
+} from '@redutok/shared';
 import { computeSessionCost } from './cost.js';
 import { computeSessionEnergy } from './energy.js';
 import { grandTotal, type SessionLedger } from './ledger.js';
@@ -43,6 +50,12 @@ export interface SessionReceipt {
   /** False when the session produced no serve at all: the receipt has to
    * lead with that rather than rendering a figure that implies it worked. */
   governed: boolean;
+  /**
+   * Why governance was off for the whole session, when SessionStart found it
+   * off. This is the difference between "nothing needed distilling" and "the
+   * sidecar was dead the entire time", and only the record knows which.
+   */
+  governanceOff?: string;
   /** Why context efficiency could not be scored, when it could not. */
   notScorableReason?: string;
   /** Large artifacts that entered context whole, each with its reason. */
@@ -67,26 +80,37 @@ export interface SessionReceiptOptions {
   posturePath?: string;
 }
 
-/** Formats the posture record for the receipt when it belongs to this
- * session; local file only, like everything else the receipt reads. */
-function postureLineFor(posturePath: string | undefined, sessionId: string): string | undefined {
+interface PostureFile {
+  sessionId?: string;
+  posture?: string;
+  pinned?: boolean;
+  files?: number;
+  sourceBytes?: number;
+  learnedEntries?: number;
+  governance?: GovernanceStatus;
+}
+
+/** SessionStart's record, when one exists and belongs to this session; local
+ * file only, like everything else the receipt reads. */
+function postureRecordFor(
+  posturePath: string | undefined,
+  sessionId: string,
+): PostureFile | undefined {
   if (posturePath === undefined) return undefined;
   try {
-    const record = JSON.parse(readFileSync(posturePath, 'utf8')) as {
-      sessionId?: string;
-      posture?: string;
-      pinned?: boolean;
-      files?: number;
-      sourceBytes?: number;
-      learnedEntries?: number;
-    };
-    if (typeof record.posture !== 'string' || record.sessionId !== sessionId) return undefined;
-    if (record.pinned === true) return `${record.posture} (pinned)`;
-    const kb = Math.round((record.sourceBytes ?? 0) / 1024);
-    return `${record.posture} (${fmt(record.files ?? 0)} files, ${fmt(kb)} KB source, ${fmt(record.learnedEntries ?? 0)} learned)`;
+    const record = JSON.parse(readFileSync(posturePath, 'utf8')) as PostureFile;
+    return record.sessionId === sessionId ? record : undefined;
   } catch {
     return undefined;
   }
+}
+
+/** Formats the posture and its basis for the receipt. */
+function postureLineFor(record: PostureFile | undefined): string | undefined {
+  if (record === undefined || typeof record.posture !== 'string') return undefined;
+  if (record.pinned === true) return `${record.posture} (pinned)`;
+  const kb = Math.round((record.sourceBytes ?? 0) / 1024);
+  return `${record.posture} (${fmt(record.files ?? 0)} files, ${fmt(kb)} KB source, ${fmt(record.learnedEntries ?? 0)} learned)`;
 }
 
 export function buildSessionReceipt(
@@ -115,6 +139,8 @@ export function buildSessionReceipt(
     region: options.region,
   });
 
+  const posture = postureRecordFor(options.posturePath, ledger.sessionId);
+
   return {
     sessionId: ledger.sessionId,
     turns: ledger.entries.length,
@@ -124,8 +150,12 @@ export function buildSessionReceipt(
     auditEvents: audit.length,
     avoidedTokens: savings.avoidedTokens,
     topDistillations: savings.topDistillations,
-    posture: postureLineFor(options.posturePath, ledger.sessionId),
+    posture: postureLineFor(posture),
     governed: savings.governed,
+    governanceOff:
+      posture?.governance === undefined
+        ? undefined
+        : governanceReceiptReason(posture.governance),
     notScorableReason: savings.notScorableReason,
     passthroughs: savings.passthroughs,
     estimatedAvoidableTokens: savings.estimatedAvoidableTokens,
@@ -147,6 +177,10 @@ export function renderReceiptBlock(receipt: SessionReceipt): string {
   // out whether the tool had run at all.
   if (!receipt.governed) {
     lines.push('  nothing was governed this session: no artifact was distilled or served');
+    // Naming the cause is the difference between "nothing needed distilling"
+    // and "the sidecar was dead the whole time". Both render the same figures;
+    // only one of them is the tool working as intended.
+    if (receipt.governanceOff !== undefined) lines.push(`  reason   ${receipt.governanceOff}`);
     lines.push(`  billed   ${fmt(receipt.billedTokens)} tokens across ${receipt.turns} turns, ${cost}`);
     if (receipt.posture !== undefined) {
       lines.push(`  posture  ${receipt.posture}, which sets the default engagement`);

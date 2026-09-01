@@ -1,3 +1,4 @@
+import type { GovernanceStatus } from './governance.js';
 import { LIMITS } from './limits.js';
 
 /**
@@ -41,4 +42,12 @@ export interface SessionPostureRecord extends PostureAssessment {
   /** True when .dcp/config.json pinned the posture, skipping assessment. */
   pinned: boolean;
   decidedAt: string;
+  /**
+   * Whether the sidecar was actually reachable when the session opened. The
+   * posture record is already the session-level fact the Stop receipt reads,
+   * so the governance condition rides with it rather than in a second file.
+   * Absent on records written before this field existed; a reader must treat
+   * absence as "unknown", never as "governance was on".
+   */
+  governance?: GovernanceStatus;
 }

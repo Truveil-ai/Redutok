@@ -289,7 +289,10 @@ describe('repo identity from the hooks', () => {
       const chunks: Buffer[] = [];
       req.on('data', (c: Buffer) => chunks.push(c));
       req.on('end', () => {
-        bodies.push(JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>);
+        // SessionStart probes GET /health before it notifies anything, and a
+        // probe carries no body; only the notifies are collected here.
+        const raw = Buffer.concat(chunks).toString('utf8');
+        if (raw !== '') bodies.push(JSON.parse(raw) as Record<string, unknown>);
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end('{"ok":true}');
       });
@@ -490,7 +493,10 @@ describe('idle gear (docs/POSTURE.md)', () => {
     );
     const ctx = out.hookSpecificOutput?.additionalContext ?? '';
     expect(ctx).toContain('Redutok idle posture');
-    expect(ctx.split('\n')).toHaveLength(1);
+    // Two lines, and no more: the sidecar is down in this fixture, so the
+    // governance notice leads (governance-notice.test.ts) and the idle notice
+    // follows. Neither the protocol nor the codex is injected.
+    expect(ctx.split('\n').filter((line) => line !== '')).toHaveLength(2);
     expect(ctx).not.toContain('Delta Context Protocol');
     expect(ctx).not.toContain('verified codex');
     const record = JSON.parse(

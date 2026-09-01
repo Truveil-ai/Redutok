@@ -135,6 +135,14 @@ export const LIMITS = {
    */
   SKELETON_PREPARE_TIMEOUT_MS: 8_000,
   /**
+   * Budget for the one auto-restart SessionStart attempts when it finds a
+   * stale pidfile. Above HOOK_FAIL_OPEN_MS because this is a real spawn, and
+   * well below the 5s `redutok up` waits because SessionStart is in front of
+   * the user: if the sidecar has not bound a port in this long, the session
+   * opens ungoverned with the notice saying so rather than stalling further.
+   */
+  SIDECAR_AUTOSTART_WAIT_MS: 3_000,
+  /**
    * Size ceiling for the offline mirror pre-build of a prose document or an
    * HTML page (`redutok codex refresh`). The source walk stops at 1MB because
    * a source file that large is generated rather than written; a document

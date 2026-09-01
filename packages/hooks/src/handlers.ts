@@ -19,7 +19,14 @@ import {
   type CodexInjection,
   type PostureDecision,
 } from '@redutok/sidecar';
-import type { SessionPostureRecord } from '@redutok/shared';
+import { governanceNotice, type GovernanceStatus, type SessionPostureRecord } from '@redutok/shared';
+import {
+  assessGovernance,
+  claimRestartAttempt,
+  readSidecarPidfile,
+  restartSidecar,
+  type LivenessDeps,
+} from './liveness.js';
 import { decideRewrite, loadAllowlist } from './pipe-allowlist.js';
 
 /**
@@ -28,11 +35,17 @@ import { decideRewrite, loadAllowlist } from './pipe-allowlist.js';
  * empty) within LIMITS.HOOK_FAIL_OPEN_MS and the session runs vanilla.
  */
 
-export interface HookDeps {
+export interface HookDeps extends LivenessDeps {
   target: SidecarTarget;
   dcpDir: string;
   /** Sidecar probe budget; defaults to the 50ms fail-open limit. */
   timeoutMs?: number;
+  /**
+   * Overrides the auto-restart SessionStart attempts on a stale pidfile.
+   * Present so tests can exercise the decision without spawning a daemon;
+   * production leaves it unset and gets restartSidecar.
+   */
+  restart?: (dcpDir: string) => Promise<boolean>;
 }
 
 export interface HookOutput {
@@ -90,6 +103,33 @@ async function registerSession(sessionId: string | undefined, deps: HookDeps): P
   );
 }
 
+/**
+ * Whether governance is engaged for this session, and one bounded attempt to
+ * make it so when the only cause is a sidecar that crashed.
+ *
+ * The restart is offered for exactly one condition. A stale pidfile — a
+ * pidfile whose process no longer exists — is unambiguously a crash, and
+ * reviving it restores the state the user already asked for by running
+ * `redutok up`. Every other condition is left alone: no pidfile means the
+ * user never started a sidecar here and starting one uninvited would be a
+ * decision they did not make; unreachable means a process is alive and
+ * spawning a rival against it is how two daemons end up fighting over one
+ * .dcp; a foreign daemon is another repo's business. claimRestartAttempt
+ * bounds even the one case to a single attempt per corpse.
+ */
+async function resolveGovernance(deps: HookDeps): Promise<GovernanceStatus> {
+  const initial = await assessGovernance(deps);
+  if (initial.condition !== 'stale-pidfile') return initial;
+  const pidfile = readSidecarPidfile(deps.dcpDir);
+  if (pidfile === undefined) return initial;
+  if (!claimRestartAttempt(deps.dcpDir, pidfile)) return { ...initial, restart: 'skipped' };
+  const restarted = await (deps.restart ?? restartSidecar)(deps.dcpDir);
+  if (!restarted) return { ...initial, restart: 'failed' };
+  // The detail stays the cause of death: the notice reports what happened to
+  // the sidecar, not the port the replacement happens to be listening on.
+  return { condition: 'ok', active: true, detail: initial.detail, restart: 'succeeded' };
+}
+
 /** The session's posture record, written by SessionStart and read by every
  * per-turn hook and by Stop. Missing, stale, or mismatched records mean full
  * engagement: the failure direction is never a wrongly idle session. */
@@ -113,9 +153,18 @@ export async function handleSessionStart(
   input: { source?: string; session_id?: string },
   deps: HookDeps,
 ): Promise<HookOutput> {
+  // Assessed before registering: a sidecar revived by the auto-restart below
+  // is then handed the transcript session id like any live one.
+  const governance = await resolveGovernance(deps);
   await registerSession(input.session_id, deps);
   const protocolPath = path.join(deps.dcpDir, 'protocol.md');
+  // Not a Redutok repo: nothing was promised here, so nothing is claimed off.
   if (!existsSync(protocolPath)) return {};
+  // Fail-open stays; fail-silent does not. A dead sidecar leaves every hook
+  // answering allow, which is correct and invisible — a field session ran 392
+  // turns entirely ungoverned and only learned why when doctor was run
+  // afterwards. One line, once, at the top of the session.
+  const notice = governanceNotice(governance);
   const root = path.dirname(path.resolve(deps.dcpDir));
 
   // v4 pillar 4 (docs/POSTURE.md): governance engages proportionally to what
@@ -152,6 +201,7 @@ export async function handleSessionStart(
     pinned: decision.pinned,
     ...decision.assessment,
     decidedAt: new Date().toISOString(),
+    governance,
   };
   try {
     writeFileSync(
@@ -183,12 +233,16 @@ export async function handleSessionStart(
     { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
   );
 
+  // The notice leads: a reader must not have to reach the end of an injected
+  // codex to learn that none of it is being enforced.
+  const lead = notice === undefined ? '' : notice + '\n\n';
+
   if (decision.posture === 'idle') {
     const kb = Math.round(decision.assessment.sourceBytes / 1024);
     return {
       hookSpecificOutput: {
         hookEventName: 'SessionStart',
-        additionalContext: `Redutok idle posture: this repo is below the governance thresholds (${decision.assessment.files} source files, ~${kb} KB), so hooks pass everything through and no codex is injected; the meter still records. Redutok by Truveil`,
+        additionalContext: `${lead}Redutok idle posture: this repo is below the governance thresholds (${decision.assessment.files} source files, ~${kb} KB), so hooks pass everything through and no codex is injected; the meter still records. Redutok by Truveil`,
       },
     };
   }
@@ -203,7 +257,7 @@ export async function handleSessionStart(
   return {
     hookSpecificOutput: {
       hookEventName: 'SessionStart',
-      additionalContext: prefix + block + codexInjection,
+      additionalContext: lead + prefix + block + codexInjection,
     },
   };
 }
