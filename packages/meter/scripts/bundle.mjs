@@ -48,6 +48,11 @@ const ENTRIES = {
   'hook-main': pkgSrc('hooks', 'hook-main'),
   'mcp-main': pkgSrc('mcp', 'main'),
   'daemon-main': pkgSrc('sidecar', 'daemon-main'),
+  // Not reachable from the package's exports; it exists as its own entry so
+  // scripts/canary.mjs can import it without pulling in index.js, which
+  // statically imports better-sqlite3. The canary must go red only when the
+  // Claude Code surface moves, never because a native prebuild is missing.
+  'claude-compat': pkgSrc('meter', 'claude-compat'),
 };
 
 /**
