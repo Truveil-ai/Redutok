@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { governanceNotice, governanceReceiptReason } from '@redutok/shared';
+import { describeCondition, governanceNotice, governanceReceiptReason } from '@redutok/shared';
 import { startDaemon } from '@redutok/sidecar';
 import { assessGovernance, claimRestartAttempt } from '../src/liveness.js';
 
@@ -161,6 +161,27 @@ describe('the words the condition produces', () => {
     });
     expect(notice).toContain('restarted automatically');
     expect(notice).not.toContain('governance is OFF');
+    // The detail is a whole clause, so it must not be nested behind a second
+    // one. The 0.1.7 field check read "the sidecar had died (the sidecar died
+    // and left a stale pidfile behind (pid 25516 no longer exists))".
+    expect(notice).not.toContain('had died (');
+    expect(notice).toContain('no longer exists); it was restarted');
+  });
+
+  it('renders every condition as one sentence with no doubled subject', () => {
+    const conditions = [
+      { condition: 'no-pidfile' as const, detail: describeCondition('no-pidfile') },
+      { condition: 'stale-pidfile' as const, detail: describeCondition('stale-pidfile', { pid: 7 }) },
+      { condition: 'unreachable' as const, detail: describeCondition('unreachable', { pid: 7, port: 9 }) },
+      { condition: 'foreign-daemon' as const, detail: describeCondition('foreign-daemon', { port: 9, foreignRoot: '/other' }) },
+    ];
+    for (const { condition, detail } of conditions) {
+      const off = governanceNotice({ condition, active: false, detail }) ?? '';
+      expect(off).toContain(detail);
+      // No nested parenthetical: the deepest the line ever nests is the one
+      // pair the detail itself carries.
+      expect(off).not.toMatch(/\([^)]*\([^)]*\)/);
+    }
   });
 
   it('names a failed and a skipped restart attempt in the off notice', () => {
