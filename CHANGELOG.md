@@ -1,9 +1,11 @@
 # Changelog
 
-Redutok has not been released. There are no tags and no published package;
-the version headings below are the internal architecture generations, in the
-order they were built, each dated by the work itself. Every claim referenced
-here is evidenced in [docs/BENCH-REPORT.md](docs/BENCH-REPORT.md).
+Redutok is published on npm as `redutok`, 0.0.1 through 0.1.6, tagged
+v0.1.0 through v0.1.6. The version headings below are not those releases:
+they are the internal architecture generations, in the order they were built,
+each dated by the work itself. A release's own note is its annotated tag and,
+from 0.1.6 on, its GitHub release. Every claim referenced here is evidenced in
+[docs/BENCH-REPORT.md](docs/BENCH-REPORT.md).
 
 Format: what changed, then what it cost or proved. House style: no
 em-dashes, no exclamation marks, no emojis.
