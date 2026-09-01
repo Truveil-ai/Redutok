@@ -86,7 +86,11 @@ function remedyFor(condition: GovernanceCondition): string {
 export function governanceNotice(status: GovernanceStatus): string | undefined {
   if (status.active) {
     if (status.restart !== 'succeeded') return undefined;
-    return `Redutok: the sidecar had died (${status.detail}); it was restarted automatically and governance is active for this session. Redutok by Truveil`;
+    // The detail is already a full clause naming the death, so it is used as
+    // the sentence's subject rather than parenthesised behind another one:
+    // wrapping it produced "the sidecar had died (the sidecar died and left a
+    // stale pidfile behind (pid 25516 no longer exists))" in the field check.
+    return `Redutok: ${status.detail}; it was restarted automatically and governance is active for this session. Redutok by Truveil`;
   }
   const attempted =
     status.restart === 'failed'
