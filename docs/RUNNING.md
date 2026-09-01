@@ -42,6 +42,36 @@ verify with `claude mcp list`. `redutok doctor` surfaces this state as the
 mcp-approval check; the companion mcp-launcher check catches the other
 silent-failure mode, a launcher that cannot resolve the installed packages.
 
+## How you know governance is actually on
+
+Every hook fails open: when the sidecar is unreachable the hooks answer allow,
+nothing is rewritten, and the session runs vanilla. That is deliberate, and it
+used to be silent. A 392-turn field session ran entirely ungoverned because
+the sidecar had died and left its pidfile behind, and nothing said so until
+redutok doctor was run afterwards.
+
+SessionStart now classifies the condition once and, when governance is off,
+leads the injected context with a single line naming the cause and the
+remedy. The conditions it distinguishes are: no pidfile (a sidecar was never
+started here), a stale pidfile (one whose process no longer exists, so the
+sidecar crashed), unreachable (the process is alive but its health probe
+timed out), and a foreign daemon (the port is held by a daemon serving a
+different repository). The condition is written into
+.dcp/session-posture.json, and the Stop receipt reads it back so a session
+that governed nothing names the dead sidecar as the reason rather than
+leaving "nothing was governed this session" to be read as "nothing needed
+governing".
+
+A stale pidfile is the one condition that is unambiguously a crash, so
+SessionStart attempts a single automatic restart for it and reports the
+outcome in the same line. The attempt is claimed in .dcp/sidecar-restart.json
+and keyed to the dead pid and port, so a daemon that dies during startup
+cannot drive a restart loop and reopening a session against the same corpse
+spawns nothing. The other conditions are left alone: nothing starts a sidecar
+in a repository where you never asked for one, nothing spawns a rival against
+a process that is still alive, and another repository's daemon is not ours to
+restart. Those cases print the remedy and you run it.
+
 ## Where redutok init writes its entries, and why
 
 Hook entries go to .claude/settings.local.json, not settings.json. Claude
