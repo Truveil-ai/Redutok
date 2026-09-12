@@ -72,6 +72,7 @@ function toRules(arr: unknown): AllowlistRule[] {
 /** Fallback invoke for an override that omits one: the same portable
  * launcher form the shipped list uses, never a PATH-dependent bin name. */
 export const DEFAULT_PIPE_INVOKE = 'node .claude/redutok/pipe.mjs';
+const LAUNCHER_REL = '.claude/redutok/pipe.mjs';
 
 export function parseAllowlist(yamlText: string): PipeAllowlist {
   const doc = (parseYaml(yamlText) ?? {}) as { invoke?: unknown; allow?: unknown; deny?: unknown };
@@ -134,9 +135,16 @@ export function decideRewrite(
   command: string,
   allowlist: PipeAllowlist = SHIPPED,
   shell: RewriteShell = 'posix',
+  projectRoot?: string,
 ): RewriteDecision | undefined {
   // Never double-wrap: a command already routed through the pipe would recurse.
-  if (command.includes('redutok-pipe') || command.includes(allowlist.invoke)) return undefined;
+  if (
+    command.includes('redutok-pipe') ||
+    command.includes(allowlist.invoke) ||
+    command.includes(LAUNCHER_REL)
+  ) {
+    return undefined;
+  }
   const prefix = CD_PREFIX.exec(command)?.[0] ?? '';
   const tail = command.slice(prefix.length);
   // A descriptor merge (`2>&1`, `1>&2`, `>&2`) only re-routes stderr into the
@@ -148,5 +156,13 @@ export function decideRewrite(
   const matched = allowlist.allow.find((r) => new RegExp(r.pattern, 'i').test(tail));
   if (matched === undefined) return undefined;
   const quote = shell === 'powershell' ? shellQuotePowerShell : shellQuote;
-  return { rule: matched.rule, command: `${prefix}${allowlist.invoke} -c ${quote(tail)}` };
+  // The tools run the rewrite in the shell's current directory, which a `cd`
+  // moves below the project, so the shipped launcher form is anchored to the
+  // project root. The rewrite is never persisted, so an absolute path is safe
+  // here; an override invoke is the repo's own and stays as written.
+  const invoke =
+    projectRoot !== undefined && allowlist.invoke === DEFAULT_PIPE_INVOKE
+      ? `node ${quote(path.join(projectRoot, LAUNCHER_REL).replace(/\\/g, '/'))}`
+      : allowlist.invoke;
+  return { rule: matched.rule, command: `${prefix}${invoke} -c ${quote(tail)}` };
 }

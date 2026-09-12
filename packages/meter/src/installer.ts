@@ -44,6 +44,27 @@ const HOOK_EVENTS: { event: string; matcher?: string }[] = HOOK_EVENT_NAMES.map(
   matcher: HOOK_MATCHERS[event],
 }));
 
+/**
+ * The command a hook entry runs. Claude Code runs it in the session shell's
+ * current directory, which a Bash `cd` moves: 0.1.7's `node
+ * .claude/redutok/hook.mjs` was a missing module after `cd sources`, and every
+ * later hook in that field session failed. Node resolves the launcher from
+ * CLAUDE_PROJECT_DIR itself, so one string works under Git Bash, PowerShell and
+ * cmd (the code carries no spaces and no `$` for any of them to reinterpret),
+ * and without the variable it falls back to the old cwd-relative lookup. The
+ * `_` fills argv[1] so the event lands in argv[2], where hook-main reads it.
+ */
+export function hookCommand(event: string): string {
+  const code =
+    "import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||'.','.claude/redutok/hook.mjs')).href)";
+  return `node -e "${code}" _ ${event}`;
+}
+
+/** True for a hook command in the pre-0.1.8 form that breaks below the project root. */
+export function isLegacyHookCommand(command: string): boolean {
+  return command.includes('redutok/hook.mjs') && !command.includes('CLAUDE_PROJECT_DIR');
+}
+
 interface ManifestEntry {
   path: string;
   existed: boolean;
@@ -332,7 +353,7 @@ export function initRepo(targetDir: string): string {
     : {};
   const hooks = (settings['hooks'] ?? {}) as Record<string, unknown[]>;
   for (const { event, matcher } of HOOK_EVENTS) {
-    const command = `node .claude/redutok/hook.mjs ${event}`;
+    const command = hookCommand(event);
     const existing = (hooks[event] ?? []).filter(
       (entry) => !JSON.stringify(entry).includes('redutok/hook.mjs') && !JSON.stringify(entry).includes('hook-main.js'),
     );

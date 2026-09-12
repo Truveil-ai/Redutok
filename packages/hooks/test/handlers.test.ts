@@ -268,7 +268,8 @@ describe('handlePreToolUse with a live sidecar', () => {
       );
       expect(bash.hookSpecificOutput?.permissionDecision).toBe('allow');
       const rewritten = (bash.hookSpecificOutput?.updatedInput as { command: string }).command;
-      expect(rewritten).toContain('node .claude/redutok/pipe.mjs -c');
+      // Anchored to the project root: the tool runs it wherever the shell has cd-ed.
+      expect(rewritten).toContain(`${path.join(root, '.claude', 'redutok', 'pipe.mjs').replace(/\\/g, '/')}' -c`);
       expect(rewritten).toContain('pnpm vitest run');
 
       const cheapBash = await handlePreToolUse(
@@ -561,5 +562,45 @@ describe('idle gear (docs/POSTURE.md)', () => {
     await handleSessionStart({ source: 'startup', session_id: 's-small' }, { target: { port: 1 }, dcpDir });
     const result = await handleStop({ transcript_path: fixtureSession }, { target: { port: 1 }, dcpDir });
     expect(result.receiptBlock).toContain('posture  idle');
+  });
+});
+
+describe('handlePreToolUse on a large PDF', () => {
+  it('rewrites to a text-named mirror entry and drops the pages argument', async () => {
+    // Claude Code's Read parses a .pdf path as a PDF, so a skeleton served at
+    // .dcp/mirror/x.pdf failed with "File is not a valid PDF", and `pages`
+    // only means anything for a real PDF.
+    const { mirrorEntryPath, mirrorHash, writeMirrorEntry } = await import('@redutok/sidecar');
+    const root = mkdtempSync(path.join(os.tmpdir(), 'redutok-hooks-pdf-'));
+    mkdirSync(path.join(root, 'sources'));
+    const pdf = path.join(root, 'sources', 'uae_pdpl.pdf');
+    const bytes = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(200_000, 0x20)]);
+    writeFileSync(pdf, bytes);
+    const dcpDir = path.join(root, '.dcp');
+    mkdirSync(dcpDir);
+    writeMirrorEntry(root, 'sources/uae_pdpl.pdf', {
+      skeleton: 'document sources/uae_pdpl.pdf: 1 section',
+      hash: mirrorHash(bytes),
+      rawBytes: 80_000,
+      rawLines: 2_000,
+      realPath: pdf,
+      rawLabel: 'pdf-text raw',
+    });
+    const daemon = await startDaemon({ port: 0, dcpDir });
+    const deps: HookDeps = { target: { port: daemon.port }, dcpDir, timeoutMs: 1000 };
+    try {
+      const out = await handlePreToolUse(
+        { tool_name: 'Read', tool_input: { file_path: pdf, pages: '1-20' } },
+        deps,
+      );
+      expect(out.hookSpecificOutput?.permissionDecision).toBe('allow');
+      const updated = out.hookSpecificOutput?.updatedInput as Record<string, unknown>;
+      expect(updated['file_path']).toBe(mirrorEntryPath(root, 'sources/uae_pdpl.pdf'));
+      expect(String(updated['file_path'])).toMatch(/\.pdf\.txt$/);
+      expect(updated).not.toHaveProperty('pages');
+      expect(readFileSync(String(updated['file_path']), 'utf8')).toContain('[dcp:mirror of ');
+    } finally {
+      await daemon.close();
+    }
   });
 });

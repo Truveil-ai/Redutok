@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { doctor, renderDoctor } from '../src/doctor.js';
+import { hookCommand } from '../src/installer.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -58,7 +59,7 @@ describe('redutok doctor', () => {
     mkdirSync(path.join(dir, '.claude'));
     writeFileSync(
       path.join(dir, '.claude', 'settings.local.json'),
-      JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: 'node .dcp/redutok/hook.mjs' }] }] } }),
+      JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: hookCommand('Stop') }] }] } }),
     );
     const priorHome = process.env['REDUTOK_HOME'];
     process.env['REDUTOK_HOME'] = repoRoot;
@@ -66,6 +67,33 @@ describe('redutok doctor', () => {
       const checks = await doctor(dir, { ollamaBaseUrl: 'http://127.0.0.1:1', skipPnpm: true });
       const byName = new Map(checks.map((c) => [c.name, c]));
       expect(byName.get('hooks')?.status).toBe('pass');
+    } finally {
+      if (priorHome === undefined) delete process.env['REDUTOK_HOME'];
+      else process.env['REDUTOK_HOME'] = priorHome;
+    }
+  }, 60_000);
+
+  /**
+   * 0.1.7 registered `node .claude/redutok/hook.mjs <event>`. It resolves at
+   * the project root, which is where doctor looks, and is a missing module
+   * after any `cd` below it -- so a field session ran ungoverned while doctor
+   * reported zero fails. Registered in the legacy form is a warn with the fix.
+   */
+  it('warns on hooks registered in the legacy cwd-relative form', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'redutok-doctor-'));
+    mkdirSync(path.join(dir, '.claude'));
+    writeFileSync(
+      path.join(dir, '.claude', 'settings.local.json'),
+      JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: 'node .claude/redutok/hook.mjs Stop' }] }] } }),
+    );
+    const priorHome = process.env['REDUTOK_HOME'];
+    process.env['REDUTOK_HOME'] = repoRoot;
+    try {
+      const checks = await doctor(dir, { ollamaBaseUrl: 'http://127.0.0.1:1', skipPnpm: true });
+      const hooks = new Map(checks.map((c) => [c.name, c])).get('hooks');
+      expect(hooks?.status).toBe('warn');
+      expect(hooks?.detail).toContain('subdirectory');
+      expect(hooks?.remedy).toBe('redutok init .');
     } finally {
       if (priorHome === undefined) delete process.env['REDUTOK_HOME'];
       else process.env['REDUTOK_HOME'] = priorHome;

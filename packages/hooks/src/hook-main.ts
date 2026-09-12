@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { resolveDcpDir } from '@redutok/shared';
 import {
   handlePreCompact,
   handlePreToolUse,
@@ -34,7 +35,7 @@ function readStdin(): Promise<string> {
 }
 
 function discoverDeps(): HookDeps {
-  const dcpDir = process.env['REDUTOK_DCP_DIR'] ?? path.join(process.cwd(), '.dcp');
+  const dcpDir = resolveDcpDir({ env: process.env, cwd: process.cwd() });
   let port = Number(process.env['REDUTOK_PORT'] ?? '48642');
   const configFile = path.join(dcpDir, 'config.json');
   if (existsSync(configFile)) {

@@ -294,3 +294,19 @@ describe('the offline refresh pre-builds documents and pages', () => {
     expect(readMirrorIndex(root)?.files ?? {}).toEqual({});
   });
 });
+
+describe('mirror entry naming for documents Claude Code reads specially', () => {
+  // Claude Code's Read dispatches on the extension: a .pdf path is parsed as
+  // a PDF and rejects the text skeleton ("File is not a valid PDF (missing
+  // %PDF- header)"). A skeleton is text, so its entry must not keep a binary
+  // document's extension. The index key stays the source's own relative path.
+  it('suffixes .pdf and .docx entries with .txt and leaves text-shaped entries alone', () => {
+    const root = path.join(os.tmpdir(), 'redutok-mirror-naming');
+    expect(mirrorEntryPath(root, 'sources/uae_pdpl.pdf')).toBe(
+      path.join(root, '.dcp', 'mirror', 'sources', 'uae_pdpl.pdf.txt'),
+    );
+    expect(mirrorEntryPath(root, 'docs/Brief.DOCX')).toBe(path.join(root, '.dcp', 'mirror', 'docs', 'Brief.DOCX.txt'));
+    expect(mirrorEntryPath(root, 'sources/nist.md')).toBe(path.join(root, '.dcp', 'mirror', 'sources', 'nist.md'));
+    expect(mirrorEntryPath(root, 'src/app.ts')).toBe(path.join(root, '.dcp', 'mirror', 'src', 'app.ts'));
+  });
+});

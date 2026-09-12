@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { LIMITS } from '@redutok/shared';
+import { LIMITS, resolveDcpDir } from '@redutok/shared';
 import { sidecarRequest, type SidecarTarget } from '@redutok/sidecar/client';
 
 /**
@@ -148,7 +148,7 @@ export async function main(argv: string[]): Promise<number> {
     process.stderr.write('Usage: redutok-pipe -c "<command>"\n');
     return 2;
   }
-  const dcpDir = process.env['REDUTOK_DCP_DIR'] ?? path.join(process.cwd(), '.dcp');
+  const dcpDir = resolveDcpDir({ env: process.env, cwd: process.cwd() });
   const shellEnv = process.env['REDUTOK_PIPE_SHELL'];
   const result = await runPipe(command, {
     target: { port: discoverPort(dcpDir) },
