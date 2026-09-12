@@ -12,10 +12,15 @@ constants, not measured claims.
 ## Context Efficiency (weight 0.35)
 
 100 x (rawBytes - servedBytes) / rawBytes, over audit events with action
-distill or serve-raw carrying **both** bytesIn and bytesOut: the share of the
-raw a session touched that never entered its context. Only events attributed
-to the transcript's session id count (see ARCHITECTURE.md 7.3). Clamped to
-0..100, since a distillate can exceed its raw on a short artifact.
+distill or serve-raw, or a rewrite with rule read-mirror, carrying **both**
+bytesIn and bytesOut: the share of the raw a session touched that never
+entered its context. A read-mirror rewrite records the raw the mirror index
+measured and the size of the entry served; one whose entry the sidecar built
+for that Read (details.prepared) is not counted, because the build's distill
+already carries the same serve. Rewrites recorded before 0.1.9 carry no byte
+counts and are not backfilled. Only events attributed to the transcript's
+session id count (see ARCHITECTURE.md 7.3). Clamped to 0..100, since a
+distillate can exceed its raw on a short artifact.
 
 Raw serves where a distillation path existed remain the redundancy signal: a
 raw serve carries bytesOut equal to bytesIn, so it avoids nothing and pulls

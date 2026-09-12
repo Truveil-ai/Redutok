@@ -279,6 +279,22 @@ function freshMirrorEntry(root: string, rel: string, filePath: string): string |
 }
 
 /**
+ * The raw a mirror entry stands in for, as the index measured it (a document's
+ * extracted text, as its distill does), and the entry's own size, which is
+ * what the rewritten Read puts in context. Omitted when either is unreadable:
+ * a missing figure must never cost the rewrite itself.
+ */
+function mirrorServeBytes(root: string, rel: string, mirrorPath: string): { rawBytes?: number; servedBytes?: number } {
+  try {
+    const rawBytes = readMirrorIndex(root)?.files[rel]?.rawBytes;
+    if (rawBytes === undefined) return {};
+    return { rawBytes, servedBytes: statSync(mirrorPath).size };
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Asks the sidecar to build a skeleton for this artifact now. Fail-open like
  * every hook path: anything other than a prepared entry means the raw read
  * proceeds untouched, and the sidecar has already audited why.
@@ -362,9 +378,8 @@ export async function handlePreToolUse(
         // a file added since the last refresh has no entry either, so without
         // the on-demand build "governed regardless of posture" would hold
         // only for artifacts something happened to have indexed already.
-        const mirrorPath =
-          freshMirrorEntry(root, rel, filePath) ??
-          (await prepareSkeleton(deps, rel, input.session_id));
+        const fresh = freshMirrorEntry(root, rel, filePath);
+        const mirrorPath = fresh ?? (await prepareSkeleton(deps, rel, input.session_id));
         if (mirrorPath === undefined) return {};
         await sidecarRequest(
           deps.target,
@@ -375,6 +390,11 @@ export async function handlePreToolUse(
             rule: 'read-mirror',
             realPath: filePath,
             mirrorPath,
+            // What the serve saved, so savings and context efficiency count it.
+            // `prepared` marks an entry the sidecar built for this Read, whose
+            // build is already audited as a distill carrying the same raw.
+            prepared: fresh === undefined,
+            ...mirrorServeBytes(root, rel, mirrorPath),
             sessionId: input.session_id,
             repoRoot: repoRootOf(deps),
           },

@@ -68,12 +68,7 @@ function contextEfficiency(audit: AuditEvent[], ledger: SessionLedger): ScoreRes
   // is the degenerate case: a session where nothing failed open used to score
   // 100 no matter how little it saved, and the on-demand document path
   // contributed no raw serve at all, so that ratio ran against zero.
-  const served = audit.filter(
-    (e): e is AuditEvent & { bytesIn: number; bytesOut: number } =>
-      (e.action === 'distill' || e.action === 'serve-raw') &&
-      e.bytesIn !== undefined &&
-      e.bytesOut !== undefined,
-  );
+  const served = measuredServes(audit);
   const rawBytes = served.reduce((n, e) => n + e.bytesIn, 0);
   const servedBytes = served.reduce((n, e) => n + e.bytesOut, 0);
   if (rawBytes === 0) {
@@ -220,4 +215,24 @@ export function scoreSession(
     };
   }
   return scores;
+}
+
+/**
+ * Every serve that recorded both the raw it stood in for and what it served,
+ * the one definition savings and context efficiency share. A read-mirror
+ * rewrite is a serve like a distill: the Read put the mirror entry in context
+ * instead of the file. One the sidecar built for that same Read (`prepared`)
+ * is left out, because the build already audited the serve as a distill with
+ * the same raw; counting both would count one Read twice. A rewrite recorded
+ * before rewrites carried byte counts has none and contributes nothing.
+ */
+export function measuredServes(audit: AuditEvent[]): (AuditEvent & { bytesIn: number; bytesOut: number })[] {
+  return audit.filter(
+    (e): e is AuditEvent & { bytesIn: number; bytesOut: number } =>
+      (e.action === 'distill' ||
+        e.action === 'serve-raw' ||
+        (e.action === 'rewrite' && e.details?.['rule'] === 'read-mirror' && e.details['prepared'] !== true)) &&
+      e.bytesIn !== undefined &&
+      e.bytesOut !== undefined,
+  );
 }
