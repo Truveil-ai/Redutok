@@ -51,6 +51,11 @@ interface Engines {
   llm: LlmPass;
 }
 
+/** A byte count the audit schema accepts: a non-negative integer. */
+function isByteCount(v: unknown): v is number {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0;
+}
+
 function readBody(req: http.IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -389,6 +394,9 @@ function handler(
             command?: string;
             realPath?: string;
             mirrorPath?: string;
+            rawBytes?: unknown;
+            servedBytes?: unknown;
+            prepared?: unknown;
           };
           if (typeof p.sessionId === 'string' && p.sessionId !== '') {
             session.activeId = p.sessionId;
@@ -421,9 +429,12 @@ function handler(
             // candidate ref rides along for per-lesson attribution
             // (docs/POSTURE.md).
             let enrichmentCandidate: string | undefined;
+            const rel =
+              typeof p.realPath === 'string' && p.realPath !== ''
+                ? path.relative(repoRoot, p.realPath).replace(/\\/g, '/')
+                : undefined;
             try {
-              if (typeof p.realPath === 'string' && p.realPath !== '') {
-                const rel = path.relative(repoRoot, p.realPath).replace(/\\/g, '/');
+              if (rel !== undefined) {
                 enrichmentCandidate = enrichmentFor(
                   rel,
                   enrichmentDirectives(readCodex(repoRoot).codex),
@@ -439,10 +450,17 @@ function handler(
               module: 'hooks.pretooluse',
               action: 'rewrite',
               reason: 'large Read rewritten to the skeleton mirror, rule read-mirror',
+              // The raw the entry stood in for and the entry served, so the
+              // rewrite counts as a governed serve (savings, context efficiency).
+              ...(isByteCount(p.rawBytes) && isByteCount(p.servedBytes)
+                ? { bytesIn: p.rawBytes, bytesOut: p.servedBytes }
+                : {}),
               details: {
                 rule: typeof p.rule === 'string' ? p.rule : 'read-mirror',
                 realPath: typeof p.realPath === 'string' ? p.realPath : '',
                 mirrorPath: typeof p.mirrorPath === 'string' ? p.mirrorPath : '',
+                ...(rel === undefined ? {} : { path: rel }),
+                ...(typeof p.prepared === 'boolean' ? { prepared: p.prepared } : {}),
                 ...(enrichmentCandidate === undefined ? {} : { enrichmentCandidate }),
               },
             };

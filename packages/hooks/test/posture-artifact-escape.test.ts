@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { LIMITS, type SessionPosture } from '@redutok/shared';
-import { startDaemon, mirrorEntryPath, writeCodex } from '@redutok/sidecar';
+import { startDaemon, mirrorEntryPath, readMirrorIndex, writeCodex } from '@redutok/sidecar';
 import { handlePreToolUse, SMALL_READ_BYTES, LARGE_READ_BYTES, type HookDeps } from '../src/handlers.js';
 
 /**
@@ -182,6 +182,45 @@ describe('an oversized artifact with no mirror entry is prepared on demand', () 
       expect((out.hookSpecificOutput?.updatedInput as { file_path: string }).file_path).toBe(
         mirrorEntryPath(root, 'src/huge.ts'),
       );
+    } finally {
+      await daemon.close();
+    }
+  });
+});
+
+describe('a read-mirror rewrite records what it saved', () => {
+  it('carries the raw bytes it stood in for and the mirror bytes it served, built on demand or fresh', async () => {
+    // Savings and context efficiency measure serves by their byte counts. A
+    // rewrite without them left a governed session reporting "nothing was
+    // governed" (field, 0.1.8).
+    const root = mkdtempSync(path.join(os.tmpdir(), 'redutok-rewrite-bytes-'));
+    mkdirSync(path.join(root, 'src'));
+    const huge = path.join(root, 'src', 'huge.ts');
+    writeFileSync(huge, sourceOfSize(LIMITS.GOVERN_ANY_ARTIFACT_BYTES + 4_096));
+    const dcpDir = path.join(root, '.dcp');
+    mkdirSync(dcpDir);
+    writeFileSync(path.join(dcpDir, 'protocol.md'), '## Delta Context Protocol (Redutok)\nrules');
+    const daemon = await startDaemon({ port: 0, dcpDir, profilesDir });
+    try {
+      const deps: HookDeps = { target: { port: daemon.port }, dcpDir, timeoutMs: 5000 };
+      expect((await read(deps, huge)).hookSpecificOutput?.permissionDecision).toBe('allow');
+      expect((await read(deps, huge)).hookSpecificOutput?.permissionDecision).toBe('allow');
+
+      const entry = readMirrorIndex(root)?.files['src/huge.ts'];
+      expect(entry).toBeDefined();
+      const servedBytes = statSync(mirrorEntryPath(root, 'src/huge.ts')).size;
+      const rewrites = readFileSync(path.join(dcpDir, 'audit.jsonl'), 'utf8')
+        .split('\n')
+        .filter((l) => l !== '')
+        .map((l) => JSON.parse(l) as { action: string; bytesIn?: number; bytesOut?: number; details?: Record<string, unknown> })
+        .filter((e) => e.action === 'rewrite' && e.details?.['rule'] === 'read-mirror');
+      expect(rewrites.map((e) => e.details?.['prepared'])).toEqual([true, false]);
+      for (const e of rewrites) {
+        expect(e.bytesIn).toBe(entry?.rawBytes);
+        expect(e.bytesOut).toBe(servedBytes);
+        expect(e.details?.['path']).toBe('src/huge.ts');
+      }
+      expect(servedBytes).toBeLessThan(entry?.rawBytes ?? 0);
     } finally {
       await daemon.close();
     }

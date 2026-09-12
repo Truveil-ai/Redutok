@@ -1,7 +1,7 @@
 import { LIMITS, type AuditEvent, type EnergyFactorsFile, type GridIntensityFile, type PricesFile } from '@redutok/shared';
 import type { EstimateBand } from './energy.js';
 import type { SessionLedger } from './ledger.js';
-import type { ScoreResult } from './scoring.js';
+import { measuredServes, type ScoreResult } from './scoring.js';
 
 /**
  * What a session saved, computed once.
@@ -94,12 +94,7 @@ export function computeSessionSavings(inputs: SavingsInputs): SessionSavings {
   const { ledger, audit } = inputs;
   // Only serves that recorded both halves can say anything about savings: a
   // served byte count with no raw behind it is not a measurement of anything.
-  const serves = audit.filter(
-    (e): e is AuditEvent & { bytesIn: number; bytesOut: number } =>
-      (e.action === 'distill' || e.action === 'serve-raw') &&
-      e.bytesIn !== undefined &&
-      e.bytesOut !== undefined,
-  );
+  const serves = measuredServes(audit);
   const rawBytes = serves.reduce((n, e) => n + e.bytesIn, 0);
   const servedBytes = serves.reduce((n, e) => n + e.bytesOut, 0);
   const rawTokens = bytesToTokens(rawBytes);
@@ -107,10 +102,18 @@ export function computeSessionSavings(inputs: SavingsInputs): SessionSavings {
   const avoidedTokens = Math.max(0, rawTokens - servedTokens);
 
   const topDistillations = serves
-    .filter((e) => e.action === 'distill')
+    .filter((e) => e.action === 'distill' || e.action === 'rewrite')
     .map((e) => ({
-      label: typeof e.details?.['profile'] === 'string' ? (e.details['profile'] as string) : e.module,
-      ref: e.inputRef ?? e.id,
+      label:
+        e.action === 'rewrite'
+          ? 'read-mirror'
+          : typeof e.details?.['profile'] === 'string'
+            ? (e.details['profile'] as string)
+            : e.module,
+      ref:
+        e.action === 'rewrite' && typeof e.details?.['path'] === 'string'
+          ? (e.details['path'] as string)
+          : (e.inputRef ?? e.id),
       rawTokens: bytesToTokens(e.bytesIn),
       servedTokens: bytesToTokens(e.bytesOut),
       avoidedTokens: Math.max(0, bytesToTokens(e.bytesIn) - bytesToTokens(e.bytesOut)),

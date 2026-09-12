@@ -152,3 +152,67 @@ describe('report and receipt cannot disagree', () => {
     expect(report.savings.estimatedAvoidableTokens).toBe(receipt.estimatedAvoidableTokens);
   });
 });
+
+/**
+ * Field, 0.1.8: a session whose large Read was rewritten to its skeleton
+ * mirror reported "nothing was governed" and an unscorable context
+ * efficiency, because savings counted only distill and serve-raw events and
+ * the rewrite event carried no byte counts. A rewrite now records the raw it
+ * stood in for and the mirror entry it served.
+ */
+const mirrorRewrite = (file: string, bytesIn: number | undefined, bytesOut: number | undefined, prepared = false): AuditEvent => ({
+  id: `rewrite-m-${file}`,
+  timestamp: '2026-09-13T10:00:00.000Z',
+  sessionId: 's-small',
+  module: 'hooks.pretooluse',
+  action: 'rewrite',
+  reason: 'large Read rewritten to the skeleton mirror, rule read-mirror',
+  ...(bytesIn === undefined ? {} : { bytesIn }),
+  ...(bytesOut === undefined ? {} : { bytesOut }),
+  details: {
+    rule: 'read-mirror',
+    realPath: `/project/${file}`,
+    mirrorPath: `/project/.dcp/mirror/${file}`,
+    path: file,
+    ...(bytesIn === undefined ? {} : { prepared }),
+  },
+});
+
+describe('a read-mirror rewrite is a governed serve', () => {
+  it('appears in the savings block with its avoided tokens, and makes context efficiency scorable', async () => {
+    // The NIST source from the field session: 189,725 bytes raw, served as a
+    // 4,328-byte mirror entry. 47,431 raw tokens to 1,082 served.
+    const auditPath = auditFile([mirrorRewrite('sources/nist.md', 189_725, 4_328)]);
+    const report = await buildReport(fixture, { auditPath });
+    const text = renderText(report);
+    expect(text).not.toContain('nothing was governed');
+    expect(text).toContain('raw touched     47,431 tokens across 1 serves');
+    expect(text).toContain('served          1,082 tokens');
+    expect(text).toContain('avoided         46,349 tokens (43.8x)');
+    expect(text).toContain('1. read-mirror (sources/nist.md): 47,431 raw to 1,082 served, 46,349 avoided');
+
+    const receipt = buildSessionReceipt(buildLedger(await parseSessionFile(fixture)), { auditPath });
+    expect(receipt.governed).toBe(true);
+    expect(receipt.avoidedTokens).toBe(46_349);
+    expect(receipt.notScorableReason).toBeUndefined();
+    expect(report.savings.avoidedTokens).toBe(receipt.avoidedTokens);
+  });
+
+  it('counts a skeleton built on demand once, not as both its distill and its rewrite', async () => {
+    // The hook asked the sidecar to build this entry, which audited the build
+    // as a distill with bytes; the rewrite that served it is the same Read.
+    const auditPath = auditFile([
+      distill('d-pdf', 'doc-skeleton', 153_617, 29_377),
+      mirrorRewrite('sources/difc_dpl.pdf', 153_617, 29_656, true),
+    ]);
+    const report = await buildReport(fixture, { auditPath });
+    expect(report.savings.serves).toBe(1);
+    expect(report.savings.rawTokens).toBe(38_404);
+  });
+
+  it('leaves a rewrite recorded before byte counts existed out of the figures', async () => {
+    const auditPath = auditFile([mirrorRewrite('sources/nist.md', undefined, undefined)]);
+    const report = await buildReport(fixture, { auditPath });
+    expect(report.savings.governed).toBe(false);
+  });
+});
