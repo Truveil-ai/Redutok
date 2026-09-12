@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { sidecarRequest } from '@redutok/sidecar/client';
-import { INSTALL_REMEDY, resolveLauncherChain } from './installer.js';
+import { INSTALL_REMEDY, isLegacyHookCommand, resolveLauncherChain } from './installer.js';
 import { readDcpConfig, readPidfile } from './sidecar-cli.js';
 
 /** redutok doctor: environment diagnostics, one pass/warn/fail line each with a remedy. */
@@ -119,20 +119,26 @@ export async function doctor(repoRoot: string, options: DoctorOptions = {}): Pro
   const launcher = resolveLauncherChain(repoRoot);
 
   const settingsPath = path.join(repoRoot, '.claude', 'settings.local.json');
-  const hooksRegistered =
-    existsSync(settingsPath) && readFileSync(settingsPath, 'utf8').includes('redutok/hook.mjs');
+  const settingsText = existsSync(settingsPath) ? readFileSync(settingsPath, 'utf8') : '';
+  const hooksRegistered = settingsText.includes('redutok/hook.mjs');
+  // Doctor runs from the root, where a legacy cwd-relative hook command still
+  // resolves; the session's shell does not stay there. Only hook entries are
+  // inspected: permission rules can quote the same command.
+  const legacyHooks = hookCommandsIn(settingsText).some(isLegacyHookCommand);
   // Registered is not the same as runnable. Hooks fail open by design, so an
   // unresolvable launcher costs nothing visible at hook time -- which is
   // exactly why doctor has to say it out loud rather than report a pass.
   checks.push({
     name: 'hooks',
-    status: !hooksRegistered ? 'warn' : launcher.ok ? 'pass' : 'fail',
+    status: !hooksRegistered ? 'warn' : !launcher.ok ? 'fail' : legacyHooks ? 'warn' : 'pass',
     detail: !hooksRegistered
       ? 'redutok hooks not registered in this repo'
-      : launcher.ok
-        ? 'redutok hooks registered'
-        : `hooks registered but the launcher cannot resolve the package, so every hook silently no-ops: ${launcher.reason}`,
-    remedy: !hooksRegistered ? 'redutok init .' : launcher.ok ? 'none needed' : INSTALL_REMEDY,
+      : !launcher.ok
+        ? `hooks registered but the launcher cannot resolve the package, so every hook silently no-ops: ${launcher.reason}`
+        : legacyHooks
+          ? 'hooks registered in the pre-0.1.8 cwd-relative form, which cannot load once the session shell is in a subdirectory, so governance stops after any cd'
+          : 'redutok hooks registered',
+    remedy: !hooksRegistered || (launcher.ok && legacyHooks) ? 'redutok init .' : launcher.ok ? 'none needed' : INSTALL_REMEDY,
   });
 
   const mcpJsonPath = path.join(repoRoot, '.mcp.json');
@@ -314,4 +320,18 @@ export function renderDoctor(checks: DoctorCheck[]): string {
   const warns = checks.filter((c) => c.status === 'warn').length;
   lines.push(`${checks.length} checks: ${checks.length - fails - warns} pass, ${warns} warn, ${fails} fail.`);
   return lines.join('\n');
+}
+
+/** Every command in the hooks block of a settings file; none when it does not parse. */
+function hookCommandsIn(settingsText: string): string[] {
+  try {
+    const hooks = (JSON.parse(settingsText) as { hooks?: Record<string, { hooks?: { command?: unknown }[] }[]> }).hooks ?? {};
+    return Object.values(hooks)
+      .flat()
+      .flatMap((entry) => entry.hooks ?? [])
+      .map((h) => h.command)
+      .filter((c): c is string => typeof c === 'string');
+  } catch {
+    return [];
+  }
 }

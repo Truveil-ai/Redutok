@@ -380,11 +380,13 @@ export async function handlePreToolUse(
           },
           { timeoutMs: deps.timeoutMs ?? LIMITS.HOOK_FAIL_OPEN_MS },
         );
+        // `pages` addresses a real PDF; the skeleton is text and has none.
+        const { pages: _pages, ...rest } = args;
         return {
           hookSpecificOutput: {
             hookEventName: 'PreToolUse',
             permissionDecision: 'allow',
-            updatedInput: { ...args, file_path: mirrorPath },
+            updatedInput: { ...rest, file_path: mirrorPath },
           },
         };
       }
@@ -430,6 +432,7 @@ export async function handlePreToolUse(
         command,
         loadAllowlist(deps.dcpDir),
         tool === 'PowerShell' ? 'powershell' : 'posix',
+        repoRootOf(deps),
       );
       if (decision === undefined) return {};
       if (!(await sidecarUp(deps))) return {};

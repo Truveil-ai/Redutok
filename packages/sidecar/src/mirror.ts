@@ -62,8 +62,17 @@ export function mirrorIndexPath(root: string): string {
   return path.join(mirrorDir(root), 'index.json');
 }
 
+/**
+ * Claude Code's Read dispatches on the extension: a .pdf path is parsed as a
+ * PDF and rejects a text skeleton ("File is not a valid PDF"), and .docx is
+ * treated as binary. A skeleton is text, so those entries take a .txt suffix.
+ * The index stays keyed by the source's own relative path.
+ */
+const READ_AS_BINARY = new Set(['.pdf', '.docx']);
+
 export function mirrorEntryPath(root: string, rel: string): string {
-  return path.join(mirrorDir(root), rel);
+  const entry = path.join(mirrorDir(root), rel);
+  return READ_AS_BINARY.has(path.extname(rel).toLowerCase()) ? `${entry}.txt` : entry;
 }
 
 /** undefined on a missing or unreadable index: the caller serves raw. */

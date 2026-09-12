@@ -7,3 +7,4 @@ export * from './confidence.js';
 export * from './governance.js';
 export * from './posture.js';
 export * from './repo-root.js';
+export * from './dcp-dir.js';

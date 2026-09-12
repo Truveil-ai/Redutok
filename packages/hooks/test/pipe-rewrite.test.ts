@@ -148,6 +148,23 @@ describe('allowlist matching', () => {
     }
   });
 
+  it('invokes the pipe launcher by absolute path so a command run below the project root still finds it', () => {
+    // The Bash tool runs a rewritten command in the shell's current directory.
+    // After `cd sources` a relative `node .claude/redutok/pipe.mjs` is a
+    // missing module and the model's own command fails with it.
+    const root = path.join(os.tmpdir(), 'Project With Spaces');
+    const launcher = path.join(root, '.claude', 'redutok', 'pipe.mjs').replace(/\\/g, '/');
+    const posix = decideRewrite('pnpm test', list, 'posix', root);
+    expect(posix?.command).toBe(`node ${shellQuote(launcher)} -c 'pnpm test'`);
+    const ps = decideRewrite('pnpm test', list, 'powershell', root);
+    expect(ps?.command).toBe(`node '${launcher}' -c 'pnpm test'`);
+    // Never double-wrap the absolute form either.
+    expect(decideRewrite(posix?.command ?? '', list, 'posix', root)).toBeUndefined();
+    // A per-repo invoke override is the user's own and is left exactly as written.
+    const custom = { ...list, invoke: 'my-pipe' };
+    expect(decideRewrite('pnpm test', custom, 'posix', root)?.command).toBe("my-pipe -c 'pnpm test'");
+  });
+
   it('masks only one leading cd prefix and keeps every deny rule intact behind it', () => {
     for (const command of [
       'cd a && cd b && node scripts/verify-x.mjs', // second chain segment is still composition
@@ -195,7 +212,9 @@ describe('handlePreToolUse rewrite with a live sidecar', () => {
       );
       expect(out.hookSpecificOutput?.permissionDecision).toBe('allow');
       const rewritten = (out.hookSpecificOutput?.updatedInput as { command: string }).command;
-      expect(rewritten).toBe("node .claude/redutok/pipe.mjs -c 'pnpm run build'");
+      // Anchored to the project root: the tool runs it wherever the shell has cd-ed.
+      const launcher = path.join(path.dirname(dcpDir), '.claude', 'redutok', 'pipe.mjs').replace(/\\/g, '/');
+      expect(rewritten).toBe(`node ${shellQuote(launcher)} -c 'pnpm run build'`);
 
       const audit = readAuditFile(path.join(dcpDir, 'audit.jsonl'), 's-rw');
       const rewrite = audit.events.find((e) => e.action === 'rewrite');
@@ -215,7 +234,7 @@ describe('handlePreToolUse rewrite with a live sidecar', () => {
       );
       expect(ps.hookSpecificOutput?.permissionDecision).toBe('allow');
       expect((ps.hookSpecificOutput?.updatedInput as { command: string }).command).toBe(
-        "node .claude/redutok/pipe.mjs -c 'node scripts/verify-url-assembly.mjs'",
+        `node '${launcher}' -c 'node scripts/verify-url-assembly.mjs'`,
       );
     } finally {
       await daemon.close();

@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { extractDcpBlock, initRepo, removeRepo, shippedProtocolBlock } from '../src/installer.js';
+import { extractDcpBlock, hookCommand, initRepo, removeRepo, shippedProtocolBlock } from '../src/installer.js';
 
 function snapshot(dir: string): Map<string, string> {
   const files = new Map<string, string>();
@@ -321,5 +321,40 @@ describe('per-repo sidecar port', () => {
       port?: number;
     };
     expect(config.port).toBe(portForRepo(repo));
+  });
+});
+
+describe('hook commands survive a cd below the project root', () => {
+  // Claude Code runs a hook command in the session shell's current directory.
+  // 0.1.7 registered `node .claude/redutok/hook.mjs <event>`, a missing module
+  // the moment a Bash `cd sources` moved that directory, so every later hook
+  // failed and the session ran ungoverned while doctor reported zero fails.
+  it('registers every hook through the project directory, never a bare relative launcher path', () => {
+    const repo = makeRepo(false);
+    initRepo(repo);
+    const settings = JSON.parse(readFileSync(path.join(repo, '.claude', 'settings.local.json'), 'utf8'));
+    for (const [event, entries] of Object.entries(settings.hooks as Record<string, { hooks: { command: string }[] }[]>)) {
+      const commands = entries.flatMap((e) => e.hooks.map((h) => h.command));
+      expect(commands).toEqual([hookCommand(event)]);
+      expect(hookCommand(event)).toContain('CLAUDE_PROJECT_DIR');
+      expect(hookCommand(event)).not.toMatch(/^node \.claude\/redutok\/hook\.mjs/);
+    }
+  });
+
+  it('re-init replaces the legacy relative entries 0.1.7 wrote instead of adding a second set', () => {
+    const repo = makeRepo(false);
+    initRepo(repo);
+    const settingsPath = path.join(repo, '.claude', 'settings.local.json');
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    for (const event of Object.keys(settings.hooks)) {
+      for (const entry of settings.hooks[event]) entry.hooks[0].command = `node .claude/redutok/hook.mjs ${event}`;
+    }
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+    initRepo(repo);
+    const after = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    for (const event of Object.keys(after.hooks)) {
+      const commands = (after.hooks[event] as { hooks: { command: string }[] }[]).flatMap((e) => e.hooks.map((h) => h.command));
+      expect(commands).toEqual([hookCommand(event)]);
+    }
   });
 });

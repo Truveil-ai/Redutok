@@ -198,7 +198,9 @@ for (const spec of ['redutok/hook-main', 'redutok/mcp-main', 'redutok/pipe']) {
       };
       expect(hookOut.hookSpecificOutput?.permissionDecision, `no rewrite from hook; stdout: ${pre.stdout}`).toBe('allow');
       const rewritten = hookOut.hookSpecificOutput?.updatedInput?.command ?? '';
-      expect(rewritten).toContain('node .claude/redutok/pipe.mjs -c');
+      // The launcher is anchored to the project root by absolute path, so the
+      // tool can run the rewrite from wherever its shell has cd-ed.
+      expect(rewritten).toMatch(/^node '[^']+\/\.claude\/redutok\/pipe\.mjs' -c /);
 
       // Reference vanilla run, for the exit code and the zoom byte-equality.
       const vanilla = spawnSync('node', ['scripts/build.mjs'], { cwd: project, encoding: 'utf8' });
