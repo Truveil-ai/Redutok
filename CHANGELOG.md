@@ -1,16 +1,80 @@
 # Changelog
 
-Redutok is published on npm as `redutok`, 0.0.1 through 0.1.6, tagged
-v0.1.0 through v0.1.6. The version headings below are not those releases:
-they are the internal architecture generations, in the order they were built,
-each dated by the work itself. A release's own note is its annotated tag and,
-from 0.1.6 on, its GitHub release. Every claim referenced here is evidenced in
-[docs/BENCH-REPORT.md](docs/BENCH-REPORT.md).
+Redutok is published on npm as `redutok`, 0.0.1 through 0.1.10, tagged v0.1.0
+through v0.1.10. This file carries both halves of the record. The Releases
+section below covers the published versions from 0.1.7 on, one entry each. The
+generation headings under it are not releases: they are the internal
+architecture generations, in the order they were built, each dated by the work
+itself. A release also has its own annotated tag and, from 0.1.6 on, its
+GitHub release, which carry the measured figures in full. Every claim
+referenced here is evidenced in [docs/BENCH-REPORT.md](docs/BENCH-REPORT.md).
 
 Format: what changed, then what it cost or proved. House style: no
 em-dashes, no exclamation marks, no emojis.
 
-## Unreleased (packages: redutok 0.1.0, @redutok/vault 0.0.1)
+## Releases
+
+### 0.1.10 (2026-10-15)
+
+The published package gets its README. npm reads a package's README from the
+package directory, not the workspace root, and redutok is published from
+`packages/meter`, so 0.0.1 through 0.1.9 all shipped without one and the
+registry page carried npm's no-README-data error instead. A prepack step copies
+the root README into the package directory, the copy is gitignored so the root
+file stays the single source, and `scripts/prepublish-check.mjs` now refuses to
+pack a package whose README is missing or empty.
+
+The README was corrected in the same pass, because it becomes the npm landing
+page: every repo-relative link is now an absolute GitHub URL (they resolved on
+GitHub and broke on npm), the roadmap states what Truveil is rather than
+describing a spend-governance layer it is not, the fail-open paragraph names
+the governance-off notice that shipped in 0.1.7, Install says that upgrading
+from before 0.1.8 requires re-running `npx redutok init .`, and the skeleton
+mirror bullet notes that PDF and DOCX skeletons are served at `<name>.pdf.txt`.
+This Releases section exists because the README points here as the arc by
+version and the file stopped at 0.1.0 while npm showed 0.1.9.
+
+### 0.1.9 (2026-09-13)
+
+A skeleton rewrite counts as a governed serve. A large Read rewritten to its
+mirror entry now records the raw it stood in for and the entry it served, as
+`bytesIn` and `bytesOut`, so savings and context efficiency count it. Before
+this, a session governed only by rewrites reported "nothing was governed this
+session" and an unscorable context efficiency, which a field session on 0.1.8
+did while its audit trail held the rewrite. Savings and context efficiency now
+share one definition of a measured serve. A rewrite whose entry the sidecar
+built for that same Read is marked `prepared` and excluded, because the build
+already audited the serve as a distill carrying the same raw. Earlier rewrites
+carry no byte counts and are not backfilled.
+
+### 0.1.8 (2026-09-13)
+
+Governance survives a `cd`. Claude Code runs a hook command in the session
+shell's current directory, so the registered `node .claude/redutok/hook.mjs`
+was a missing module after any Bash `cd` into a subdirectory: every later hook
+failed as a non-blocking error, the session ran ungoverned, and doctor, run
+from the root where the relative command still resolves, reported zero fails.
+Hook entries now resolve the launcher from `CLAUDE_PROJECT_DIR` inside node,
+hooks and the pipe find `.dcp` from the project rather than the working
+directory, and the command rewrite invokes the pipe launcher by absolute path.
+PDF and DOCX skeletons are written as `.txt` and the rewrite drops `pages`,
+because Claude Code's Read parsed a skeleton served at `.dcp/mirror/x.pdf` as
+a PDF and refused it. Existing installs keep the old entries until
+`redutok init .` is run again, and doctor warns on that form until it is.
+
+### 0.1.7 (2026-09-01)
+
+A dead sidecar stops being invisible. Governance still fails open, so a
+session with no sidecar runs vanilla rather than breaking, but it no longer
+does so in silence: SessionStart names the condition in one line with its
+remedy, records it into the session posture record, and the Stop receipt cites
+it as the reason nothing was governed. Four conditions are distinguished,
+because the remedy differs, and a stale pidfile earns a single auto-restart
+claimed against the dead pid so it cannot loop. The failure behind it: a
+392-turn field session ran entirely ungoverned and nothing surfaced it until
+doctor was run afterwards.
+
+## Launch documentation (2026-08-05, shipped in redutok 0.1.0, @redutok/vault 0.0.1)
 
 Launch documentation. The full evidence record
 ([docs/BENCH-REPORT.md](docs/BENCH-REPORT.md)), the Vault field log

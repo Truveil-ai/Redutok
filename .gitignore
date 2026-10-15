@@ -13,6 +13,7 @@ coverage/
 /packages/meter/prices.yaml
 /packages/meter/energy_factors.yaml
 /packages/meter/grid_intensity.yaml
+/packages/meter/README.md
 .DS_Store
 .dcp/*
 !.dcp/codex.yaml

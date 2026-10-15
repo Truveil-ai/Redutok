@@ -49,6 +49,15 @@ for (const doc of ['PROTOCOL.md', 'SCOUT.md']) {
   if (!existsSync(path.join(pkgDir, 'docs', doc))) fail(`docs/${doc} missing; redutok init reads it`);
 }
 if (!existsSync(path.join(pkgDir, 'migrations'))) fail('migrations/ missing; the sidecar store reads it');
+// npm reads a package's README from the package directory, not the workspace
+// root, so publishing from packages/meter shipped 0.0.1 through 0.1.9 with no
+// README and left the registry page answering "ERROR: No README data found!".
+// sync-readme.mjs puts it there; this refuses to publish without it.
+const readme = path.join(pkgDir, 'README.md');
+if (!existsSync(readme)) {
+  fail('README.md missing from the package directory; run scripts/sync-readme.mjs (the prepack script does)');
+}
+if (readFileSync(readme, 'utf8').trim() === '') fail('README.md is empty; the registry page would carry nothing');
 // A daemon without profiles starts fine and then answers 503 to every distill
 // request, so an empty or absent directory has to fail the pack, not the user.
 const profiles = path.join(pkgDir, 'profiles');

@@ -20,7 +20,7 @@ captures, the meter totals 7.1904 USD against the 7.1966 USD the claude CLI
 reported for itself. That is a residual of 0.09 percent, and the residual is
 identified rather than rounded away: it is small statusline-helper calls
 that land in the CLI's total and sit outside the session ledger. The working
-is [docs/BENCH-REPORT.md](docs/BENCH-REPORT.md) section 6.
+is [docs/BENCH-REPORT.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/BENCH-REPORT.md) section 6.
 
 Two measured peaks sit under that receipt.
 
@@ -69,7 +69,7 @@ artifact from 14,000 tokens to 100 does nothing for the other twenty-nine
 turns that each re-read the accumulated window, and if reaching that shrunk
 artifact costs three extra turns of exploration, those three turns of window
 re-read can outweigh the 13,900 tokens saved. The full statement of the
-model is [docs/ARCHITECTURE-V2.md](docs/ARCHITECTURE-V2.md) section 1.
+model is [docs/ARCHITECTURE-V2.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/ARCHITECTURE-V2.md) section 1.
 
 ## What was falsified on the way here
 
@@ -91,9 +91,9 @@ falsified designs got wrong.
 
 The complete evidence, including the two self-caught contaminations and one
 incident that cost real money, is
-[docs/BENCH-REPORT.md](docs/BENCH-REPORT.md). The Vault's field defects,
+[docs/BENCH-REPORT.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/BENCH-REPORT.md). The Vault's field defects,
 each with symptom, diagnosis, and fix, are
-[docs/FIELD-LOG.md](docs/FIELD-LOG.md).
+[docs/FIELD-LOG.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/FIELD-LOG.md).
 
 ## What shipped
 
@@ -106,16 +106,18 @@ each with symptom, diagnosis, and fix, are
   and no denial. The skeleton's first line names the real path, the raw
   size, and the way back to full fidelity. Source files become signature
   lists, prose documents become structure maps
-  ([docs/PROSE.md](docs/PROSE.md)), and HTML pages become document maps whose
+  ([docs/PROSE.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/PROSE.md)), and HTML pages become document maps whose
   inline script and style blocks are summarized rather than passed through
-  ([docs/HTML.md](docs/HTML.md)).
+  ([docs/HTML.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/HTML.md)).
+  A PDF or DOCX skeleton is served at `<name>.pdf.txt`, because Read parses a
+  `.pdf` path as a PDF and refuses a text skeleton.
 - **The codex.** A verified structural map of the repository, injected once,
   so the session stops re-deriving structure it could have been told.
 - **Graduation.** Each session's miner proposes candidate learnings from
   error-fix pairs, zoom-back hotspots, and recurrence signals. They earn
   confidence from occurrence and recency, graduate into the codex above a
   threshold, and are withdrawn on recorded contradiction. Recency decay
-  alone never withdraws an entry. See [docs/GRADUATION.md](docs/GRADUATION.md).
+  alone never withdraws an entry. See [docs/GRADUATION.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/GRADUATION.md).
 - **Receipts and the energy ledger.** Tokens by class, cost from a cited
   price row, energy and carbon as banded estimates that are never presented
   as measurements, four session scores with an A to F composite, and
@@ -128,7 +130,7 @@ each with symptom, diagnosis, and fix, are
   answer-quality figure. `vault_zoom` recovers any cited slice byte-equal
   from the store. `vault_receipt` and the monthly statement roll the
   persistent ledger up by session, day, month, corpus, or document. See
-  [packages/vault/README.md](packages/vault/README.md).
+  [packages/vault/README.md](https://github.com/Truveil-ai/Redutok/blob/main/packages/vault/README.md).
 
 ## How it works
 
@@ -146,7 +148,10 @@ each with symptom, diagnosis, and fix, are
                                                     badge, bench
 
 If the sidecar is down, every surface degrades to raw passthrough and the
-session runs vanilla. That is a tested property, not a promise.
+session runs vanilla. That is a tested property, not a promise. It is not
+silent either: SessionStart names the condition in one line with its remedy
+and records it, the Stop receipt cites it as the reason nothing was governed,
+and a stale pidfile earns one bounded auto-restart.
 
 ## Install
 
@@ -175,34 +180,41 @@ registers the MCP server, appends the protocol block to CLAUDE.md, and
 scaffolds `.dcp/`. `remove` reverts every managed file byte-identical, which
 is a tested property.
 
+Upgrading from before 0.1.8 requires re-running `npx redutok init .`. The
+registered hook command changed, and an existing install keeps the old
+entries, which stop governing the session after any `cd`. Doctor warns until
+it is re-run.
+
 Then `npx redutok up` to start the sidecar. The full path, including the
 one-time MCP approval prompt that is easy to miss, is
-[docs/QUICKSTART.md](docs/QUICKSTART.md), with details in
-[docs/RUNNING.md](docs/RUNNING.md).
+[docs/QUICKSTART.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/QUICKSTART.md), with details in
+[docs/RUNNING.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/RUNNING.md).
 
 ## Documentation
 
-- [docs/BENCH-REPORT.md](docs/BENCH-REPORT.md), the full evidence record
-- [docs/FIELD-LOG.md](docs/FIELD-LOG.md), the Vault field test
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
-  [docs/ARCHITECTURE-V2.md](docs/ARCHITECTURE-V2.md), design and the
+- [docs/BENCH-REPORT.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/BENCH-REPORT.md), the full evidence record
+- [docs/FIELD-LOG.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/FIELD-LOG.md), the Vault field test
+- [docs/ARCHITECTURE.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/ARCHITECTURE.md) and
+  [docs/ARCHITECTURE-V2.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/ARCHITECTURE-V2.md), design and the
   corrected cost model
-- [docs/METHODOLOGY.md](docs/METHODOLOGY.md), energy and carbon estimation
-- [docs/SCORING.md](docs/SCORING.md), the four session scores
-- [CHANGELOG.md](CHANGELOG.md), the arc by version
+- [docs/METHODOLOGY.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/METHODOLOGY.md), energy and carbon estimation
+- [docs/SCORING.md](https://github.com/Truveil-ai/Redutok/blob/main/docs/SCORING.md), the four session scores
+- [CHANGELOG.md](https://github.com/Truveil-ai/Redutok/blob/main/CHANGELOG.md), the arc by version
 
 ## Roadmap
 
 - Chatbench execution: the pre-registered PASTE versus VAULT matrix, run and
   published with whatever it says.
 - Codex CLI adapter: the sidecar speaks to more agents than one.
-- Truveil governance layer: org-level policy over what agents may spend.
+- Truveil: conduct assurance for AI agents. Redutok accounts for what a
+  session spent. Truveil scores what an agent did, against the regulations
+  that apply, after the run. https://truveil.app
 
 ## Contributing
 
 Profiles and language plugins are the contribution surfaces; see
-CONTRIBUTING.md. House style everywhere: no em-dashes, no exclamation marks,
-no emojis.
+[CONTRIBUTING.md](https://github.com/Truveil-ai/Redutok/blob/main/CONTRIBUTING.md).
+House style everywhere: no em-dashes, no exclamation marks, no emojis.
 
 ## Honest numbers
 
@@ -314,4 +326,4 @@ The standard behind all of it is one line. Criteria are pre-registered
 before the run, outcomes are published either way, and every compression
 decision is audited and recoverable byte for byte.
 
-Redutok by Truveil.
+Redutok by [Truveil](https://truveil.app).

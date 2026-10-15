@@ -1,6 +1,6 @@
 {
   "name": "redutok",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,7 +22,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/bundle.mjs",
-    "prepack": "node ../../scripts/prepublish-check.mjs"
+    "prepack": "node ../../scripts/sync-readme.mjs && node ../../scripts/prepublish-check.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",

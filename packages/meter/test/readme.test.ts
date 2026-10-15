@@ -98,6 +98,8 @@ describe('README claim hygiene', () => {
 
   it('keeps the house style and the attribution', () => {
     expect(readme).not.toMatch(/[—!]|\p{Extended_Pictographic}/u);
-    expect(readme.trimEnd().endsWith('Redutok by Truveil.')).toBe(true);
+    // The attribution closes the file either plain or with Truveil linked, now
+    // that this README is also the npm landing page.
+    expect(readme.trimEnd()).toMatch(/Redutok by (Truveil|\[Truveil\]\(https:\/\/truveil\.app\))\.$/);
   });
 });
